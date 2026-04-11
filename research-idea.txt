@@ -1,0 +1,155 @@
+RoadFM-Lite
+A Self-Supervised Foundation Model for Road-Network-Grounded
+Trajectory Representation with Application to Sybil Attack Detection
+Master's Thesis Proposal
+1. Problem Statement
+Vehicular crowdsensing (VCS) systems compensate drivers for gathering traffic and
+environmental data, but they are vulnerable to Sybil attacks in which a single adversary forges
+multiple fake vehicle identities to steal rewards and corrupt data quality. Detecting these
+attacks requires distinguishing fabricated trajectories from legitimate ones. Existing trajectory
+foundation models such as TrajFM and UniTraj treat trajectories as sequences of coordinates
+or point-of-interest tokens, largely ignoring the physical road network structure (topology,
+speed limits, lane counts, road classification) on which vehicles actually travel.
+This thesis proposes RoadFM-Lite, a self-supervised foundation model that jointly encodes
+road-network graph structure and trajectory kinematics into a shared representation. The
+central hypothesis is that grounding trajectory representations in road-network features
+produces embeddings that transfer more effectively to Sybil detection tasks—especially under
+limited labeled data (few-shot) and cross-region transfer settings—than trajectory-only
+encoders.
+2. Research Question
+Does a self-supervised model that jointly encodes road-network structure and trajectory
+kinematics produce representations that transfer more effectively to vehicular Sybil detection
+tasks than trajectory-only models, particularly under few-shot supervision and cross-region
+deployment?
+3. Proposed Architecture
+RoadFM-Lite uses a two-branch architecture fused into a unified trajectory representation:
+Branch 1 — Road Network Encoder (Graph)
+The road network is extracted from OpenStreetMap and represented as a graph where nodes
+correspond to road segments and edges represent connectivity. Node features include speed
+limit, lane count, road class (residential, arterial, highway), segment length, and curvature. A
+2–3 layer GraphSAGE encoder produces a fixed embedding per road segment. These
+embeddings are precomputed once per city and frozen during trajectory training, avoiding the
+complexity of joint end-to-end graph training.
+Branch 2 — Trajectory Encoder (Sequence)
+Each vehicle trajectory is a time series of (position, velocity, acceleration, heading,
+timestamp) map-matched to road segments. A Transformer-based encoder (TimesNet or
+vanilla Transformer) processes the sequence. At each trajectory time step, the corresponding
+road-segment embedding from Branch 1 is concatenated to the kinematic features before
+encoding. This grounding ensures the model always knows the physical context of the road
+the vehicle is on—for example, distinguishing a 25 mph residential street from a 70 mph
+highway.
+Fusion and Output
+The concatenation of road-segment embeddings with kinematic features at each time step
+serves as the fusion mechanism. A projection head is used during pretraining, which is
+replaced by a classification or contrastive head during downstream fine-tuning for Sybil
+detection.
+4. Pretraining Objectives
+The model is pretrained on large volumes of unlabeled trajectory data using two
+self-supervised objectives:
+Masked Trajectory Reconstruction. Randomly mask 15% of time steps and train the
+encoder to reconstruct position and velocity at the masked locations. The road-segment
+embeddings provide context about what motion is physically plausible on each segment,
+forcing the model to learn road-conditioned dynamics rather than memorizing coordinate
+patterns.
+Physical Constraint Prediction. At each time step, predict whether the trajectory point
+violates the road segment's speed limit or exhibits acceleration inconsistent with road
+geometry (e.g., high speed on a sharp curve). Labels are generated automatically from
+the data by comparing kinematic values against road attributes, requiring no manual
+annotation.
+5. Downstream Task: Sybil Detection
+After pretraining, the encoder is fine-tuned for Sybil trajectory detection using the VeReMi
+Extension dataset under two evaluation settings:
+Few-Shot Contrastive Fine-Tuning. Use 5, 10, and 20 labeled examples per class with
+a supervised contrastive loss (InfoNCE). The goal is to demonstrate that road-grounded
+representations require fewer labeled attack samples to learn an effective decision
+boundary compared to trajectory-only baselines.
+Zero-Shot Retrieval-Based Detection. Maintain a memory bank of verified normal
+trajectory embeddings. Flag incoming trajectories whose embedding distance to nearest
+normal neighbors exceeds a threshold. Road grounding should reduce false positives by
+helping the model distinguish "unusual but physically valid routes" from "physically
+impossible trajectories."
+6. Baselines
+The proposed model will be compared against three baselines to isolate the contribution of
+road-network grounding:
+Baseline Description
+TimesNet (trajectory-only) Same Transformer encoder trained on trajectory
+kinematics without road-segment embeddings.
+Feature Engineering + RF Hand-crafted trajectory features (avg. speed,
+acceleration variance, route deviation) with
+a Random Forest classifier.
+TrajFM (if feasible) Adapted TrajFM-style model on the same data
+for direct comparison with a published
+foundation model approach.
+The key comparison is RoadFM-Lite vs. the trajectory-only TimesNet encoder. Beating this
+baseline validates that road-network grounding provides a measurable advantage for Sybil
+detection.
+7. Evaluation Plan
+Detection Metrics: Precision, recall, F1-score, and AUROC on the VeReMi Extension
+dataset across all attack types.
+Few-Shot Analysis: Detection performance as a function of labeled examples per class (5,
+10, 20) to measure label efficiency.
+Cross-City Transfer Experiment: Pretrain on City A (SUMO-simulated or NGSIM data),
+fine-tune on City B (different road network and traffic patterns). This is the strongest thesis
+contribution—it tests whether road-grounded representations generalize across cities
+because the model has learned abstract concepts like "trajectory on highway" vs. "trajectory
+on residential street" rather than memorizing specific coordinates.
+Ablation Study: Compare performance with and without road-segment embeddings, and with
+individual pretraining objectives removed, to quantify the contribution of each component.
+8. Datasets
+Dataset Purpose
+VeReMi Extension Primary evaluation dataset with benign and
+malicious vehicular behaviors.
+NGSIM / HighD / OpenDD Real-world trajectory data for pretraining and
+physical realism calibration.
+OpenStreetMap Road network topology, speed limits, lane
+counts, and road classification.
+SUMO-simulated cities Controlled synthetic trajectories with ground
+truth for cross-city transfer experiments.
+9. Timeline (3 Semesters)
+Period Activities Deliverables
+Semester 1 Literature review. Data pipeline
+(OSM road graphs, VeReMi
+preprocessing, map matching).
+Road network encoder.
+Initial trajectory encoder.
+Pretraining on one city.
+Working data pipeline;
+Pretrained encoder v1;
+Literature review chapter
+Semester 2 Few-shot and zero-shot Sybil
+detection experiments. Baseline
+comparisons. Cross-city transfer
+experiments. Ablation study.
+Experimental results;
+Draft results chapter;
+Conference paper draft
+Semester 3 Writing and revisions.
+Additional experiments per
+committee feedback. Polish
+and defend.
+Complete thesis;
+Conference paper
+submission; Defense
+10. Expected Contributions
+1. Road-grounded trajectory representations. A self-supervised encoder that fuses
+road-network graph embeddings with trajectory kinematics, producing representations that
+encode both motion dynamics and physical road context.
+2. Empirical validation for Sybil detection. Controlled experiments demonstrating that
+road-network grounding improves Sybil detection accuracy, label efficiency, and cross-region
+transferability compared to trajectory-only models.
+3. Pretrained weights and open pipeline. Publicly released pretrained encoder weights,
+data-processing pipeline, and evaluation protocols that can serve as the detection backbone
+for the broader Sybil Guard federated defense framework.
+11. Connection to Sybil Guard Project
+This thesis produces the pretrained trajectory encoder required by Thrust 2 of the Sybil Guard
+grant proposal, but with a deeper treatment of road-network integration than the proposal's
+current TimesNet-only design. The pretrained weights become a project deliverable, the
+few-shot evaluation validates the proposal's claim about minimal supervision, and the
+cross-city transfer experiments support the proposal's claim about deployment across
+heterogeneous traffic environments. The encoder architecture is designed to slot directly into
+the personalized federated learning framework described in the proposal.
+12. Publication Target
+One conference paper targeting IEEE ICC, IEEE VTC, ACM SIGSPATIAL, or a workshop at
+NDSS/CCS on vehicular security. The paper presents the road-grounded encoder and
+demonstrates that it outperforms trajectory-only models for Sybil detection under few-shot and
+transfer settings.

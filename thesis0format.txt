@@ -1,0 +1,412 @@
+Thesis Format and Timeline Manual: 2025-2026 | 1 | Florida Poly
+Thesis Format and Timeline Manual
+Office of Graduate Studies
+ 
+Thesis Format and Timeline Manual: 2025-2026 | 2 | Florida Poly
+Thesis Format All students writing a thesis or formal project must follow the directions provided in this manual and the
+guidance of their advisor, where noted.
+Structure
+Section Name Section Type Required/Optional* Numbering
+Title Page Front matter Required Count but do not number
+Thesis Approval Page Front matter Required Count but do not number
+Dedication Page Front matter Optional Lower case Roman
+numerals i. ii. iii. iv. etc
+Acknowledgments Front matter Optional Lower case Roman
+numerals i. ii. iii. iv. etc
+Table of Contents Front matter Required Lower case Roman
+numerals i. ii. iii. iv. etc
+List of Tables Front matter If any tables are present Lower case Roman
+numerals i. ii. iii. iv. etc
+List of Figures Front matter If any figures are present Lower case Roman
+numerals i. ii. iii. iv. etc
+List of Abbreviations Front matter If any abbreviations are present Lower case Roman
+numerals i. ii. iii. iv. etc
+List of Symbols Front matter If any symbols are present Lower case Roman
+numerals i. ii. iii. iv. etc
+Abstract Front matter Required Count but do not number
+Introduction Body content Required Arabic numerals
+Literature Survey Body content Required Arabic numerals
+Research
+Methodology
+Body content Required Arabic numerals
+Results Body content Required Arabic numerals
+Discussion Body content Required (may combine with Results)Arabic numerals
+Conclusions Body content Required Arabic numerals
+Future Work Body content Optional Arabic numerals
+Appendices Back matter Required Arabic numerals
+References Back matter Required Arabic numerals
+*With approval from Thesis advisor, required sections may be adjusted. 
+Thesis Format and Timeline Manual: 2025-2026 | 3 | Florida Poly
+Front Matter
+Title page [unnumbered]
+This is the first page of the thesis, and it contains the following information:
+• Thesis title (All uppercase)
+• Student’s name (All small uppercase)
+• Student’s existing/earned degree
+• Semester and year thesis is submitted
+• “A thesis submitted in partial fulfillment of the requirements for the degree of”
+• Student’s degree to be earned
+• Florida Polytechnic University
+• Lakeland, Florida
+The title page should be double-spaced throughout. Please note margins, spacing, capitalization, and font
+- 12pt Serif (ex: Times New Roman).
+Thesis Format and Timeline Manual: 2025-2026 | 4 | Florida Poly
+Thesis Approval Page [unnumbered]
+• This page is similar to the title page with the signature from the committee and the graduate
+director.
+Thesis Format and Timeline Manual: 2025-2026 | 5 | Florida Poly
+• This should be single-spaced to leave room for signature block.
+• Signature section is achieved with a 4-column table with grid-lines under signature and date
+columns only.
+Please note margins, spacing, capitalization, and font - 12pt Serif.
+Thesis Format and Timeline Manual: 2025-2026 | 6 | Florida Poly
+Dedication Page [optional, roman number]
+• This is a short message from the student in tribute to a person or a cause. The dedication page
+TITLE (“DEDICATION”) should be all uppercase, bold, and centered. Use a blank line to separate
+the title from the body.
+Acknowledgment Page [optional, roman number]
+• This is a page with a thank you statement from the student to recognize those who provided
+support or guidance or both. The acknowledgment page TITLE (“ACKNOWLEDGMENTS”) should
+be all small caps, bold, and centered. Use a blank line to separate the title from the body.
+Table of Contents [Page Number: Roman Numerals]
+• The TITLE (“TABLE OF CONTENTS”) of the table of contents should be all small caps, bold, and
+centered. Use a blank line to separate the title from the body.
+• The entries for the table of contents must include the title of the major headings of the document,
+such as chapters, sections, subsections, acknowledgments page, dedication page, references, and
+appendices.
+• The entries for the table of contents must include the page number for each heading.
+• An optional and recommended formatting attribute is to make the entries for the table of
+contents as hyperlinks that take the reader directly to the page of the clicked heading.
+List of Tables [Page Number: Roman Numerals]
+• Each entry in the List of Tables should include the table number, the table caption, and the page
+number.
+• The TITLE (“LIST OF TABLES”) of the list of tables should be all small caps, bold, and centered. Use
+a blank line to separate the title from the body.
+List of Figures (and Illustrations) [Page Number: Roman Numerals]
+• Each entry in the List of Figures should include the figure number, the figure caption, and the page
+number.
+• The TITLE (“LIST OF FIGURES”) of the list of figures should be all small caps, bold, and centered.
+Use a blank line to separate the title from the body
+• Recommendation: If possible, use graphs instead of tables.
+List of Abbreviations [optional, Page Number: Roman Numerals]
+• Each entry in the List of Abbreviations must include the abbreviation and its definition.
+• List the abbreviations in alphabetical order.
+• The TITLE (“LIST OF ABBREVIATIONS”) of the list of abbreviations should be all small caps, bold,
+and centered. Use a blank line to separate the title from the body.
+List of Symbols [optional, Page Number: Roman Numerals]
+• Each entry in the List of Symbols must include the symbol and its definition.
+• The TITLE (“LIST OF SYMBOLS”) of the list of symbols should be all small caps, bold, and centered.
+Use a blank line to separate the title from the body.
+Thesis Format and Timeline Manual: 2025-2026 | 7 | Florida Poly
+Abstract
+• The abstract should be less than 450 words (check with advisor)
+• The abstract is a summary of the thesis’ purpose, hypothesis, methods used, and results.
+• The abstract section’s title (“Abstract”) should be title case, bold, and centered. Use a blank line
+to separate the title from the advisor(s) line.
+• The advisors’ line contains the list of advisors and co-advisors separated by commas. Use a blank
+line to separate the advisors’ line from the body.
+Content - The Chapters
+Introduction [Page Number: Arabic Numerals]
+• The introduction chapter should emphasize the purpose of the study and summarize the
+background and importance of this research. This chapter should also clearly state the hypothesis
+and the objectives of the research. Finally, this chapter should introduce the user to the outline
+of the thesis.
+Literature survey [Page Number: Arabic Numerals]
+• The literature review will summarize the existing research in the field with references to these
+research studies and their authors. At the end of the literature review, clearly state the identified
+gaps in the existing research solutions and address these gaps by this thesis. In other words, you
+are introducing the reader to your work in the next chapter.
+Research Methodology [Page Number: Arabic Numerals]
+• This chapter will provide details on the chosen methods, designs, measures, and philosophy
+behind these choices. In addition, this chapter should include a description of any experiment
+conducted.
+Results [Page Number: Arabic Numerals]
+• This chapter contains the result of the thesis. If possible, organize the thesis’s results into figures.
+Otherwise, organize the results into tables. Finally, divide the results into sections and subsections
+based on the research questions they address.
+Discussions [Page Number: Arabic Numerals]
+• This chapter contains the analysis, explanations, and discussions of the results. It should also
+include statements whether the results support the hypothesis or not, with some reasoning if it
+does not.
+Conclusion [Page Number: Arabic Numerals]
+• This chapter should be a summary of the study indicating whether the study met its goals or not.
+Future Work [Page Number: Arabic Numerals]
+• This chapter is a recommended optional chapter. It will present the possible future research paths
+that will build on this study.
+ 
+Thesis Format and Timeline Manual: 2025-2026 | 8 | Florida Poly
+Back Matter
+Appendices [Page Number: Arabic Numerals]
+• Move any material that is not essential for the thesis to the appendices. Each appendix should
+have a number and a title-examples of the material to move to appendices: code, long tables, etc.
+References [Page Number: Arabic Numerals]
+• Accurately and correctly generate a formatted list of all cited references in the text. Note that the
+bibliography is the list of general references, including the uncited references. As a
+recommendation, use only cited references and set the title of this section to be “REFERENCES.”
+• If you need to include a list of uncited references in the thesis, then set the title of this section to
+“BIBLIOGRAPHY.”
+Important Note: The number of pages per chapter or section depends on the type of research that you
+are doing. However, usually, the background or literature review chapter will take the most considerable
+portion of the thesis, followed by the results analysis and discussion chapter.
+Thesis Format and Timeline Manual: 2025-2026 | 9 | Florida Poly
+Formatting
+Thesis formatting requirements must be observed throughout the entire manuscript, and all chapters
+must use the same formatting.
+• All pages, unless otherwise stated below, should be single-column double space.
+• Margins –
+• 1 inch all around. Add one extra inch on the top margin of the first page of each chapter,
+title page, the first page of the table of contents, acknowledgments page, dedication
+page, the first page of references, and the first page of each appendix.
+OR
+• 1 inch all around, all pages.
+• The body font is Serif font with size 12 pt. No less than 10pt font for any subscript or superscript
+text.
+• The text must have left justification or fill justification, but not right justification.
+• Headings should not appear by themselves at the end of a page.
+Page Numbering
+• The numbering of all the front matter pages should be in lowercase roman numbers except for
+the title page and the thesis approval page. The title and thesis approval pages don’t have
+numbers. Use Arabic numerals as the page number for the rest of the pages. Start the page
+numbering with the first page of chapter 1 to be page number 1.
+Paragraph
+• Every paragraph’s first sentence must start with an indentation of 0.5 inches except for the first
+paragraph following each heading (chapter, section, subsection, and title).
+Captions
+• All caption numbers for tables, figures, and illustrations use Arabic numerals.
+• The caption of any figure should be directly below the figure and on the same page as the figure.
+The table’s caption should be directly above that table and on the same page as the table.
+• The captions should be centered.
+Quotations
+• Quotations should be limited. Paraphrase what you want to quote in your own words, and make
+sure to include the reference.
+• If eliminating the quotation is not possible, then use the double quotes (“) to surround the
+quotation if the quotation’s size is less than three lines or use the block quotation the quotation
+is more than three lines. For block quotation, use a separate paragraph or paragraphs with a single
+indentation for the whole quotation without surrounding it with double quotes.
+Footnotes
+• Use Arabic numerals for the footnotes.
+• Footnotes should appear on the same page as their citers.
+Thesis Format and Timeline Manual: 2025-2026 | 10 | Florida Poly
+• Footnotes, like the rest of the text, must follow the margins restriction.
+• A solid line separates the footnotes from the text.
+• On each page, the footnotes should not exceed two inches.
+References and Citations
+• Use a style consistent with your discipline and approved by your committee (ex: IEEE, APA, ASME).
+• References section should begin at a new page.
+• Use single-spaced lines for the entries of the references. Use an empty line to separate them from
+each other.
+ 
+Thesis Format and Timeline Manual: 2025-2026 | 11 | Florida Poly
+Intellectual Property and Copyright Information
+Students should review and familiarize themselves with Florida Polytechnic University policy FPU1.0061P. This Intellectual Property policy details how the ownership of intellectual property is assigned at
+the University. Sections I and J reproduced below, Student Intellectual Property and Student Sponsored
+Projects, are particularly relevant for graduate students working on theses and projects:
+Student Intellectual Property
+The University respects the long-standing tradition that students own their academic work. In general,
+any Intellectual Property (including theses and dissertations, inventions, discoveries, creations and new
+technologies) conceived or first reduced to practice by a student at the University as a work product (e.g.,
+homework assignments, laboratory experiments and special and independent study projects) of a “for
+credit” course will be owned by the Student Creator. Generally, undergraduate and graduate Students
+own any Intellectual Property that they create through enrollment in a University course for academic
+credit. However, the University owns such Intellectual Property when one or more of the following apply:
+1. When there is collaboration between a Student and University employee(s) to create works as
+part of a sponsored research project or faculty development activities.
+2. In certain courses or special projects where a Student is presented with the opportunity to
+participate in a project or activity in which the ownership of any resulting Intellectual Property
+must be assigned either to the University or to a sponsoring entity as a condition of the Student’s
+participation.
+3. When the Student is employed by the University, in which case the terms applicable to University
+employees shall apply.
+Although a student retains copyright ownership to his/her thesis or dissertation or other Student-created
+Works, the Student grants the University permission to use, reproduce and publicly distribute copies of
+those Works.
+Sponsored Student Projects
+1. Students are never obligated to participate in projects or activities that require the assignment of
+the Student’s Intellectual Property to the University or another entity. In these situations,
+Students must always be presented with two options to choose from:
+a. participate in a project or activity that does not require the Student to assign his/her
+Intellectual Property; or
+b. participate in a project or activity that requires the Student to assign his/her Intellectual
+Property.
+2. A Student’s grade and/or evaluation of performance in a University course shall not be affected
+by the Student’s decision to participate or not to participate in projects or activities requiring the
+assignment of the Student’s Intellectual Property. Students should consider that the assignment
+of Intellectual Property is a binding legal agreement and that they have the right to seek
+independent legal advice at their own expense prior to signing any agreement.
+3. Student project results are not the work of the University and any references either internally or
+to third parties shall clearly identify the source of the student project results as student research
+performed at the University without subsequent independent evaluation.
+Thesis Format and Timeline Manual: 2025-2026 | 12 | Florida Poly
+Because manuscript PDFs are archived and ultimately made available on the Internet, written permission
+is needed for use and electronic publication of copyrighted text, figures, tables, and objects. Please see
+Appendices for a sample copyright permission request. Also, it is wise to include a copyright page in all
+electronic theses or project reports. The copyright page should appear immediately after the title page.
+Proper format of this page is shown in the Copyright Page section of this manual. While it is not necessary
+to register copyright, students may do so through the U.S. Copyright Office.
+Using Previously Published Or Pre/In-Press Work as Body Chapter
+Sometimes, the student’s thesis research or project work is conducted as part of a major research grant
+or contract, or even as part of some collaborative program. The faculty advisors are likely to encourage
+these students to report their results as soon as possible, the result being that students may have the
+opportunity to publish material prior to preparing the thesis or project report. In such cases, pre-press,
+in-press or previously published materials may be incorporated into the thesis or project report if
+approved by the Thesis Committee or Project Advisory Group and formatted in accordance with all
+requirements specified in this manual. This format may include one or more full-length papers (published
+and/or to be published) that are joined through introductory and/or transition sections.
+• All articles/chapters to be included in a manuscript must have a common thread and must study
+a common problem; collections of unrelated papers are not acceptable.
+• The inclusion of any articles that are previously published, in press, or accepted for publication
+requires that the student obtain permission from the copyright holder. The copyright
+release/permission letter(s) should be included with the manuscript, in an appendix (see
+Appendix D for an example).
+• A statement disclosing previous publication must be placed at the beginning of or in a footnote
+on the first page of each chapter or section with previously published content.
+• The statement should include the author name(s), publication name, edition, and date of
+publication; pending publications should list anticipated edition and/or dates.
+Co-authored material will only be considered if
+• The Graduate Thesis Committee agree that the student is primarily responsible for the article’s
+content;
+• Those portions and materials contributed by the student are identified;
+• Permission is granted by the co-author(s); and
+• The program or department approves the inclusion of the articles in question.
+• No multiple-authored theses are acceptable.
+• Only articles that the student prepared while working as a Florida Poly student will be acceptable
+for inclusion in a manuscript.
+• A single abstract and introduction chapter for the manuscript are required, even if individual
+chapters have their own abstract and introduction.
+• References for previously-published sections can be collected by chapter or in one reference
+section at the end of the document.
+Thesis Format and Timeline Manual: 2025-2026 | 13 | Florida Poly
+Example Copyright Permission Letter
+Thesis Format and Timeline Manual: 2025-2026 | 14 | Florida Poly
+Timeline and Procedures Timeline
+The following timeline is a guide to help you plan your path to thesis completion. Each department or
+advisor may have additional (or earlier) procedures and deadlines for the following activities.
+Semester 1: Exploration
+Throughout the semester:
+ Explore research topics and potential thesis advisors (if not already selected).
+Your department may ask for a thesis pre-proposal prior to end of fall term.
+Semester 2: Proposal and Committee
+No later than 2nd week:
+ Identify your thesis advisor.
+No later than end of term:
+ Defend your thesis proposal.
+ Submit an approved Thesis Proposal Form and Thesis Committee Form to Registrar’s
+Office. Submission of these two forms is required to register for Thesis 1.
+Summer
+Throughout the semester:
+ Coordinate with thesis advisor on research efforts.
+Semester 3: Research and Writing
+Throughout the semester:
+ Enroll in Thesis 1.
+ Meet regularly with your thesis advisor and provide progress reports as appropriate.
+Semester 4: Defense, Format Review, and Submission
+Throughout the semester:
+ Enroll in Thesis 2.
+ Apply for graduation (Reference Academic Calendar)
+At least 4 weeks prior to the date of the thesis defense, no later than the Monday of Week 11:
+ Submit a draft to your advisor and committee in preparation of the thesis defense.
+At least 2 weeks prior to the date of the thesis defense, no later than the Friday of Week 13:
+ Submit final draft to the thesis committee.
+ Submit final draft to ogs@floridapoly.edu for format review and feedback.
+ Submit an announcement request (after committee approval) to ogs@floridapoly.edu for
+distribution of your defense date to all faculty, students, and staff in the Weekly Phoenix.
+By the last day of classes:
+ Defend your thesis. Committee will provide notes and required edits, if needed.
+By the last day of finals:
+ Submit final thesis PDF to committee for signature.
+ Submit final thesis PDF to Graduate Director for final approval/signature
+(ogs@floridapoly.edu).
+Thesis Format and Timeline Manual: 2025-2026 | 15 | Florida Poly
+Committee
+Students must have a Graduate Thesis Committee and a Thesis Advisor, who is their Committee Chair, as
+part of their thesis requirements per FPU 5.0123AP. Prior to the assignment of the Thesis Advisor, the
+department may provide interim advising for the student.
+Thesis Advisor/Committee Chair
+Requirements:
+• Full-time faculty member (not adjunct, nor visiting, nor courtesy).
+• Employed within the department which houses the master’s degree, and an expert in the subject
+matter of the proposed thesis.
+Responsibilities include, but may not be limited to:
+• Advising the student’s course of study,
+• Forming the committee in consultation with Department Chair, and
+• Supervising the students’ research.
+• Review and approval for the thesis content and format and working with the student and
+committee to schedule a defense.
+Committee Members
+Requirements:
+• Comprised of at least three full-time faculty members (not adjunct, nor visiting, nor courtesy)
+which includes the thesis advisor.
+• One member should be from outside the department but with experience relevant to the
+student’s research area.
+• Department Chair must approve the makeup of the Committee.
+• Note about External Members:
+• In appropriate cases, industry partners may serve on the Committee as members
+in addition to minimum required full-time faculty by approval of department chair. These
+members will be referred to as Outside Committee Members and must have experience
+relevant to the student’s research area. If students wish to include Outside Committee
+Members in their committee, they will need to submit a non-remuneration form along
+with their Thesis Committee Form, which can be requested from ogs@floridapoly.edu.
+Changing the Committee Membership
+Committee membership may not be changed at the student’s request in the last semester before
+graduation, without chair approval. Committee membership may be changed and approved, including the
+committee chair, by submitting an updated committee form.
+ 
+Thesis Format and Timeline Manual: 2025-2026 | 16 | Florida Poly
+Procedures
+Additional details on rules and deliverables are detailed below. Students should consult with their Thesis
+advisor for any additional requirements.
+Thesis Proposal
+Thesis proposals must be approved and submitted by the end of the second term of graduate study. Each
+department may choose to include a more formal review process for thesis proposals, but all thesis
+proposals must be approved by, at minimum, the Thesis Committee and the Department Chair. The thesis
+proposal usually includes:
+1. An abstract that provides a brief description of the problem statement and expected solution;
+2. A survey of current literature regarding the problem statement that demonstrates why the
+problem statement is important and how it aligns with the student’s research interest and course
+of study (students are encouraged to use reference management software such as Zotero to make
+additions of references and generation of bibliography easy);
+3. A description of the work to be performed, and how and where it will be performed. This section
+should convince the reader that the student has considered the problem and has a research plan
+that can be executed with the available resources and in the time that is appropriate for a master’s
+thesis.
+4. A Gannt chart of tasks, milestones, or overall project schedule.
+Approved proposals must be retained by the thesis committee.
+Thesis Defense Announcement
+After advisor approval in the final semester, students may announce their oral examination (defense),
+due at least two weeks prior to the defense date.
+Prepare your announcement in consultation with your Thesis Advisor. Most students simply use their
+abstract for the body of the announcement. The announcement should include:
+1. Date, time, location, and thesis/report title.
+2. Brief summary of the thesis (3-4 sentences).
+3. The student’s current major course of study.
+4. A list of all members of the Thesis Committee.
+5. Note that the public is welcome to attend.
+Thesis Format and Timeline Manual: 2025-2026 | 17 | Florida Poly
+Oral Examination - The Defense
+Thesis students must perform a public defense of their work in their final semester in order to graduate.
+The defense date must completed by the last day of classes. All committee members should be present
+at the defense and the thesis must have been submitted to the committee at least two weeks before the
+defense. Thesis advisors are responsible for working with the students to ensure that all committee
+members receive the thesis in an appropriate time.
+Signatures and Submission
+Upon successful completion and defense of the thesis report, the student must obtain all
+Committee signatures, then send to the Office of Graduate Studies by emailing ogs@floridapoly.edu by
+the last day of finals. The Office of Graduate Studies will obtain the Graduate Director’s signature on the
+student’s behalf. Upon receiving the final signature, the Office of Graduate Studies will submit to the
+University Registrar (cc:ing the student and committee members) to finalize requirements for the degree
+and to the degree granting department.
+Acceptance
+A thesis is formally accepted at the discretion of the Thesis Committee, Thesis Advisor, Department Chair,
+and the Graduate Director upon signing the thesis. Students should thoroughly read and abide by the
+Thesis Format Manual, as format is a requirement for acceptance. Once all signatures are received, the
+Office of Graduate Studies will submit to the University Registrar to finalize requirements for the
+degree conferral.
+Thesis Terms and Definitions
+Program Advisor: a student’s initial faculty advisor upon entering the program.
+Thesis Advisor/Committee Chair: the student’s faculty advisor who takes over from the program advisor
+once established as the committee chair or advisor for the student’s thesis. The thesis advisor/committee
+chair directs the student’s research and advises on course selection and other aspects of the program.
+Committee Member: a faculty member who serves on the student’s thesis committee.
+Outside Committee Member: A member of the student’s thesis committee who is not from the
+department offering the student’s selected track but provides external evaluation of the student’s thesis
+and research.

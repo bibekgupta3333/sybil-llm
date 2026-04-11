@@ -1,0 +1,474 @@
+Florida Polytechnic University
+Department of Computer Science
+Proposal Master Thesis
+Robust Supervision of LLM Based
+Multi-Agent Swarms: A Hierarchical
+Ensemble Architecture
+Sunim Acharya
+Time frame: August 2025 - April 2026
+Advisor
+Prof. Dr. Sathish Chandra Akula
+Member(s)
+Dr. Luis Jaimes, Dr. Parisa Hajibabaee, Dr. Sanjeeta N. Ghimire
+1 Motivation
+The increasing integration of Large Language Models (LLMs) in Software Engineering
+(SE) has led to unprecedented automation capabilities across various development tasks,
+from code generation to testing and maintenance [14]. However, this integration creates
+a main challenge: to check the quality, reliability as well as safety of AI-based software
+development processes. Traditional human oversight grows less viable with the expansion
+and growth of AI-supported software development, which produces a strong need for
+automated supervision methods.
+1.1 Current Challenges
+Several critical challenges emerge in the current landscape of AI-assisted software engineering:
+• Quality Assurance: LLMs can produce plausible response that might be subtly
+erroneous or insecure, necessitating strong verification tools.
+• Scalability Issues: The computational cost of using LLMs for supervision is prohibitive, necessitating more efficient approaches [2].
+• Bias and Reliability: Recent research has shown that AI models used for supervision tend to share biases and blind spots [3], potentially undermining the effectiveness of AI oversight.
+• Resource Optimization: Continuous LLM querying for supervision is costly and
+inefficient, requiring intelligent intervention strategies [6].
+1.2 Scientific Context
+This thesis sits at the intersection of several cutting-edge research areas in software engineering and artificial intelligence. In the domain of AI Supervision, recent work by
+Saunders et al. [9] has demonstrated both the potential and limitations of using LLMs
+as judges for other AI systems. Their paper establishes fundamental protocols for AI
+supervision but highlights crucial challenges that must be addressed in developing effective supervision systems. Merging these advancements, recent developments in Ensemble
+Methods led to novel horizons for fault-tolerant AI supervision. Agrawal et al. [1] have
+shown that combining multiple weak supervisors through carefully designed ensemble
+techniques can achieve more reliable oversight than single, more powerful models. Their
+work makes valuable observations regarding the aggregation and weighting of different
+supervision signals to achieve more robust outcomes.
+Simultaneous advancements in hierarchical AI systems have shown promise in tackling
+tasks that have historically been challenging for machines. Notable work by Liu et al.
+[7] has shown the effectiveness of combining LLMs with specialized models for specific
+1
+tasks, creating systems that leverage the strengths of both large-scale language models
+and targeted, domain-specific solutions. Their construction offers useful observations
+regarding the different types of AI models which could be integrated in a hierarchical
+architecture to enjoy better efficient and effective supervision.
+These advancements are supplemented by new Agent Frameworks that support systematic means of building intricate AI systems. The unified modeling framework proposed
+by Hassouna et al. [4] offers a comprehensive approach to organizing and coordinating
+multiple AI agents, establishing clear patterns for interaction and control. This framework provides the essential building blocks to build high-level supervision systems that
+can coordinate multiple AI components with security and reliability.
+1.3 Practical Significance
+The development of robust and scalable Supervisor AI systems holds significant practical
+importance:
+• Industrial Application: As organizations increasingly adopt AI-based development approaches, automated supervision is critical for maintaining quality.
+• Resource Efficiency: Intelligent supervision can significantly reduce computational as well as operational cost, without reducing efficiency of the team.
+• Safety and Reliability: Effective supervision mechanisms are essential for building reliable AI-enforced pipelines.
+• Scalability: Automated supervision enables organizations to scale their AI-assisted
+development practices while maintaining quality and security standards.
+2 Goal of Thesis
+The thesis aims to introduce HERA (Hierarchical Ensemble with Reinforcement LearningDriven Architecture), a modular Supervisor AI architecture specifically designed for managing LLM-based Software Engineering agents. The framework is meant to provide robust, scalable, and effective supervision and address the greatest weaknesses that have
+been witnessed in current methods.
+2.1 Primary Objectives
+The primary objective is the development development and deployment of a sophisticated hierarchical supervision architecture ie. HERA. This architecture will innovatively
+combine ensemble-based supervision approaches from Agrawal et al. [1] with the modular
+agent design principles established by Hassouna et al. [4]. The system will incorporate reinforcement learning mechanisms for intelligent intervention timing, building on the work
+2
+of Hu et al. [6], while implementing robust bias detection and mitigation strategies as
+highlighted by Goel et al. [3]. A key aspect of this architecture is going to be its enabling
+efficient utilization of resources through weak-to-strong generalization, enabling efficient
+and scalable supervision.
+The second objective is targeting Supervision Protocol Design with particular focus
+on creation and verification of large-scale supervision protocols. Such protocols will be
+designed to allow efficient supervision over a broad set of software engineering activities without reducing too much the efficiency and coverage. Drawing from the work of
+Saunders et al. [9], the protocols will incorporate debate-based verification mechanisms to
+enhance reliability. Additionally, they will feature dynamic adaptation capabilities to adjust supervision strategies based on task complexity, ensuring optimal resource utilization
+while maintaining high standards of oversight.
+The third objective involves creating an in-depth Evaluation Framework for rigorously assessing the effectiveness of the proposed system, directly or indirectly using DSPy
+Teleprompter Algorithms, based on the works of Sarmah et al. [8]. This framework
+will implement multiple evaluation strategies to assess supervision quality across different
+software engineering tasks, incorporating detailed measurements of resource efficiency and
+scalability. It will include specific metrics for evaluating bias and reliability, ensuring the
+system maintains consistent performance across different contexts. The system will also
+enable systematic comparison with standard baseline approaches, enabling quantitative
+easy demonstration of improvement and identification of areas for further optimization.
+2.2 Expected Results
+The thesis aims to deliver three primary categories of concrete results, each addressing
+crucial aspects of AI supervision in software engineering. The first deliverable will be a
+complete HERA Implementation, consisting of a complete working implementation of the
+HERA architecture which can readily be incorporated in standard software development
+environments. The implementation will be accompanied by comprehensive documentation and deployment guides to aid practical use and reproducibility. Furthermore, the
+central functionality will be released as open-source software to enable broader usage and
+community contribution to the framework.
+The second key deliverable focuses on Empirical Validation, providing rigorous evidence of HERA’s effectiveness and efficiency. This will include comprehensive evaluation
+results across multiple software engineering tasks, demonstrating the system’s versatility and robustness. Thorough comparisons of performance with existing approaches will
+ascertain the strengths and weaknesses of HERA, and detailed resource consumption measures and scalability analysis will validate its applicability to real-world scenarios. This
+empirical validation will provide concrete evidence of HERA’s capabilities and limitations
+across different operational contexts.
+The third deliverable encompasses Best Practices and Guidelines, offering practical insights for implementing and deploying AI supervision systems. This will include a detailed
+3
+framework for implementing hierarchical supervision, specific guidelines for ensemble composition, and comprehensive protocols for bias detection and mitigation. The guidelines
+will also cover resource optimization strategies, providing organizations with clearly defined procedures for implementing efficient and effective AI supervision in their software
+development cycle. These best practices will be derived from both theoretical foundations
+and practical implementation experiences, ensuring their real-world applicability.
+2.3 Success Criteria
+The success of this thesis will be measured against the following criteria:
+• Performance: Demonstrate improved or comparable supervision quality over existing methods while significantly reducing computational costs
+• Efficiency: Achieve at least 20% reduction in LLM query costs over baseline methods with minimal loss in supervision quality
+• Scalability: Demonstrate linear scaling performance with increasing task complexity and amount within the team composition
+• Robustness: Demonstrate effective bias mitigation and reliable performance across
+different types of Software Engineering tasks
+2.4 Research Questions
+This thesis will address the following key research questions:
+1. How can hierarchical ensemble architectures be effectively combined with reinforcement learning to create robust and efficient Supervisor AI systems?
+2. What are the optimal ways of combining multiple weak supervisors to achieve dependable supervision while minimizing computational expenses?
+3. How can bias and correlation in AI supervision be effectively detected and mitigated
+through architectural and algorithmic solutions?
+4. What are the key trade-offs between supervision quality, resource efficiency, and
+scalability in real-world applications?
+3 Related Work
+The proposed research builds upon and extends several key areas of recent work in AI
+supervision, software engineering, and machine learning. This section organizes the relevant literature into thematic categories and discusses their relationships to our proposed
+approach.
+4
+3.1 LLM-based Software Engineering
+Recent studies have demonstrated the increasing capability of LLMs at software engineering tasks [14], spanning a broad range of development tasks. These systems have
+demonstrated superior competency on different task categories, including code generation
+and completion, where LLMs can create executable code snippets from natural language
+specifications [11]. They have also proven effective in code summarization, translating
+code between different programming languages, and detecting potential vulnerabilities in
+existing codebases [5]. LLMs have also demonstrated competency in code analysis, assisting code review processes, and general code management tasks. Their ability to engage
+in Q&A interactions has also proven valuable for developer support and documentation
+purposes. However, despite these advances, there are significant limitations and hurdles
+to the application of LLMs to software engineering tasks. Quality assurance becomes a
+prime concern as generated code must meet high standards of reliability and maintainability [12]. This presents reliability questions regarding the consistency and predictability
+of LLM outputs in mission-critical development contexts [13]. Along with that, running
+and maintaining these models requires a great deal of computational resources while security implications demand careful consideration as LLMs must be integrated without
+compromising system security.
+3.2 AI Supervision Architectures
+3.2.1 Modular Frameworks
+LLM-AGENT-UMF framework provides a foundation for modular AI systems with its
+integrated architectural framework [4]. At its core, the framework introduces the innovative core-agent concept, which comprises five essential modules that work together to
+provide robust supervision capabilities. The framework formally defines active and passive
+agents, enabling versatile deployment use cases and efficient resource utilization. Security
+considerations are embedded as fundamental design principles throughout the architecture, ensuring robust protection at every level. The framework also defines sophisticated
+integration patterns for different agents so that large-scale and sustainable multi-agent
+systems are achievable while still maintaining modularity and system integrity [12].
+3.2.2 Ensemble Approaches
+EnsemW2S demonstrates the effectiveness of ensemble-based supervision through several
+innovative mechanisms [1]. The framework’s key contribution lies in its weak-to-strong
+generalization capability, enabling the combination of multiple simpler models to achieve
+sophisticated supervision capabilities. It employs complex token-level weighting mechanisms that precisely calibrate the contribution of each model within the ensemble. The
+system’s combination strategies draw inspiration from AdaBoost, adapting this classical
+approach for the unique challenges of LLM supervision. In addition, the model introduces
+5
+an easy-to-hard training paradigm that progressively builds supervision abilities to ensure
+robust performance across varying levels of task complexity.
+3.2.3 Hierarchical Systems
+Brain-like architectures illustrate the potential of hierarchical supervision in a sophisticated multi-level system [7]. The system uses LLM supervision on top of specialized
+models, creating an effective hierarchy where large language models teach and coordinate
+more specialized, task-specific components. This approach is supplemented by knowledgeenhanced prompting techniques that leverage structured knowledge to improve supervision quality. The architecture incorporates adaptive model generation capabilities, allowing the system to evolve and adjust its components based on task requirements and
+performance feedback. The system is augmented by advanced resource optimization techniques that ensure efficient performance while maintaining high-quality supervision across
+the hierarchy.
+3.3 Cognitive Architectures
+Recent work on cognitive architectures offers valuable perspectives that significantly inform the design of AI supervision systems [10]. The study offers general memory organization principles that allow efficient storage and retrieval of supervision-related information,
+offering significant insight into how AI systems store and utilize historic oversight data.
+They are complemented by sophisticated decision-making models that specify how supervision systems can make informed decisions about when and how to intervene in supervised
+processes. The research also introduces elaborate learning mechanisms that enable supervision systems to improve their performance over time through experience and feedback.
+Furthermore, the work develops robust integration patterns that indicate how these cognitive components can be made to work together in harmony in an integrated supervision
+architecture. This cognitive architecture framework provides a theoretically grounded and
+pragmatically effective foundation for the development of more sophisticated and effective
+AI supervision systems.
+3.4 Reinforcement Learning for Supervision
+3.4.1 Adaptive Intervention
+The When2Ask framework demonstrates the power of RL-based supervision in an integrated method of adaptive intervention [6]. Essentially, the framework uses intelligent
+interaction timing mechanisms that learn to maximize when and how supervision should
+occur, reducing redundant interventions while maintaining necessary oversight intact. The
+system derives significant resource optimization from learned policies that balance the cost
+of intervention against the reward of supervision. These capabilities are built upon sophisticated policy learning approaches that enable the system to adapt its supervision
+6
+strategies based on experience and context. The framework also provides practical implementation strategies that address real-world deployment challenges, making it feasible to
+integrate RL-based supervision into existing software development workflows.
+3.4.2 Scalable Oversight
+Research on scalable oversight provides key insights into the fundamental mechanisms
+of effective AI supervision [9]. The work presents a detailed comparison of debate versus consultancy protocols, revealing how different interaction patterns affect supervision
+quality and efficiency. Through in-depth analysis, it demonstrates the effectiveness of
+weak supervisors in some cases, contradicting prevailing wisdom regarding the necessity
+for strong models for oversight. The research offers comprehensive implementation considerations that address the practical challenges of deploying these protocols in real-world
+systems. Additionally, it introduces novel evaluation methodologies that enable precise
+measurement of supervision quality and efficiency, providing crucial tools for assessing
+and improving oversight systems.
+3.5 Supervision Challenges and Solutions
+3.5.1 Bias and Correlation
+Recent research has identified critical challenges in AI supervision that fundamentally
+affect the reliability of oversight systems [3]. The study reveals significant concerns regarding model similarity effects, where AI supervisors tend to share biases and blind spots
+with the systems they oversee. This similarity leads to correlated errors in supervision,
+creating potential risks where multiple models fail in similar ways. To address these challenges, the research introduces the CAPA metric, a novel approach for measuring and
+quantifying similarity between AI models. This metric provides crucial insights into the
+implications for oversight systems, highlighting the need for diversity in supervisor ensembles and suggesting new approaches for creating more robust supervision mechanisms.
+3.5.2 Efficiency and Scalability
+Effective AI deployment addresses practical problems that are crucial for deploying supervision systems at scale [2]. The paper presents comprehensive resource optimization
+methods that enable effective deployment while maintaining supervision quality. These
+are complemented by state-of-the-art model compression techniques that reduce computational requirements without significantly degrading performance. The work also provides
+detailed considerations for serving infrastructure, addressing the practical challenges of
+deploying supervision systems in production environments. Furthermore, it offers insights
+into managing performance-efficiency trade-offs, providing frameworks for balancing supervision quality with resource constraints.
+7
+3.6 Research Gaps
+Our analysis of the literature reveals several key gaps that our work aims to address:
+1. Integration Gap: There is no existing work that combines hierarchical supervision,
+ensemble methods, and reinforcement learning within one framework.
+2. Efficiency Gap: Current approaches lack comprehensive solutions for balancing
+supervision quality with resource efficiency.
+3. Bias Mitigation Gap: None of the current systems can adequately address the
+problem of correlated errors and biases in supervision.
+4. Scalability Gap: Current architectures lack defined mechanisms for scaling supervision efficiently across team composed of humans and agents.
+3.7 Our Contribution
+This thesis aims to address the identified research gaps through several significant contributions to the field of AI supervision. At its core, we propose a novel integration of
+existing approaches, combining the strengths of hierarchical supervision, ensemble methods, and reinforcement learning into a unified and coherent framework. This integration is
+complemented by end-to-end bias mitigation methods that directly address the problems
+of correlated errors and systematic biases in AI supervision systems. We also introduce
+efficient resource utilization strategies that make sophisticated supervision both practical
+and scalable in real-world applications, striking a balance between the need for strong
+supervision and computational efficiency. Moreover, we provide detailed practical implementation guidelines that bridge the gap between innovative theory and practice, enabling
+organizations to effectively take up and maintain advanced AI supervision systems in their
+software engineering processes. Overall, these contributions enhance the state of the art in
+AI supervision while providing concrete solutions to real-world problems in the domain.
+4 Approach
+The implementation of HERA follows a systematic approach combining theoretical foundations with practical engineering considerations. The methodology is structured into a
+number of components, each addressing specific aspects for supervision.
+4.1 Architectural Design
+4.1.1 Core Architecture
+The HERA architecture will be built upon three fundamental layers:
+8
+1. Orchestration Layer: At the highest level, the orchestration layer will implement
+the core-agent framework derived from LLM-AGENT-UMF [4]. This layer will serve
+as the central nervous system of HERA, integrating essential modules for planning,
+memory, profile, action, and security. Through these integrated components, it
+will coordinate multiple supervision strategies across the system, ensuring coherent
+oversight of software engineering tasks. The layer will also handle resource allocation
+and management, optimizing system performance while maintaining efficiency in
+computational resource usage.
+2. Ensemble Layer: The middle layer would leverage the EnsemW2S framework
+[1], to form the collective intelligence component of HERA. This layer will integrate multiple weak supervisors, orchestrating their combined expertise to achieve
+robust supervision. It will utilize sophisticated token-level weighting mechanisms
+to optimize the contribution of each supervisor, along with adaptive ensemble composition that can adjust based on task requirements and performance feedback.
+This dynamic approach will ensure that the supervision system can maintain high
+performance while efficiently utilizing available resources.
+3. Execution Layer: The foundation layer will oversee direct interaction with software engineering environments through task-specific supervision protocols. This
+layer will maintain continuous communication with SE tools and environments, enabling real-time supervision and feedback. It would accommodate sophisticated
+performance monitoring and feedback collection mechanisms, obtaining vital information for system optimization. Additionally, this layer would combine sophisticated error detection and correction mechanisms to offer reliable and accurate
+supervision of various software engineering processes. The execution layer will serve
+as the practical interface between HERA’s higher-level supervision strategies and
+the actual software engineering workflows being supervised.
+4.1.2 Integration Strategy
+The integration of different components will follow a modular approach that emphasizes
+flexibility and maintainability. At its foundation, the system will implement standardized Interface Definitions that establishes clear APIs for component interaction, ensuring
+consistent and reliable communication between different parts of the supervision system.
+These interfaces will be supported by robust Communication Protocols to handle message
+passing and state management, enabling seamless coordination between supervision components while maintaining system coherence. The architecture would also impose strict
+Security Boundaries through sophisticated isolation and access control mechanisms, under
+which each component operates under well-defined security constraints with protection
+against unauthorized access or interference. Furthermore, the system would provide extensible Extension Points through a plugin architecture to add new functionality and
+adapt the system to changing requirements without compromising its core functionality.
+9
+This comprehensive integration strategy will ensure that the system remains both robust
+and adaptable while maintaining high standards of security and reliability.
+4.2 Supervision Mechanisms
+4.2.1 Reinforcement Learning Integration
+Based on the When2Ask framework [6], our reinforcement learning integration would
+encompass of three fundamental components that work together to create an adaptive
+supervision system. The State Space will be designed to capture the complete context
+necessary for informed decision-making. It will incorporate detailed task characteristics
+that define the nature and complexity of the current supervision requirement, along with
+real-time resource availability information to ensure efficient resource allocation. The
+state representation would also contain historical performance information, which will
+provide valuable background information about previous supervision effectiveness and
+rich confidence measures that indicate the reliability of current supervision decisions.
+This rich state representation would enable the system to make highly informed decisions
+based on both current situations and history.
+The Action Space will define the range of possible interventions available to the supervision system. It would enable dynamic supervisor selection, allowing the system to choose
+the most appropriate oversight mechanism for each situation. The action space would include precise control over intervention timing, determining when supervision should occur
+for optimal effectiveness. It would also encompass resource allocation decisions, ensuring efficient use of computational resources, and also will include escalation decisions to
+determine when to involve higher-level supervision or human oversight. This rich action
+space would provide the flexibility needed for covert and effective supervision strategies.
+The Reward Function would be carefully crafted to guide the learning process toward
+optimal supervision behavior. It will incorporate detailed supervision quality metrics to
+measure the effectiveness of oversight decisions, alongside resource utilization measurements to encourage efficient operation. The function will also include response time as a
+consideration, so that supervision interventions would be delivered in a timely manner,
+while incorporating error detection rate metrics to deliver high levels of oversight accuracy.
+The multi-aspect reward system would ensure the system learns to balance between the
+competing tensions of supervision quality, resource utilization, and operational timeliness.
+4.2.2 Bias Mitigation
+Implementation of bias detection and mitigation strategies would form the crucial component of our supervision architecture, incorporating two primary approaches to ensure
+robust and unbiased oversight. The CAPA Metric Integration, based on the work of [3],
+would be used to provide a comprehensive framework for understanding and addressing
+bias in supervision systems. The integration will enable complex measurement of supervisor similarity, allowing the system to identify possible blind spots or duplicate biases
+10
+from supervisors. The framework will implement advanced mechanisms for detecting correlated errors, helping to prevent systematic failures that could arise from similar decision
+patterns across multiple supervisors. Additionally, it would maintain continuous monitoring of bias patterns, enabling early detection and intervention when problematic patterns
+emerge. This metric-driven approach would ensure that bias detection is both systematic
+and quantifiable, providing clear indicators for when intervention is necessary.
+The system’s Diversity Mechanisms will complement the CAPA measure by actively
+enforcing and maintaining diversity in supervision decisions. These mechanisms will implement sophisticated ensemble composition strategies to ensure a balanced and varied
+set of supervision perspectives. The approach will include carefully designed model selection rules that encourage complementary capabilities and diverse decision-making styles
+among supervisors. Besides, the system would employ dynamic reweighting mechanisms
+to dynamically balance the influence of different supervisors based on their performance
+and similarity trends, such that the supervision system will remain optimally diverse even
+as individual components change and adapt. This comprehensive approach to diversity
+management would help prevent the emergence of systematic biases while maintaining
+robust supervision capabilities.
+4.3 Testing Strategy
+Unit Testing would form the basis of our quality strategy, focusing on the verification of
+the correctness of individual system components. This level of testing will consist of exhaustive validation of component-level functionality, ensuring each module is executing its
+defined functions correctly. Critical attention would be paid to integration points, validating that components can interact seamlessly with other parts of the system. Additionally,
+exhaustive error handling testing will ensure that components respond appropriately to
+various error conditions and edge cases, maintaining system stability and reliability.
+Evaluation Testing will provide the final validation of the system’s capabilities through
+comprehensive performance assessment. It will include large-scale benchmark performance testing across a variety of supervision scenarios and tasks, creating definitive measures of system effectiveness. Side-by-side comparison will be provided with existing
+supervision techniques, creating quantitative evidence of improvements and establishing
+areas for improvement. Additionally, thorough stress testing would be performed to verify
+system stability and performance under high load conditions, ensuring reliable operation
+in demanding real-world scenarios.
+4.4 Evaluation Methodology
+4.4.1 Performance Metrics
+The metrics will be distributed upon three modules:
+1. Supervision Quality: These metrics will form the primary basis for evaluating the
+system’s effectiveness in providing reliable oversight. The evaluation would begin
+11
+with fundamental accuracy measurements that will assess the overall correctness
+of supervision decisions. It will be followed by precision and recall measures to
+provide additional insight into the system’s ability to accurately identify and address
+supervision needs, such as F1 Score to offer a balanced measure of precision and
+recall, providing a single metric for overall performance assessment. Task-specific
+measures would also be used to examine the performance in particular software
+engineering settings to determine whether the system functions as per the domainspecific requirements and standards.
+2. Efficiency Metrics: These metrics would provide the crucial insights into the
+system’s operational performance and resource management capabilities. Response
+time measurements will track the system’s ability to provide timely supervision decisions, a critical factor in real-world applications. Along with that, comprehensive
+resource utilization monitoring will ensure efficient use of computational resources
+across different supervision tasks. Primarily, query costs will be tracked carefully
+to optimize the economic efficiency of LLM-based supervision, while throughput
+measurements will be used to assess the ability of the system to execute multiple
+supervision tasks simultaneously. These measures would collectively ensure that the
+system is operationally efficient while also ensuring effective supervision.
+3. Robustness Metrics: These metrics would assess the system’s reliability and
+adaptability across various operational conditions. Bias measurements, implementing the CAPA metric and other approaches, would track the system’s ability to
+maintain fair and unbiased supervision. Error correlation analysis will further examine the trends in supervision failures to identify and eliminate systematic weaknesses. The adaptability of the system will be measured in terms of its response to
+changing supervision requirements and new categories of tasks. And, recovery time
+metrics will be used to evaluated how quickly and effectively the system can return
+to optimal performance after encountering difficulties or errors.
+4.4.2 Comparative Analysis
+The evaluation framework will include comprehensive comparison with existing supervision techniques to decide the relative strengths and weaknesses of our system. Single LLM
+supervision will be utilized as a key baseline, finding insights into why our ensemble-based
+approach would be better than traditional single-model supervision. Traditional ensemble
+approaches would be evaluated to show the advantage of our new hybrid of reinforcement
+learning and bias mitigation techniques. Comparison to rule-based systems will highlight the adaptability and responsiveness of our learning-based method at the expense
+of neither interpretability nor reliability that is typically required by rule-based supervision. Finally, diligent comparison with human supervision would determine the ability of
+the system to augment and assist human supervision effectively, identifying areas where
+automated supervision can reduce human workload without compromising high-quality
+supervision.
+12
+5 Project Plan
+The implementation of HERA will follow a structured timeline over nine months, divided
+into four major phases. Each phase includes specific research, development, and evaluation
+milestones.
+5.1 Timeline Overview
+Time Frame Research/Writing Implementation
+– Literature review completion – Core framework setup
+Aug - Sep – Architecture design – Basic module implementation
+2025 – Initial documentation – Development environment setup
+– Research methodology refinement – Initial testing infrastructure
+– Ensemble mechanism design – Ensemble integration
+Oct - Dec – RL strategy development – RL environment implementation
+2025 – Bias mitigation research – Supervisor combination logic
+– Progress documentation – Basic evaluation pipeline
+– Evaluation framework design – Full system integration
+Jan - Feb – Performance analysis – Optimization implementation
+2026 – Results documentation – Comprehensive testing
+– Initial paper drafting – Benchmark execution
+– Thesis writing – Final optimizations
+Mar - Apr – Results analysis – Performance tuning
+2026 – Documentation completion – System packaging
+– Final review – Deployment guidelines
+Table 1: Detailed Project Timeline
+5.2 Risk Management
+5.2.1 Potential Risks
+HERA development will be exposed to several severe potential risks that need to be
+handled appropriately throughout the project lifecycle. Reinforcement learning integration also brings unique implementation challenges, particularly in the domain of stable
+learning behavior and effective policy convergence in the complex supervision domain.
+Furthermore, there are potential performance bottlenecks as well in the ensemble system, particularly when dealing with multiple supervisors and coping with their combined
+decision-making processes. Resource limitation testing will limit our ability to test the
+system in every intended scenario and boundary condition, which could undermine the
+13
+validity of our validation. Slippage of the development timeline is likewise a critical concern, since system component interdependency guarantees that the lag in any one area
+will be transmitted through the entire timeline of development.
+5.2.2 Mitigation Strategies
+To address these risks, we will use a extensive mitigation plan during the project development. We will monitor progress closely through regular bi-weekly meetings and milestone reviews to catch problems early and implement corrective action immediately. We
+will have a dynamic implementation procedure that allows rapid response to difficulties,
+including the ability to modify architectural choices in response to empirical findings during implementation. Early identification of bottlenecks will be facilitated by continuous
+monitoring of performance and routine system-wide assessments, allowing us to address
+performance issues prior to their development as critical roadblocks. Furthermore, we will
+schedule buffer time within the project schedule, particularly around critical integration
+points and major deliverables, so that unexpected challenges may be resolved without
+affecting overall project timelines.
+5.3 Resources Required
+HERA implementation requires three broad categories of resources, each essential to the
+various aspects of project development and evaluation.
+5.3.1 Computer Resources
+These resources form the foundation infrastructure required for system development and
+rollout. Availability of high-performance GPUs and VRAMs will be vital towards model
+training, particularly in the reinforcement learning components and ensemble model finetuning. Cloud computing resources will provide the elastic infrastructure required for
+distributed testing and evaluation, enabling us to measure system performance under
+various load conditions. An integrated development environment, complete with appropriate hardware and networking capabilities, will enable the continuous development and
+integration process throughout the project life cycle.
+5.3.2 Software Resources
+These resources consist of the software tools and platforms required for implementing
+and testing systems. LLM API access like the OpenAI, Anthropic, Groq, Gemini and
+other state-of-the-art language models will be critical to the utilization of the supervision
+capabilities. Robust development tools like version control systems, continuous integration platforms, and debugging facilities will be required to facilitate rapid and reliable
+development processes. Specialized testing frameworks will also be required to validate
+system behavior in different supervision scenarios and ensure reliable operation under a
+variety of conditions.
+14
+5.3.3 Data Resources
+Data Resources are needed for learning, testing, and learning to verify the performance
+of the system. They comprise large software engineering datasets that reflect real-world
+development environments and problems, context needed for learning and testing supervision capability. Large benchmark suites will offer standardized performance measurement
+and comparison with existing methods. Moreover, high-quality evaluation data will be
+needed to quantify the system’s performance on different categories of software engineering tasks and supervision scenarios in order to gain overall validation of the system’s
+strengths and weaknesses.
+15
+References
+[1] Abhishek Agrawal, Ming Ding, Zhengping Che, Chao Deng, Ankit Satheesh, John Langford,
+and Fei Huang. Ensemw2s: Can an ensemble of llms be leveraged to obtain a stronger llm?
+arXiv preprint arXiv:2410.04571, 2024.
+[2] Kamran Behdin, Yuntian Dai, Arman Fatahibaarzi, Arjun Gupta, Qiying Song, Shuai Tang,
+and Laurent Simon. Efficient ai in practice: Training and deployment of efficient llms for
+industry applications. arXiv preprint arXiv:2502.14305, 2025.
+[3] Shashwat Goel, Jonas Str¨uber, Ieva Amolina Auzina, Kartik Kundeti Chandra, Ponnurangam Kumaraguru, Douwe Kiela, Ameya Prabhu, Matthias Bethge, and Jonas Geiping.
+Great models think alike and this undermines ai oversight. arXiv preprint arXiv:2502.04313,
+2025.
+[4] Amine B. Hassouna, Hana Chaari, and Ines Belhaj. Llm-agent-umf: Llm-based agent
+unified modeling framework for seamless integration of multi active/passive core-agents.
+arXiv preprint arXiv:2409.11393, 2024.
+[5] Xinyi Hou, Yanjie Zhao, Yue Liu, Zhou Yang, Kailong Wang, Li Li, Xiapu Luo, David
+Lo, John Grundy, and Haoyu Wang. Large language models for software engineering: A
+systematic literature review, 2024. URL https://arxiv.org/abs/2308.10620.
+[6] Bowen Hu, Chen Zhao, Peixi Zhang, Zhengyu Zhou, Yizhou Yang, Zongqing Xu, and
+Bin Liu. Enabling intelligent interactions between an agent and an llm: A reinforcement
+learning approach. arXiv preprint arXiv:2306.13831, 2023.
+[7] Yifan Liu, Wei Zhang, Zhigang Bao, Xiaoqi Chai, Mingwei Gu, Weiwei Jiang, Zhigang
+Zhang, Yonghong Tian, and Fei-Yue Wang. Brain-like cognition-driven model factory for
+iiot fault diagnosis by combining llms with small models. IEEE Internet of Things Journal,
+2024.
+[8] Bhaskarjit Sarmah, Kriti Dutta, Anna Grigoryan, Sachin Tiwari, Stefano Pasquali, and
+Dhagash Mehta. A comparative study of dspy teleprompter algorithms for aligning large
+language models evaluation metrics to human evaluation, 2024. URL https://arxiv.org/
+abs/2412.15298.
+[9] William Saunders, Zachary Kenton, Noah Y. Siegel, J´an Kram´ar, Jonathan Brown-Cohen,
+Samuel Albanie, Jeremie Bulian, Rishita Agarwal, David Lindner, Yuqing Tang, Noah D.
+Goodman, and Rohin Shah. On scalable oversight with weak llms judging strong llms.
+Transactions on Machine Learning Research, 2024.
+[10] Theodore R. Sumers, Shunyu Yao, Karthik Narasimhan, and Thomas L. Griffiths. Cognitive
+architectures for language agents. Transactions on Machine Learning Research, 2024.
+[11] Jiabin Tang, Tianyu Fan, and Chao Huang. Autoagent: A fully-automated and zero-code
+framework for llm agents, 2025. URL https://arxiv.org/abs/2502.05957.
+[12] Quanjun Zhang, Chunrong Fang, Yang Xie, Yaxin Zhang, Yun Yang, Weisong Sun,
+Shengcheng Yu, and Zhenyu Chen. A survey on large language models for software engineering, 2024. URL https://arxiv.org/abs/2312.15223.
+[13] Wei Zhang et al. Multi-agent architecture search via agentic supernet. arXiv preprint
+arXiv:2502.04180, 2025.
+[14] Zhihao Zheng, Kai Ning, Qianxi Zhong, Jinhao Chen, Wei Chen, Liang Guo, Wenjie Wang,
+and Yue Wang. Towards an understanding of large language models in software engineering
+tasks. arXiv preprint arXiv:2308.11396, 2024.
+16

@@ -1,0 +1,18 @@
+# EDA / notebook / report-generation environment (.venv, Python 3.14).
+# NOTE: the model-training environment used for transformer_model.ipynb (torch,
+# roadfm_lite_*.pt) is undocumented and separate from this venv — no torch
+# is installed here. Export that environment's `pip freeze` separately if
+# training needs to be reproduced.
+numpy==2.4.4
+pandas==3.0.2
+scipy==1.17.1
+scikit-learn==1.8.0
+matplotlib==3.10.8
+seaborn==0.13.2
+ipykernel==7.2.0
+ipython==9.12.0
+tqdm==4.67.3
+weasyprint==68.1
+markdown2==2.5.5
+fonttools==4.62.1
+debugpy==1.8.20

@@ -1,7 +1,9 @@
+# One-off migration script — already applied to eda_veremi.ipynb (intro_sybil_attack
+# cell is present). Re-running will insert a duplicate cell.
 import json
 import os
 
-notebook_path = "/Users/bibekgupta/Downloads/projects/sybil-llm/notebook/eda_veremi.ipynb"
+notebook_path = os.path.join(os.path.dirname(__file__), "eda_veremi.ipynb")
 
 with open(notebook_path, "r", encoding="utf-8") as f:
     nb = json.load(f)
@@ -18,7 +20,7 @@ intro_cell = {
   "**Problem Context:** Detecting these attacks is challenging because individual forged messages often appear locally plausible. The true malicious intent is typically hidden in temporal inconsistencies or unrealistic motion patterns over a sequence of messages. The EDA below explores these patterns to prepare data for foundation model training.\n",
   "\n",
   "### Understanding the Attack Surface\n",
-  "<img src=\"/Users/bibekgupta/.gemini/antigravity/brain/2c923ae4-8f05-4b30-b49f-fde91ce80823/sybil_attack_concept_1776400525840.png\" alt=\"Sybil Attack Visualization\" width=\"800\"/>"
+  "<!-- TODO: add a real Sybil-attack concept diagram under proposal/Figures/ and reference it here -->"
  ]
 }
 

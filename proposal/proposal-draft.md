@@ -31,8 +31,7 @@ The pretrained model is evaluated under three paradigms: few-shot contrastive fi
 
 In Vehicular Ad-hoc Networks (VANETs), a Sybil attack occurs when a single malicious physical entity claims multiple fictitious identities (ghost vehicles). This creates the illusion of multiple vehicles on the road, allowing attackers to broadcast conflicting messages, disrupt traffic management, and create safety hazards (e.g., phantom traffic jams). Detecting these attacks is challenging because individual forged messages often appear locally plausible.
 
-![Sybil Attack Visualization in VANET](/Users/bibekgupta/.gemini/antigravity/brain/2c923ae4-8f05-4b30-b49f-fde91ce80823/sybil_attack_concept_1776400525840.png)
-*Figure 1: Illustration of a single malicious vehicle deceiving smart infrastructure with multiple ghost identities.*
+*Figure 1: Illustration of a single malicious vehicle deceiving smart infrastructure with multiple ghost identities. (TODO: replace with a real diagram under proposal/Figures/ — the original reference pointed at a 0-byte file outside the repo.)*
 
 ## 2 Motivation
 

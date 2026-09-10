@@ -15,12 +15,15 @@ Central hypothesis: representations grounded in road-network structure and physi
 ```
 sybil-llm/
 ├── README.md
+├── CLAUDE.md               # Agent rules: staff research SWE persona, research-integrity + leakage rules
+├── tracker.html            # Standalone research-progress tracker (open via file://, localStorage-persisted)
 ├── requirements.txt        # EDA/notebook environment (not the model-training env — see note in file)
 ├── docs/
+│   ├── plan/                # research-plan.md — the 6-phase executable research plan
 │   ├── proposal/            # Long-form proposal introduction/dataset guide
 │   ├── research-notes/      # Gap analysis, novelty analysis, related-papers survey, simplified intro
 │   └── planning/            # WBS, thesis formatting manual, example proposal template
-├── notebooks/                # EDA notebook + one-off notebook-editing utility script
+├── notebooks/                # EDA notebook, DL/transformer refresher notebook, utility script
 ├── proposal/                 # Thesis proposal LaTeX source, Markdown draft, references.bib, slides HTML, Figures/
 ├── models/
 │   ├── transformer_model.ipynb   # Pretraining + fine-tuning + evaluation notebook

@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RoadFM-Lite Research Tracker</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --ink: #1f2937;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --todo: #9ca3af;
+    --todo-bg: #f3f4f6;
+    --prog: #b45309;
+    --prog-bg: #fef3c7;
+    --done: #15803d;
+    --done-bg: #dcfce7;
+    --accent: #1d4ed8;
+    --bar-bg: #e5e7eb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.45;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 28px 20px 80px; }
+  header h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: -0.02em; }
+  header .subtitle { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
+  .toolbar {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    margin-bottom: 22px;
+  }
+  .overall {
+    flex: 1 1 320px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px 16px;
+  }
+  .overall .label-row {
+    display: flex; justify-content: space-between; font-size: 13px;
+    color: var(--muted); margin-bottom: 6px;
+  }
+  .overall .label-row .pct { color: var(--ink); font-weight: 600; }
+  .bar { height: 10px; background: var(--bar-bg); border-radius: 6px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; background: var(--accent); border-radius: 6px; width: 0%; transition: width .25s ease; }
+  button.reset {
+    background: var(--card); color: #b91c1c; border: 1px solid #fecaca;
+    border-radius: 8px; padding: 9px 14px; font-size: 13px; cursor: pointer;
+  }
+  button.reset:hover { background: #fef2f2; }
+  .legend { font-size: 12px; color: var(--muted); margin: 0 0 18px; }
+  .legend .chip { margin-right: 10px; }
+
+  .phase {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    margin-bottom: 14px; overflow: hidden;
+  }
+  .phase-head {
+    display: flex; align-items: center; gap: 12px; padding: 13px 16px;
+    cursor: pointer; user-select: none;
+  }
+  .phase-head:hover { background: #fafafa; }
+  .phase-head .caret { font-size: 12px; color: var(--muted); width: 14px; transition: transform .15s ease; }
+  .phase.collapsed .caret { transform: rotate(-90deg); }
+  .phase-head h2 { margin: 0; font-size: 16px; flex: 1; }
+  .phase-head .phase-pct { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .phase-bar { padding: 0 16px 12px; }
+  .phase-bar .bar > span { background: var(--done); }
+  .tasks { border-top: 1px solid var(--line); }
+  .phase.collapsed .tasks, .phase.collapsed .phase-bar { display: none; }
+
+  .task {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+  }
+  .task:last-child { border-bottom: none; }
+  .task .tid { font-size: 12px; color: var(--muted); width: 30px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .task .title { flex: 1 1 45%; font-size: 14px; }
+  .task.state-done .title { color: var(--muted); text-decoration: line-through; text-decoration-color: #c7ccd4; }
+  .chip {
+    font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase;
+    border-radius: 999px; padding: 4px 10px; cursor: pointer; border: 1px solid transparent;
+    flex-shrink: 0; user-select: none; min-width: 96px; text-align: center;
+  }
+  .chip.todo { color: var(--todo); background: var(--todo-bg); border-color: #d1d5db; }
+  .chip.inprogress { color: var(--prog); background: var(--prog-bg); border-color: #fcd34d; }
+  .chip.done { color: var(--done); background: var(--done-bg); border-color: #86efac; }
+  .task input.note {
+    flex: 1 1 30%; min-width: 130px; font-size: 12px; padding: 6px 8px;
+    border: 1px solid var(--line); border-radius: 6px; color: var(--ink);
+    background: #fcfcfd;
+  }
+  .task input.note::placeholder { color: #b6bcc6; }
+  .task input.note:focus { outline: none; border-color: var(--accent); }
+  footer { margin-top: 26px; font-size: 12px; color: var(--muted); }
+  footer code { background: #eef0f3; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>RoadFM-Lite Research Tracker</h1>
+    <p class="subtitle">Thesis progress: Sybil attack detection on the VeReMi-Extension dataset via a self-supervised trajectory transformer (RoadFM-Lite). Plan: <code>docs/plan/research-plan.md</code></p>
+  </header>
+
+  <div class="toolbar">
+    <div class="overall">
+      <div class="label-row"><span>Overall progress (in-progress counts 0.5)</span><span class="pct" id="overall-pct">0%</span></div>
+      <div class="bar"><span id="overall-bar"></span></div>
+    </div>
+    <button class="reset" id="reset-btn" type="button">Reset to defaults</button>
+  </div>
+
+  <p class="legend">Click a status chip to cycle:
+    <span class="chip todo">todo</span>
+    <span class="chip inprogress">in progress</span>
+    <span class="chip done">done</span>
+    &nbsp;Notes save automatically. All state persists in this browser (localStorage).
+  </p>
+
+  <div id="phases"></div>
+
+  <footer>
+    Local file — no network required. Data key: <code>roadfm-tracker-v1</code>.
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+const STORE_KEY = "roadfm-tracker-v1";
+const STATES = ["todo", "inprogress", "done"];
+const STATE_LABEL = { todo: "todo", inprogress: "in progress", done: "done" };
+const STATE_WEIGHT = { todo: 0, inprogress: 0.5, done: 1 };
+
+const PHASES = [
+  { name: "Phase 1 — Data Understanding", tasks: [
+    ["1.1", "VeReMi-Extension structure (scenarios, message logs, GT files)"],
+    ["1.2", "Characterize 4 Sybil attack types vs benign"],
+    ["1.3", "Message field semantics (pos/spd/acl/hed, noise)"],
+    ["1.4", "Class balance per scenario & time window"],
+    ["1.5", "Leakage audit / split design"],
+    ["1.6", "EDA distributions & spatial coverage"],
+    ["1.7", "Data-quality checks"],
+  ]},
+  { name: "Phase 2 — Feature Engineering", tasks: [
+    ["2.1", "Windowing pipeline verify+document"],
+    ["2.2", "13 kinematic features + normalization"],
+    ["2.3", "Physical-plausibility features"],
+    ["2.4", "SSL corruption suite (replay/shuffle/speed-scale/offset)"],
+    ["2.5", "Masking strategy for MTR"],
+    ["2.6", "Reproducible prepare_data.py script"],
+    ["2.7", "Group splits, no vehicle leakage"],
+  ]},
+  { name: "Phase 3 — Methodology", tasks: [
+    ["3.1", "Architecture spec"],
+    ["3.2", "MTR pretext task"],
+    ["3.3", "TCP pretext task"],
+    ["3.4", "Multi-task loss weighting"],
+    ["3.5", "Fine-tuning heads (binary + 5-class)"],
+    ["3.6", "Few-shot/zero-shot protocols"],
+    ["3.7", "Training config + seed policy"],
+  ]},
+  { name: "Phase 4 — Baselines", tasks: [
+    ["4.1", "Literature baseline numbers"],
+    ["4.2", "Classical ML (RF/XGBoost/SVM)"],
+    ["4.3", "LSTM/GRU/1D-CNN"],
+    ["4.4", "Same-arch transformer from scratch"],
+    ["4.5", "Reproduce one published baseline"],
+  ]},
+  { name: "Phase 5 — Experiments", tasks: [
+    ["5.1", "Pretraining runs"],
+    ["5.2", "Full-label fine-tuning"],
+    ["5.3", "Label-efficiency curves (1/5/10/50/100%)"],
+    ["5.4", "Cross-scenario transfer 0709↔1416"],
+    ["5.5", "Ablations (pretext tasks, model size)"],
+    ["5.6", "Multi-seed + significance"],
+    ["5.7", "Representation analysis (t-SNE, attention)"],
+  ]},
+  { name: "Phase 6 — Results & Discussion", tasks: [
+    ["6.1", "Headline metrics tables"],
+    ["6.2", "Label-efficiency figure"],
+    ["6.3", "Transfer matrix figure"],
+    ["6.4", "Ablation table"],
+    ["6.5", "Error analysis"],
+    ["6.6", "Limitations & threats to validity"],
+    ["6.7", "Thesis results+discussion chapters"],
+  ]},
+];
+
+const DEFAULT_STATES = {
+  "1.6": "done",
+  "2.1": "done", "2.2": "done", "2.7": "done",
+  "3.1": "inprogress", "3.2": "inprogress", "3.5": "inprogress",
+  "5.1": "inprogress", "5.2": "inprogress", "5.7": "inprogress",
+};
+
+function defaultData() {
+  const states = {};
+  for (const ph of PHASES) for (const [id] of ph.tasks) states[id] = DEFAULT_STATES[id] || "todo";
+  return { states, notes: {}, collapsed: {} };
+}
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return defaultData();
+    const parsed = JSON.parse(raw);
+    const base = defaultData();
+    // merge: keep stored values, fill any new task ids with defaults
+    for (const id of Object.keys(base.states)) {
+      if (parsed.states && STATES.includes(parsed.states[id])) base.states[id] = parsed.states[id];
+    }
+    base.notes = (parsed.notes && typeof parsed.notes === "object") ? parsed.notes : {};
+    base.collapsed = (parsed.collapsed && typeof parsed.collapsed === "object") ? parsed.collapsed : {};
+    return base;
+  } catch (e) {
+    return defaultData();
+  }
+}
+
+let data = loadData();
+
+function save() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (e) { /* private mode etc. */ }
+}
+
+function phaseProgress(ph) {
+  let sum = 0;
+  for (const [id] of ph.tasks) sum += STATE_WEIGHT[data.states[id] || "todo"];
+  return ph.tasks.length ? (sum / ph.tasks.length) * 100 : 0;
+}
+
+function overallProgress() {
+  let sum = 0, n = 0;
+  for (const ph of PHASES) for (const [id] of ph.tasks) { sum += STATE_WEIGHT[data.states[id] || "todo"]; n++; }
+  return n ? (sum / n) * 100 : 0;
+}
+
+function fmtPct(p) { return (Math.round(p * 10) / 10).toFixed(p % 1 === 0 ? 0 : 1) + "%"; }
+
+function render() {
+  const root = document.getElementById("phases");
+  root.textContent = "";
+  PHASES.forEach((ph, pi) => {
+    const card = document.createElement("section");
+    card.className = "phase" + (data.collapsed[pi] ? " collapsed" : "");
+
+    const head = document.createElement("div");
+    head.className = "phase-head";
+    const caret = document.createElement("span"); caret.className = "caret"; caret.textContent = "▼";
+    const h2 = document.createElement("h2"); h2.textContent = ph.name;
+    const pct = document.createElement("span"); pct.className = "phase-pct";
+    pct.textContent = fmtPct(phaseProgress(ph)) + " · " +
+      ph.tasks.filter(([id]) => data.states[id] === "done").length + "/" + ph.tasks.length + " done";
+    head.append(caret, h2, pct);
+    head.addEventListener("click", () => {
+      data.collapsed[pi] = !data.collapsed[pi];
+      save(); render();
+    });
+    card.appendChild(head);
+
+    const barWrap = document.createElement("div");
+    barWrap.className = "phase-bar";
+    const bar = document.createElement("div"); bar.className = "bar";
+    const fill = document.createElement("span"); fill.style.width = phaseProgress(ph) + "%";
+    bar.appendChild(fill); barWrap.appendChild(bar); card.appendChild(barWrap);
+
+    const list = document.createElement("div"); list.className = "tasks";
+    for (const [id, title] of ph.tasks) {
+      const state = data.states[id] || "todo";
+      const row = document.createElement("div");
+      row.className = "task state-" + state;
+
+      const tid = document.createElement("span"); tid.className = "tid"; tid.textContent = id;
+      const t = document.createElement("span"); t.className = "title"; t.textContent = title;
+
+      const chip = document.createElement("span");
+      chip.className = "chip " + state;
+      chip.textContent = STATE_LABEL[state];
+      chip.title = "Click to cycle: todo → in progress → done";
+      chip.addEventListener("click", () => {
+        const next = STATES[(STATES.indexOf(data.states[id] || "todo") + 1) % STATES.length];
+        data.states[id] = next;
+        save(); render();
+      });
+
+      const note = document.createElement("input");
+      note.type = "text"; note.className = "note"; note.placeholder = "note…";
+      note.value = data.notes[id] || "";
+      note.addEventListener("input", () => {
+        if (note.value) data.notes[id] = note.value; else delete data.notes[id];
+        save();
+      });
+
+      row.append(tid, t, chip, note);
+      list.appendChild(row);
+    }
+    card.appendChild(list);
+    root.appendChild(card);
+  });
+
+  const op = overallProgress();
+  document.getElementById("overall-pct").textContent = fmtPct(op);
+  document.getElementById("overall-bar").style.width = op + "%";
+}
+
+document.getElementById("reset-btn").addEventListener("click", () => {
+  if (confirm("Reset all task states and notes to the project defaults? This cannot be undone.")) {
+    data = defaultData();
+    save(); render();
+  }
+});
+
+render();
+</script>
+</body>
+</html>

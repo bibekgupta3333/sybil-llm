@@ -1,0 +1,19 @@
+{
+  "model_type": "RoadFM-Lite (Transformer Encoder-Decoder)",
+  "pretraining_epochs": 5,
+  "finetuning_epochs": 5,
+  "test_accuracy": 0.9142187848590764,
+  "test_loss": 0.24483227093716434,
+  "precision": 0.9916761796042618,
+  "recall": 0.8244621955077507,
+  "f1_score": 0.9003713940231474,
+  "device": "mps",
+  "model_parameters": {
+    "input_dim": 13,
+    "d_model": 128,
+    "nhead": 8,
+    "num_layers": 6,
+    "dim_feedforward": 512,
+    "dropout": 0.1
+  }
+}

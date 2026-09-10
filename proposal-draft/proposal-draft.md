@@ -27,7 +27,14 @@ The pretrained model is evaluated under three paradigms: few-shot contrastive fi
 
 ---
 
-## 1 Motivation
+## 1 Introduction
+
+In Vehicular Ad-hoc Networks (VANETs), a Sybil attack occurs when a single malicious physical entity claims multiple fictitious identities (ghost vehicles). This creates the illusion of multiple vehicles on the road, allowing attackers to broadcast conflicting messages, disrupt traffic management, and create safety hazards (e.g., phantom traffic jams). Detecting these attacks is challenging because individual forged messages often appear locally plausible.
+
+![Sybil Attack Visualization in VANET](/Users/bibekgupta/.gemini/antigravity/brain/2c923ae4-8f05-4b30-b49f-fde91ce80823/sybil_attack_concept_1776400525840.png)
+*Figure 1: Illustration of a single malicious vehicle deceiving smart infrastructure with multiple ghost identities.*
+
+## 2 Motivation
 
 Vehicular crowdsensing (VCS) systems rely on networks of participating vehicles to collect traffic, environmental, and infrastructure data in exchange for monetary or service-based rewards [1]. The economic incentive model that makes VCS viable also makes it an attractive target for Sybil attacks, in which a single adversary forges multiple fake vehicle identities to claim unearned rewards and inject corrupted data into the sensing pool [2]. Because every fabricated identity appears as a legitimate participant, Sybil attacks degrade both the economic integrity and the data quality of the entire crowdsensing ecosystem. Detecting these attacks therefore requires methods that can reliably distinguish fabricated vehicle trajectories from legitimate ones.
 
@@ -97,7 +104,7 @@ This thesis sits at the intersection of three closely related research areas:
 
 **Vehicular Sybil Detection.** The vehicular security literature provides the attack framing, benchmark setting, and strong traditional baselines [3, 6, 7, 8, 17, 18, 19, 32]. However, most of this literature still favors heuristics or fully supervised classifiers over reusable pretrained trajectory foundation models. This thesis targets that gap directly.
 
-## 2 Related Work
+## 3 Related Work
 
 The proposed research builds on recent work in trajectory foundation models, self-supervised representation learning, and vehicular security. This section emphasizes self-supervised sequence learning, road-network-grounded trajectory modeling, Sybil detection on vehicular benchmarks, and low-label evaluation settings.
 
@@ -157,7 +164,7 @@ Our analysis of the literature reveals four concrete gaps that this thesis addre
 
 This thesis addresses those gaps through a focused and internally consistent contribution set. First, it proposes RoadFM-Lite as a self-supervised trajectory foundation model that learns road-network-grounded representations from simulated vehicular data. Second, it introduces a pretraining design based on masked trajectory reconstruction and trajectory consistency prediction using synthetic corruptions derived directly from the benchmark. Third, it evaluates the resulting embeddings under few-shot, zero-shot, fully supervised, and scenario-holdout settings, thereby measuring both label efficiency and within-benchmark generalization. Finally, it defines a reproducible preprocessing pipeline that converts raw vehicular messages into sender-aligned trajectory windows suitable for security-oriented sequence learning.
 
-## 3 Proposed Architecture
+## 4 Proposed Architecture
 
 The implementation of RoadFM-Lite follows an encoder-decoder foundation model design built directly on raw vehicular messages. The architecture has four components: a preprocessing stage that converts line-delimited traces into fixed-length trajectory windows, a Transformer encoder that produces road-network-grounded representations from those windows, a Transformer decoder that reconstructs masked or corrupted trajectory segments from the encoder representations, and task-specific heads that change across self-supervised pretraining and downstream detection. During pretraining, the encoder and decoder are trained jointly; during downstream Sybil detection, only the encoder is retained and the decoder is discarded, following the standard foundation model paradigm.
 
@@ -276,7 +283,7 @@ RoadFM-Lite operates in two distinct phases with different active components:
 
 This separation follows the standard foundation model paradigm: the pretraining phase uses the full encoder-decoder architecture to maximize representation quality, while the downstream phase discards the decoder and evaluates whether the encoder alone has learned transferable structure.
 
-## 4 Pretraining Objectives
+## 5 Pretraining Objectives
 
 The encoder-decoder foundation model is pretrained on unlabeled trajectory windows using two complementary objectives. Both operate on the same backbone and require no external annotations. The overall pretraining loss is
 
@@ -321,7 +328,7 @@ $$\mathcal{L}_{\text{TCP}} = - \sum_{k=1}^{|\mathcal{G}|} y_k \log \hat{y}_k.$$
 
 TCP is deliberately closer to the downstream problem than a generic augmentation objective. It teaches the encoder to become sensitive to replay artifacts, temporal disorder, and persistent offsets that are plausible manifestations of Sybil-style fabrication in vehicular message traces.
 
-## 5 Downstream Task: Sybil Detection
+## 6 Downstream Task: Sybil Detection
 
 After pretraining, the decoder and self-supervised heads are discarded and the pretrained encoder is evaluated on Sybil detection tasks built from the same dataset. The central question is whether the road-network-grounded representations learned by the full encoder-decoder foundation model improve downstream discrimination and label efficiency compared to encoder-only training from scratch.
 
@@ -357,7 +364,7 @@ This setting is important because it tests representation quality directly. If t
 
 As an upper-bound reference, the pretrained encoder is also fine-tuned with a standard cross-entropy classifier using the full labeled training split. This setting answers a separate question from few-shot learning: whether self-supervised initialization still helps when all available labels are used.
 
-## 6 Baselines
+## 7 Baselines
 
 The proposed model is compared against three baselines that can all be trained using the same inputs and splits.
 
@@ -384,7 +391,7 @@ This baseline provides a practical benchmark for how far simple, interpretable s
 
 This baseline feeds the same feature sequence into a standard bidirectional LSTM followed by a classification head. It tests whether the benefits of RoadFM-Lite come from self-supervised pretraining rather than from sequence modeling alone.
 
-## 7 Evaluation Plan
+## 8 Evaluation Plan
 
 The evaluation methodology is designed to assess four properties of the learned representation: detection quality, label efficiency, scenario robustness, and component contribution.
 
@@ -474,7 +481,7 @@ Each variant is evaluated under the same few-shot protocol ($K = 10$) and the fu
 
 **Error Analysis.** False positives and false negatives will be inspected qualitatively in terms of replay-like segments, abrupt offsets, timing discontinuities, and benign high-variance motion. This is important because the proposal claims a representation benefit, not merely a classifier improvement.
 
-## 8 Dataset Scope and Preprocessing
+## 9 Dataset Scope and Preprocessing
 
 This thesis uses only the local VeReMi Sybil dataset available in the workspace. No external trajectory corpora, road-network assets, or additional simulators are required.
 
@@ -521,7 +528,7 @@ This arrangement preserves the benchmark-focused scope while still allowing mult
 
 The VeReMi dataset provides a strong foundation for learning road-network-grounded trajectory representations because it is generated by the SUMO microscopic traffic simulator operating on a detailed urban road network (the Luxembourg scenario). All kinematic features, including position, speed, acceleration, and heading, reflect real road-constrained vehicle movement. This means the foundation model learns road-level structure implicitly from trajectory patterns rather than from an explicit graph input, which simplifies the pipeline while preserving the road-network-grounded character of the representations. Focusing the thesis on this benchmark has three additional benefits: it makes every experiment reproducible from one known data source, it sharpens the contribution to a concrete foundation model for road-network-grounded Sybil detection, and it keeps the scope realistic for a master's thesis timeline.
 
-## 9 Timeline and Deliverables
+## 10 Timeline and Deliverables
 
 The thesis remains structured across two semesters, with the work plan organized around building and evaluating the RoadFM-Lite foundation model.
 

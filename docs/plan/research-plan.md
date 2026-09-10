@@ -64,13 +64,17 @@ The pre-research phase: define the idea, position it against the literature, and
 
 | ID | Task | Status | Artifact |
 |----|------|--------|----------|
-| 1.1 | VeReMi-Extension structure: scenarios, JSON message logs, ground-truth files | ⬜ Todo | `docs/research-notes/` write-up |
-| 1.2 | Characterize the 4 Sybil attack types (DataReplay, DoSDisruptive, DoSRandom, Grid) vs benign | ⬜ Todo | Attack-taxonomy section + per-family trace examples |
-| 1.3 | Message field semantics: `pos`, `spd`, `acl`, `hed`, noise model | ⬜ Todo | Field-reference table (incl. `*_noise` variants) |
-| 1.4 | Class balance per scenario and time window (0709 vs 1416) | 🟡 Partial | Counts in `data/prepared_data/config.json` (285,926 windows; group split 195,551 / 90,375); per-class-per-group table pending |
-| 1.5 | Leakage audit: vehicle-level and scenario-level split design | ⬜ Todo | Split-protocol doc + audit script |
+| 1.1 | VeReMi-Extension structure: scenarios, JSON message logs, ground-truth files | ✅ Done | `docs/research-notes/veremi-dataset-structure.md` |
+| 1.2 | Characterize the 4 Sybil attack types (DataReplay, DoSDisruptive, DoSRandom, Grid) vs benign | ✅ Done | `docs/research-notes/attack-taxonomy.md`, `results/figures/eda/attack_trajectory_examples.png` |
+| 1.3 | Message field semantics: `pos`, `spd`, `acl`, `hed`, noise model | ✅ Done | `docs/research-notes/field-reference.md` |
+| 1.4 | Class balance per scenario and time window (0709 vs 1416) | ✅ Done | `docs/research-notes/class-balance.md` |
+| 1.5 | Leakage audit: vehicle-level and scenario-level split design | ✅ Done | `docs/research-notes/split-protocol.md`, `scripts/audit_splits.py` (all checks pass) |
 | 1.6 | EDA: trajectory lengths, speed/accel distributions, spatial coverage, time gaps | ✅ Done | `results/figures/eda/*`, `notebooks/eda_veremi.ipynb` |
-| 1.7 | Data-quality checks: duplicates, gaps, coordinate frame | ⬜ Todo | QA cell block in EDA notebook + summary note |
+| 1.7 | Data-quality checks: duplicates, gaps, coordinate frame | ✅ Done | `docs/research-notes/data-quality-checks.md`, QA cells appended to `notebooks/eda_veremi.ipynb` |
+
+**All 7 Phase 1 tasks are now done.** One task surfaced a real defect during investigation — see
+"GridSybil_0709 windowing defect" below, which must be resolved as part of Phase 2 task 2.6 before the current
+`data/prepared_data/X_windows.npy` is treated as clean.
 
 ### Acceptance criteria
 
@@ -82,11 +86,42 @@ The pre-research phase: define the idea, position it against the literature, and
 - **1.6** — Done (existing): distribution figures for trajectory length, speed, acceleration, spatial coverage, temporal gaps, and vehicle counts are generated and stored under version control.
 - **1.7** — Done when duplicate messages, non-monotonic `sendTime`, missing steps, and coordinate-frame sanity (SUMO local planar coords, Luxembourg extent) are each checked with a pass/fail cell and anomalies are counted.
 
+### Findings worth carrying forward
+
+- **Attacker-code mapping confirmed from data**: A16=GridSybil, A17=DataReplaySybil, A18=DoSRandomSybil,
+  A19=DoSDisruptiveSybil (filename `traceJSON-<node>-<pseudo>-A<code>-...`); labels attach via
+  `GT.sender == filename.node_id`, verified 100% overlap.
+- **Class imbalance quantified**: 0709:1416 windows ≈ **2.16:1** overall; per-class imbalance ranges from
+  **Benign:GridSybil ≈ 2.26:1** (mildest) to **Benign:DataReplaySybil ≈ 9.51:1** (worst), and the ratio itself
+  shifts between scenario groups — feeds directly into the macro-F1 / class-weighting decision in Phase 3.
+- **Leakage audit passes cleanly**: train/val/test and the 0709/1416 group split are both sender-disjoint and
+  index-complete; committed normalization stats match a from-scratch train-only recomputation exactly
+  (`scripts/audit_splits.py`, all checks green).
+- **Data-quality checks pass on the 4 originally-scoped criteria** (0 duplicates, 0 non-monotonic `sendTime`,
+  ordinary `dt` jitter, bounded/planar coordinates) — but see the defect below, which none of those 4 checks were
+  designed to catch, and which motivates a 5th check going forward.
+- **DoSDisruptiveSybil's real attack signature (message sparsity/timing irregularity) does not map cleanly onto
+  any of the 4 planned SSL corruption types** (replay/shuffle/speed-scale/position-offset) — flag for Phase 2/3
+  design: either add a timing-corruption operator or accept this as a known blind spot.
+
+### ⚠ GridSybil_0709 windowing defect (found during Phase 1, blocks a Phase 2 acceptance criterion)
+
+**`scripts/prepare_data.py` (task 2.6) must fix this before regenerating `data/prepared_data/`.** The current
+windowing code groups ground-truth messages by `senderPseudo`, but in `GridSybil_0709` the value
+`senderPseudo == 1` is a shared sentinel across **653 different physical vehicles** (71,767 GT messages). Windowing
+therefore splices unrelated vehicles' messages together by timestamp order, producing **14,764 windows (5.16% of
+the entire 285,926-window dataset)** with physically meaningless `dt`/`dpos`/`dspd` values. Scoped entirely to
+`GridSybil_0709` (both subfolders) — `GridSybil_1416` and every other family/group are unaffected. Full detail,
+evidence, and the required fix (group by raw `sender`/`node_id`, not `senderPseudo`) are in
+`docs/research-notes/gridsybil-windowing-defect.md`. Any number computed from the current `X_windows.npy` for
+GridSybil_0709 (including the v1 pilot results in `models/results/`) carries this caveat until task 2.6 fixes it.
+
 ### Known risks
 
-- **Class imbalance:** benign windows dominate; attack families differ in size across groups (0709 ≈ 2× the windows of 1416). Unweighted training and accuracy-style metrics would mislead — mitigate with per-class metrics (macro-F1, per-family recall) and, if needed, class-weighted losses.
-- **Per-scenario leakage via sender pseudonyms:** the same underlying vehicle contributes many overlapping windows; pseudonym reuse within a scenario means naive random window splits leak near-duplicates across train/test. All splits must be assigned at the sender-sequence level *before* window generation (Task 1.5 verifies this for the existing `idx_*` files too).
+- **Class imbalance:** benign windows dominate; attack families differ in size across groups (0709 ≈ 2× the windows of 1416, now quantified as 2.16:1 — see class-balance.md). Unweighted training and accuracy-style metrics would mislead — mitigate with per-class metrics (macro-F1, per-family recall) and, if needed, class-weighted losses.
+- **Per-scenario leakage via sender pseudonyms:** the same underlying vehicle contributes many overlapping windows; pseudonym reuse within a scenario means naive random window splits leak near-duplicates across train/test. All splits must be assigned at the sender-sequence level *before* window generation — verified for the existing `idx_*` files (task 1.5, `scripts/audit_splits.py`, all pass).
 - **Simulator regularity:** SUMO traces are smoother than real telemetry; the model may key on simulation artifacts. Note as a limitation (Phase 6) and keep the noise-variant fields in reserve for a robustness check.
+- **Windowing groupby key bug (new, see above):** `senderPseudo` is not a reliable per-vehicle key across the whole dataset — confirmed to break down specifically in `GridSybil_0709`. Must be fixed at the source (task 2.6) rather than patched downstream.
 
 ## Phase 2 — Feature Engineering
 

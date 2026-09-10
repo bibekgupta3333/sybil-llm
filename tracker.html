@@ -1,354 +1,829 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RoadFM-Lite Research Tracker</title>
 <style>
-  :root {
-    --bg: #f6f7f9;
-    --card: #ffffff;
-    --ink: #1f2937;
-    --muted: #6b7280;
-    --line: #e5e7eb;
-    --todo: #9ca3af;
-    --todo-bg: #f3f4f6;
-    --prog: #b45309;
-    --prog-bg: #fef3c7;
-    --done: #15803d;
-    --done-bg: #dcfce7;
-    --accent: #1d4ed8;
-    --bar-bg: #e5e7eb;
-  }
-  * { box-sizing: border-box; }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background: var(--bg);
-    color: var(--ink);
-    line-height: 1.45;
+    background: #0a0c10;
+    color: #e1e4e8;
+    font-family: 'Inter', -apple-system, sans-serif;
+    padding: 48px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
-  .wrap { max-width: 880px; margin: 0 auto; padding: 28px 20px 80px; }
-  header h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: -0.02em; }
-  header .subtitle { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
-  .toolbar {
-    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-    margin-bottom: 22px;
+  h1 {
+    font-size: 32px; font-weight: 700; letter-spacing: -0.025em; margin-bottom: 8px;
+    background: linear-gradient(135deg, #58a6ff, #bc8cff);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   }
-  .overall {
-    flex: 1 1 320px; background: var(--card); border: 1px solid var(--line);
-    border-radius: 10px; padding: 12px 16px;
+  h2 {
+    font-size: 20px; font-weight: 600; color: #f0f6fc; margin: 0;
+    padding: 18px 24px; border-radius: 10px 10px 0 0; letter-spacing: -0.01em;
   }
-  .overall .label-row {
-    display: flex; justify-content: space-between; font-size: 13px;
-    color: var(--muted); margin-bottom: 6px;
+  h2.section-header-blue   { background: linear-gradient(135deg, #0d2b4a, #0d1b2b); border-bottom: 2px solid #1f6feb; }
+  h2.section-header-amber  { background: linear-gradient(135deg, #2a1a0d, #1b120d); border-bottom: 2px solid #f0883e; }
+  h2.section-header-purple { background: linear-gradient(135deg, #1a0d2b, #120d1b); border-bottom: 2px solid #6e40c9; }
+  h2.section-header-green  { background: linear-gradient(135deg, #0d1b0d, #0a150a); border-bottom: 2px solid #238636; }
+  h2.section-header-multi  { background: linear-gradient(135deg, #0d2b4a, #1a0d2b); border-bottom: 2px solid #58a6ff; }
+  h3 {
+    font-size: 15px; font-weight: 600; color: #58a6ff; margin: 20px 0 12px 0; letter-spacing: -0.01em;
   }
-  .overall .label-row .pct { color: var(--ink); font-weight: 600; }
-  .bar { height: 10px; background: var(--bar-bg); border-radius: 6px; overflow: hidden; }
-  .bar > span { display: block; height: 100%; background: var(--accent); border-radius: 6px; width: 0%; transition: width .25s ease; }
-  button.reset {
-    background: var(--card); color: #b91c1c; border: 1px solid #fecaca;
-    border-radius: 8px; padding: 9px 14px; font-size: 13px; cursor: pointer;
-  }
-  button.reset:hover { background: #fef2f2; }
-  .legend { font-size: 12px; color: var(--muted); margin: 0 0 18px; }
-  .legend .chip { margin-right: 10px; }
+  h3::before { content: "▎"; margin-right: 6px; opacity: 0.7; }
+  .subtitle { color: #8b949e; font-size: 14px; margin-bottom: 36px; }
 
-  .phase {
-    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-    margin-bottom: 14px; overflow: hidden;
+  .section { max-width: 1400px; width: 100%; margin-top: 48px; }
+  .section-body {
+    background: #0d1117; border: 1px solid #21262d; border-top: none;
+    border-radius: 0 0 10px 10px; padding: 24px;
   }
-  .phase-head {
-    display: flex; align-items: center; gap: 12px; padding: 13px 16px;
-    cursor: pointer; user-select: none;
-  }
-  .phase-head:hover { background: #fafafa; }
-  .phase-head .caret { font-size: 12px; color: var(--muted); width: 14px; transition: transform .15s ease; }
-  .phase.collapsed .caret { transform: rotate(-90deg); }
-  .phase-head h2 { margin: 0; font-size: 16px; flex: 1; }
-  .phase-head .phase-pct { font-size: 13px; color: var(--muted); white-space: nowrap; }
-  .phase-bar { padding: 0 16px 12px; }
-  .phase-bar .bar > span { background: var(--done); }
-  .tasks { border-top: 1px solid var(--line); }
-  .phase.collapsed .tasks, .phase.collapsed .phase-bar { display: none; }
 
-  .task {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 16px; border-bottom: 1px solid var(--line);
+  /* ---- Canvas (3-column) ---- */
+  .canvas {
+    max-width: 1400px; width: 100%;
+    display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 24px; align-items: start;
+    margin-top: 28px;
   }
-  .task:last-child { border-bottom: none; }
-  .task .tid { font-size: 12px; color: var(--muted); width: 30px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
-  .task .title { flex: 1 1 45%; font-size: 14px; }
-  .task.state-done .title { color: var(--muted); text-decoration: line-through; text-decoration-color: #c7ccd4; }
-  .chip {
-    font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase;
-    border-radius: 999px; padding: 4px 10px; cursor: pointer; border: 1px solid transparent;
-    flex-shrink: 0; user-select: none; min-width: 96px; text-align: center;
+  .column { display: flex; flex-direction: column; gap: 14px; }
+  .column-title {
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+    text-align: center; padding: 10px 0; margin-bottom: 6px; border-radius: 6px;
   }
-  .chip.todo { color: var(--todo); background: var(--todo-bg); border-color: #d1d5db; }
-  .chip.inprogress { color: var(--prog); background: var(--prog-bg); border-color: #fcd34d; }
-  .chip.done { color: var(--done); background: var(--done-bg); border-color: #86efac; }
-  .task input.note {
-    flex: 1 1 30%; min-width: 130px; font-size: 12px; padding: 6px 8px;
-    border: 1px solid var(--line); border-radius: 6px; color: var(--ink);
-    background: #fcfcfd;
+  .col-title-pipeline { background: #0d2b4a; color: #58a6ff; border-bottom: 2px solid #1f6feb; }
+  .col-title-model    { background: #2a1a0d; color: #f0883e; border-bottom: 2px solid #d27722; }
+  .col-title-eval     { background: #1a0d2b; color: #bc8cff; border-bottom: 2px solid #6e40c9; }
+
+  .box {
+    background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+    padding: 14px 16px; font-size: 13px; line-height: 1.5; position: relative;
+    transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
   }
-  .task input.note::placeholder { color: #b6bcc6; }
-  .task input.note:focus { outline: none; border-color: var(--accent); }
-  footer { margin-top: 26px; font-size: 12px; color: var(--muted); }
-  footer code { background: #eef0f3; padding: 1px 5px; border-radius: 4px; }
+  .box:hover { border-color: #58a6ff; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(88,166,255,0.08); }
+  .box-label { font-weight: 600; color: #58a6ff; font-size: 13px; margin-bottom: 4px; }
+  .box-desc  { color: #8b949e; font-size: 12px; }
+  .box-highlight { border-color: #f0883e; border-width: 1.5px; }
+  .box-highlight .box-label { color: #f0883e; }
+  .arrow { text-align: center; color: #484f58; font-size: 18px; line-height: 1; padding: 2px 0; }
+  .arrow-label { font-size: 10px; color: #484f58; text-align: center; margin: -2px 0 2px; letter-spacing: 0.03em; }
+  .tag {
+    position: absolute; top: -8px; right: 12px; font-size: 10px; font-weight: 600;
+    padding: 2px 10px; border-radius: 20px; background: #1f2937; border: 1px solid #30363d; color: #8b949e;
+  }
+  .tag-env  { background: #0d419d; border-color: #1f6feb; color: #c9d1d9; }
+  .tag-llm  { background: #3d1f00; border-color: #d29922; color: #d29922; }
+  .tag-core { background: #1a3a1a; border-color: #238636; color: #5be05b; }
+  .badge {
+    display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px;
+    border-radius: 20px; margin-right: 6px; background: #1f2937; color: #8b949e;
+  }
+  .badge-h1 { background: #1a3a1a; color: #5be05b; }
+  .badge-h2 { background: #1a2a3a; color: #58a6ff; }
+  .badge-h3 { background: #3a1a1a; color: #f85149; }
+  .badge-h4 { background: #2a1a3a; color: #bc8cff; }
+
+  /* ---- Data flow ---- */
+  .data-flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 16px 0; }
+  .data-step {
+    background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 14px;
+    font-size: 12px; text-align: center; position: relative;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+  .data-step:hover { border-color: #58a6ff; transform: translateY(-1px); }
+  .data-step .step-num {
+    position: absolute; top: -10px; left: -10px; width: 24px; height: 24px;
+    background: #1f6feb; color: #fff; border-radius: 50%; font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(31,111,235,0.3);
+  }
+  .data-step .step-title { font-weight: 600; color: #58a6ff; margin: 6px 0; }
+  .data-step .step-items { color: #8b949e; font-size: 11px; line-height: 1.6; text-align: left; }
+  .data-step .step-items li { margin: 2px 0; list-style: none; }
+  .data-step .step-items li::before { content: "▸ "; color: #484f58; }
+
+  /* ---- Stats grid ---- */
+  .stats-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin: 16px 0; }
+  .stat-card {
+    background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 14px;
+    text-align: center; transition: border-color 0.2s, transform 0.15s;
+  }
+  .stat-card:hover { border-color: #238636; transform: translateY(-2px); }
+  .stat-card .stat-val {
+    font-size: 22px; font-weight: 700;
+    background: linear-gradient(135deg, #58a6ff, #bc8cff);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .stat-card .stat-label { font-size: 11px; color: #8b949e; margin-top: 4px; }
+
+  /* ---- Tables ---- */
+  .metrics-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 16px 0; }
+  .metrics-table th, .metrics-table td { padding: 8px 12px; text-align: right; border-bottom: 1px solid #21262d; }
+  .metrics-table th { background: #161b22; color: #8b949e; font-weight: 600; white-space: nowrap; }
+  .metrics-table th:first-child, .metrics-table td:first-child { text-align: left; }
+  .metrics-table tr:hover td { background: #1a1f2b; }
+  .metric-good { color: #5be05b; }
+  .metric-ok   { color: #d29922; }
+  .metric-bad  { color: #f85149; }
+  .metric-zero { color: #484f58; }
+
+  .pt-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 8px; }
+  .pt-table th {
+    text-align: left; padding: 6px 8px; background: #161b22; border-bottom: 2px solid #30363d;
+    color: #8b949e; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .pt-table td { padding: 6px 8px; border-bottom: 1px solid #21262d; vertical-align: top; }
+  .pt-table tr:hover td { background: rgba(240,136,62,0.04); }
+  .pt-table .num { color: #8b949e; font-family: 'Fira Code', monospace; white-space: nowrap; }
+  .pt-table .src { color: #6e7681; font-family: 'Fira Code', monospace; font-size: 10px; }
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 9px; font-weight: 700;
+    letter-spacing: 0.06em; white-space: nowrap;
+  }
+  .pill-ready   { background: #0d260d; color: #5be05b; border: 1px solid #238636; }
+  .pill-partial { background: #2b1d0d; color: #d29922; border: 1px solid #9e6a03; }
+  .pill-blocked { background: #2b0d0d; color: #f85149; border: 1px solid #8b2525; }
+  .pill-todo    { background: #161b22; color: #8b949e; border: 1px solid #30363d; }
+
+  /* ---- Hypotheses banner ---- */
+  .hypothesis-banner {
+    margin-top: 32px; padding: 16px 24px; background: #161b22; border: 1px solid #30363d;
+    border-radius: 10px; max-width: 1400px; width: 100%;
+  }
+  .hypothesis-row {
+    display: flex; gap: 28px; flex-wrap: wrap; justify-content: center;
+    font-size: 12px; color: #8b949e;
+  }
+  .hypothesis-footer { text-align: center; margin-top: 12px; font-size: 11px; color: #484f58; }
+
+  .callout {
+    background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+    padding: 14px 18px; margin: 14px 0; color: #8b949e; font-size: 12px; line-height: 1.6;
+  }
+  .callout-red    { border-left: 4px solid #f85149; }
+  .callout-amber  { border-left: 4px solid #d29922; }
+  .callout-green  { border-left: 4px solid #238636; }
+  .callout-blue   { border-left: 4px solid #58a6ff; }
+  .legend { display: flex; gap: 12px; margin-top: 12px; font-size: 11px; color: #8b949e; flex-wrap: wrap; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>RoadFM-Lite Research Tracker</h1>
-    <p class="subtitle">Full thesis lifecycle — proposal → research → writing → defense. Sybil attack detection on the VeReMi-Extension dataset via a self-supervised trajectory transformer (RoadFM-Lite). Plan: <code>docs/plan/research-plan.md</code></p>
-  </header>
 
-  <div class="toolbar">
-    <div class="overall">
-      <div class="label-row"><span>Overall progress (in-progress counts 0.5)</span><span class="pct" id="overall-pct">0%</span></div>
-      <div class="bar"><span id="overall-bar"></span></div>
-    </div>
-    <button class="reset" id="reset-btn" type="button">Reset to defaults</button>
+<h1>RoadFM-Lite Research Tracker</h1>
+<p class="subtitle">Self-Supervised Trajectory Foundation Model for Sybil Attack Detection — VeReMi-Extension · Master's Thesis, Florida Polytechnic University</p>
+
+<!-- Core Objective Banner -->
+<div style="max-width:1400px; width:100%; background:linear-gradient(135deg, #0d2b4a, #1a0d2b); border:1px solid #30363d; border-left:4px solid #58a6ff; border-radius:10px; padding:20px 28px; margin-bottom:28px;">
+  <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; color:#58a6ff; margin-bottom:6px;">Core Research Objective</div>
+  <div style="font-size:15px; line-height:1.6; color:#c9d1d9;">
+    Detect <strong style="color:#f0883e;">Sybil attacks</strong> in vehicular networks — one adversary forging many ghost-vehicle identities — by
+    <strong style="color:#58a6ff;">pretraining a compact Transformer on unlabeled trajectory windows</strong> with two self-supervised objectives
+    (Masked Trajectory Reconstruction + Trajectory Consistency Prediction over synthetic corruptions), then transferring the frozen/fine-tuned encoder to
+    detection under <strong style="color:#5be05b;">few-shot, zero-shot, and cross-scenario evaluation</strong>.
   </div>
-
-  <p class="legend">Click a status chip to cycle:
-    <span class="chip todo">todo</span>
-    <span class="chip inprogress">in progress</span>
-    <span class="chip done">done</span>
-    &nbsp;Notes save automatically. All state persists in this browser (localStorage).
-  </p>
-
-  <div id="phases"></div>
-
-  <footer>
-    Local file — no network required. Data key: <code>roadfm-tracker-v1</code>.
-  </footer>
+  <div style="display:flex; gap:20px; margin-top:12px; font-size:12px; color:#8b949e; flex-wrap:wrap;">
+    <span><span style="color:#58a6ff;">■</span> 285,926 windows of 20 steps × 13 kinematic features</span>
+    <span><span style="color:#f0883e;">■</span> 4 Sybil attack families + benign (5-class)</span>
+    <span><span style="color:#5be05b;">■</span> two disjoint scenarios (0709 / 1416) for transfer</span>
+    <span><span style="color:#bc8cff;">■</span> label-efficiency is the headline claim</span>
+  </div>
 </div>
 
-<script>
-"use strict";
+<!-- ═══════════════════════════════════════════════════════════════════════
+     THESIS ALIGNMENT TRACKER — the drift check
+     Update this after every substantive change. Statuses reflect evidence
+     that exists in the repository, not code that exists or work intended.
+     ═══════════════════════════════════════════════════════════════════ -->
+<div style="max-width:1400px; width:100%; background:#0d1117; border:1px solid #30363d; border-left:4px solid #f0883e; border-radius:10px; padding:20px 28px; margin-bottom:28px;">
+  <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; color:#f0883e; margin-bottom:6px;">Thesis Alignment Tracker — is the work still the thesis?</div>
+  <div style="font-size:14px; line-height:1.5; color:#c9d1d9; margin-bottom:6px;">
+    <strong>A Self-Supervised Foundation Model for Road-Network-Grounded Trajectory Representation with Application to Sybil Attack Detection</strong>
+  </div>
+  <div style="font-size:12px; color:#8b949e; margin-bottom:14px;">
+    The title decomposes into seven claims. Each is scored against what the repository can actually <em>demonstrate</em> —
+    not what is built, and not what is intended. <strong style="color:#e6edf3;">Re-check this table after every substantive change:</strong>
+    if a change does not move a row toward aligned, it is not moving the thesis. Last reviewed <strong>2026-09-10</strong> (initial construction,
+    from the v1 pilot in <code>models/transformer_model.ipynb</code> and the plan in <code>docs/plan/research-plan.md</code>).
+  </div>
 
-const STORE_KEY = "roadfm-tracker-v1";
-const STATES = ["todo", "inprogress", "done"];
-const STATE_LABEL = { todo: "todo", inprogress: "in progress", done: "done" };
-const STATE_WEIGHT = { todo: 0, inprogress: 0.5, done: 1 };
+  <div style="display:flex; gap:14px; margin-bottom:14px; flex-wrap:wrap;">
+    <div style="background:#0d1117; border:1px solid #30363d; border-radius:6px; padding:8px 14px; font-size:12px;">
+      <span style="color:#5be05b; font-weight:600;">1</span> <span style="color:#8b949e;">aligned</span>
+    </div>
+    <div style="background:#0d1117; border:1px solid #30363d; border-radius:6px; padding:8px 14px; font-size:12px;">
+      <span style="color:#d29922; font-weight:600;">3</span> <span style="color:#8b949e;">partial</span>
+    </div>
+    <div style="background:#0d1117; border:1px solid #30363d; border-radius:6px; padding:8px 14px; font-size:12px;">
+      <span style="color:#f85149; font-weight:600;">3</span> <span style="color:#8b949e;">built but unevidenced</span>
+    </div>
+    <div style="padding:8px 4px; font-size:11px; color:#484f58;">1 + 3 + 3 = 7 clauses — the counts must always sum to seven, and each row carries a matching pill</div>
+  </div>
 
-const PHASES = [
-  { name: "Phase 0 — Proposal & Planning", tasks: [
-    ["0.1", "Research idea & scope definition"],
-    ["0.2", "Literature survey (annotated related papers)"],
-    ["0.3", "Gap analysis vs existing literature"],
-    ["0.4", "Novelty analysis of RoadFM-Lite"],
-    ["0.5", "Work breakdown structure (WBS)"],
-    ["0.6", "Proposal document (main.tex + draft)"],
-    ["0.7", "Proposal presentation slides"],
-    ["0.8", "Proposal defense & committee approval"],
-  ]},
-  { name: "Phase 1 — Data Understanding", tasks: [
-    ["1.1", "VeReMi-Extension structure (scenarios, message logs, GT files)"],
-    ["1.2", "Characterize 4 Sybil attack types vs benign"],
-    ["1.3", "Message field semantics (pos/spd/acl/hed, noise)"],
-    ["1.4", "Class balance per scenario & time window"],
-    ["1.5", "Leakage audit / split design"],
-    ["1.6", "EDA distributions & spatial coverage"],
-    ["1.7", "Data-quality checks"],
-  ]},
-  { name: "Phase 2 — Feature Engineering", tasks: [
-    ["2.1", "Windowing pipeline verify+document"],
-    ["2.2", "13 kinematic features + normalization"],
-    ["2.3", "Physical-plausibility features"],
-    ["2.4", "SSL corruption suite (replay/shuffle/speed-scale/offset)"],
-    ["2.5", "Masking strategy for MTR"],
-    ["2.6", "Reproducible prepare_data.py script"],
-    ["2.7", "Group splits, no vehicle leakage"],
-  ]},
-  { name: "Phase 3 — Methodology", tasks: [
-    ["3.1", "Architecture spec"],
-    ["3.2", "MTR pretext task"],
-    ["3.3", "TCP pretext task"],
-    ["3.4", "Multi-task loss weighting"],
-    ["3.5", "Fine-tuning heads (binary + 5-class)"],
-    ["3.6", "Few-shot/zero-shot protocols"],
-    ["3.7", "Training config + seed policy"],
-  ]},
-  { name: "Phase 4 — Baselines", tasks: [
-    ["4.1", "Literature baseline numbers"],
-    ["4.2", "Classical ML (RF/XGBoost/SVM)"],
-    ["4.3", "LSTM/GRU/1D-CNN"],
-    ["4.4", "Same-arch transformer from scratch"],
-    ["4.5", "Reproduce one published baseline"],
-  ]},
-  { name: "Phase 5 — Experiments", tasks: [
-    ["5.1", "Pretraining runs"],
-    ["5.2", "Full-label fine-tuning"],
-    ["5.3", "Label-efficiency curves (1/5/10/50/100%)"],
-    ["5.4", "Cross-scenario transfer 0709↔1416"],
-    ["5.5", "Ablations (pretext tasks, model size)"],
-    ["5.6", "Multi-seed + significance"],
-    ["5.7", "Representation analysis (t-SNE, attention)"],
-  ]},
-  { name: "Phase 6 — Results & Discussion", tasks: [
-    ["6.1", "Headline metrics tables"],
-    ["6.2", "Label-efficiency figure"],
-    ["6.3", "Transfer matrix figure"],
-    ["6.4", "Ablation table"],
-    ["6.5", "Error analysis"],
-    ["6.6", "Limitations & threats to validity"],
-    ["6.7", "Thesis results+discussion chapters"],
-  ]},
-  { name: "Phase 7 — Thesis Writing (Introduction → Conclusion)", tasks: [
-    ["7.1", "Abstract"],
-    ["7.2", "Ch. 1: Introduction (problem, motivation, contributions)"],
-    ["7.3", "Ch. 2: Literature Review / Related Work"],
-    ["7.4", "Ch. 3: Methodology (data, features, model, protocols)"],
-    ["7.5", "Ch. 4: Results"],
-    ["7.6", "Ch. 5: Discussion"],
-    ["7.7", "Ch. 6: Conclusion & Future Work"],
-    ["7.8", "References & citations complete (references.bib)"],
-    ["7.9", "Florida Poly thesis formatting compliance"],
-  ]},
-  { name: "Phase 8 — Defense & Submission", tasks: [
-    ["8.1", "Full thesis draft to advisor"],
-    ["8.2", "Committee revisions incorporated"],
-    ["8.3", "Defense presentation slides"],
-    ["8.4", "Thesis defense"],
-    ["8.5", "Final formatted submission to Graduate Studies"],
-    ["8.6", "Code & data archive (repo, README, reproducibility)"],
-  ]},
-];
+  <div style="overflow-x:auto;">
+  <table class="metrics-table" style="font-size:11.5px;">
+    <thead>
+      <tr>
+        <th style="width:170px; text-align:left;">Title clause</th>
+        <th style="width:130px; text-align:left;">Verdict</th>
+        <th style="text-align:left;">Evidence in the repository</th>
+        <th style="width:150px; text-align:left;">Unblocked by</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="text-align:left;"><strong>Trajectory Representation</strong></td>
+        <td style="text-align:left;"><span class="pill pill-ready">ALIGNED</span></td>
+        <td style="text-align:left;">285,926 windows of 20×13 kinematic features exist with train-only z-score normalization
+        (<code>data/prepared_data/</code>, manifest in <code>config.json</code>); the v1 encoder produces embeddings whose t-SNE
+        (<code>models/results/embeddings_tsne.png</code>) shows class-correlated structure. The representation pipeline is real
+        and documented end to end.</td>
+        <td class="src" style="text-align:left;">—</td>
+      </tr>
+      <tr>
+        <td style="text-align:left;"><strong>Self-Supervised</strong></td>
+        <td style="text-align:left;"><span class="pill pill-partial">PARTIAL</span></td>
+        <td style="text-align:left;">MTR is genuinely self-supervised: mask_ratio 0.15, decoder reconstructs masked steps via
+        cross-attention, loss on masked positions only, loss curve in <code>models/results/training_loss.png</code>.
+        <strong style="color:#f85149;">TCP is degenerate in v1</strong> — the consistency head only ever sees identity-corrupted
+        (label 0) windows; the four corruption operators (replay / shuffle / speed-scale / position-offset) are
+        <strong>unimplemented</strong>. Half the pretraining story does not yet exist in effect. (Plan tasks 2.4, 3.3.)</td>
+        <td class="src" style="text-align:left;">tasks 2.4 → 3.3</td>
+      </tr>
+      <tr>
+        <td style="text-align:left;"><strong>Road-Network-Grounded</strong></td>
+        <td style="text-align:left;"><span class="pill pill-partial">PARTIAL</span></td>
+        <td style="text-align:left;">Grounding is <em>implicit</em>: VeReMi trajectories are generated by SUMO on the LuST
+        (Luxembourg) road network, so physically plausible motion is constrained by real road geometry — but no explicit road
+        graph, map-matching, or graph encoder exists anywhere in the repo. The thesis must argue this claim from the data, and
+        the claim's wording must not promise an explicit graph component it does not have.</td>
+        <td class="src" style="text-align:left;">thesis §method wording</td>
+      </tr>
+      <tr>
+        <td style="text-align:left;"><strong>Sybil Attack Detection</strong></td>
+        <td style="text-align:left;"><span class="pill pill-partial">PARTIAL</span></td>
+        <td style="text-align:left;">The v1 pilot detects: binary test accuracy <strong>0.914</strong>, precision 0.992, recall
+        0.824, F1 <strong>0.900</strong> (<code>models/results/results_summary.json</code>). <strong style="color:#d29922;">But
+        it is a single run, single seed, 5 epochs, with no from-scratch control</strong> — so "detection works" is shown while
+        "pretraining helps detection" (the actual thesis claim) is not. No number from v1 is citable as a thesis result.</td>
+        <td class="src" style="text-align:left;">tasks 4.4, 5.6</td>
+      </tr>
+      <tr>
+        <td style="text-align:left;"><strong>Foundation Model</strong></td>
+        <td style="text-align:left;"><span class="pill pill-blocked">UNEVIDENCED</span></td>
+        <td style="text-align:left;">"Foundation model" is a transfer claim: it requires the pretrained encoder to beat
+        from-scratch training under label scarcity. The pretrained checkpoint exists
+        (<code>models/roadfm_lite_pretrained.pt</code>), but <strong>no label-efficiency curve, no from-scratch comparison, and
+        no frozen-vs-fine-tuned probe has been run</strong>. The clause the title leads with has no data yet.</td>
+        <td class="src" style="text-align:left;">tasks 4.4, 5.3</td>
+      </tr>
+      <tr>
+        <td style="text-align:left;"><strong>Few-Shot / Zero-Shot</strong></td>
+        <td style="text-align:left;"><span class="pill pill-blocked">UNEVIDENCED</span></td>
+        <td style="text-align:left;">The proposal commits to K∈{5,10,20} few-shot with InfoNCE fine-tuning and a benign
+        memory-bank k-NN zero-shot protocol. Neither protocol is implemented or run. The protocol definitions themselves
+        (task 3.6) must be frozen <em>before</em> experiments so support-set sampling cannot be tuned post-hoc.</td>
+        <td class="src" style="text-align:left;">tasks 3.6 → 5.3</td>
+      </tr>
+      <tr>
+        <td style="text-align:left;"><strong>Cross-Scenario Transfer</strong></td>
+        <td style="text-align:left;"><span class="pill pill-blocked">UNEVIDENCED</span></td>
+        <td style="text-align:left;">The machinery exists and is leakage-checked: <code>idx_group_0709.npy</code> (195,551
+        windows) / <code>idx_group_1416.npy</code> (90,375) built with sender-level GroupShuffleSplit. <strong>No transfer run
+        (train 0709 → test 1416 or reverse) has been executed.</strong> Splits without runs are infrastructure, not evidence.</td>
+        <td class="src" style="text-align:left;">task 5.4</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
 
-const DEFAULT_STATES = {
-  "0.1": "done", "0.2": "done", "0.3": "done", "0.4": "done", "0.5": "done",
-  "0.6": "inprogress", "0.7": "inprogress",
-  "1.6": "done",
-  "2.1": "done", "2.2": "done", "2.7": "done",
-  "3.1": "inprogress", "3.2": "inprogress", "3.5": "inprogress",
-  "5.1": "inprogress", "5.2": "inprogress", "5.7": "inprogress",
-  "7.2": "inprogress", "7.3": "inprogress", "7.8": "inprogress",
-  "8.6": "inprogress",
-};
+  <div style="margin-top:14px; font-size:12px; color:#8b949e;">
+    <strong style="color:#e6edf3;">Reading this honestly.</strong> The data and representation layers are solid; what is missing is
+    every <em>comparative</em> result — and the thesis's central claims (foundation-model transfer, label efficiency,
+    cross-scenario robustness) are all comparative. The single most important unblocking step is the
+    <strong>from-scratch same-architecture control (task 4.4)</strong>: without it, no pretraining number means anything.
+    <br><br>
+    <strong style="color:#e6edf3;">Sequencing note.</strong> Implement the TCP corruption operators (2.4) <em>before</em> the
+    expensive pretraining sweeps: if the corruption suite lands after the runs, every pretraining checkpoint must be
+    regenerated to include it, and every downstream fine-tuning number repeated.
+  </div>
+</div>
 
-function defaultData() {
-  const states = {};
-  for (const ph of PHASES) for (const [id] of ph.tasks) states[id] = DEFAULT_STATES[id] || "todo";
-  return { states, notes: {}, collapsed: {} };
-}
+<!-- Hypotheses banner -->
+<div class="hypothesis-banner">
+  <div class="hypothesis-row">
+    <div><span style="color:#5be05b;font-weight:700;">▲</span> <strong>H1</strong>: SSL pretraining &gt; same encoder from scratch (main comparison)</div>
+    <div><span style="color:#58a6ff;font-weight:700;">▲</span> <strong>H2</strong>: advantage largest under label scarcity (K = 5/10/20-shot)</div>
+    <div><span style="color:#f85149;font-weight:700;">▲</span> <strong>H3</strong>: pretraining shrinks the scenario-holdout gap (0709 ↔ 1416)</div>
+    <div><span style="color:#bc8cff;font-weight:700;">▲</span> <strong>H4</strong>: MTR, TCP, delta features, window length each contribute (ablations)</div>
+  </div>
+  <div class="hypothesis-footer">
+    285,926 windows · 13 features · 5 classes · 8 raw scenarios (13 GB) · splits 188,647 / 43,491 / 53,788 · d_model 128 · 6+6 layers · plan: docs/plan/research-plan.md
+  </div>
+</div>
 
-function loadData() {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return defaultData();
-    const parsed = JSON.parse(raw);
-    const base = defaultData();
-    // merge: keep stored values, fill any new task ids with defaults
-    for (const id of Object.keys(base.states)) {
-      if (parsed.states && STATES.includes(parsed.states[id])) base.states[id] = parsed.states[id];
-    }
-    base.notes = (parsed.notes && typeof parsed.notes === "object") ? parsed.notes : {};
-    base.collapsed = (parsed.collapsed && typeof parsed.collapsed === "object") ? parsed.collapsed : {};
-    return base;
-  } catch (e) {
-    return defaultData();
-  }
-}
+<!-- ============================================================ -->
+<!-- CANVAS: Pipeline | Model | Evaluation -->
+<!-- ============================================================ -->
+<div class="canvas">
 
-let data = loadData();
+  <!-- Column 1: Data Pipeline -->
+  <div class="column">
+    <div class="column-title col-title-pipeline">Data Pipeline</div>
 
-function save() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (e) { /* private mode etc. */ }
-}
+    <div class="box">
+      <span class="tag tag-env">Raw</span>
+      <div class="box-label">data/VeReMi-Dataset/ (13 GB, gitignored)</div>
+      <div class="box-desc">8 scenario folders: {DataReplay, DoSDisruptive, DoSRandom, Grid}Sybil × {0709, 1416}. JSON BSM logs + ground-truth files per vehicle.</div>
+    </div>
+    <div class="arrow">↓</div>
 
-function phaseProgress(ph) {
-  let sum = 0;
-  for (const [id] of ph.tasks) sum += STATE_WEIGHT[data.states[id] || "todo"];
-  return ph.tasks.length ? (sum / ph.tasks.length) * 100 : 0;
-}
+    <div class="box">
+      <span class="tag tag-env">Parse</span>
+      <div class="box-label">notebooks/eda_veremi.ipynb</div>
+      <div class="box-desc">Message parsing, per-sender trajectory assembly, label mapping (Benign + 4 attack families). <strong style="color:#f0883e;">Must run from repo root</strong> — running from elsewhere silently duplicates data/.</div>
+    </div>
+    <div class="arrow">↓</div>
 
-function overallProgress() {
-  let sum = 0, n = 0;
-  for (const ph of PHASES) for (const [id] of ph.tasks) { sum += STATE_WEIGHT[data.states[id] || "todo"]; n++; }
-  return n ? (sum / n) * 100 : 0;
-}
+    <div class="box">
+      <span class="tag tag-core">Window</span>
+      <div class="box-label">Sliding windows T=20, stride 10</div>
+      <div class="box-desc">Per-sender windows over 13 features: pos, spd, acl, hed (x/y each), dt, dpos, dspd. Senders &lt; 20 messages dropped → <strong>285,926 windows</strong>.</div>
+    </div>
+    <div class="arrow">↓</div>
 
-function fmtPct(p) { return (Math.round(p * 10) / 10).toFixed(p % 1 === 0 ? 0 : 1) + "%"; }
+    <div class="box">
+      <span class="tag tag-core">Normalize</span>
+      <div class="box-label">Train-only z-score</div>
+      <div class="box-desc">norm_mean / norm_std saved to disk; must reproduce from train split only (plan 2.2 acceptance).</div>
+    </div>
+    <div class="arrow">↓</div>
 
-function render() {
-  const root = document.getElementById("phases");
-  root.textContent = "";
-  PHASES.forEach((ph) => {
-    const card = document.createElement("section");
-    card.className = "phase" + (data.collapsed[ph.name] ? " collapsed" : "");
+    <div class="box" style="border-color:#238636;">
+      <span class="tag tag-core">Split</span>
+      <div class="box-label">Sender-level GroupShuffleSplit</div>
+      <div class="box-desc">
+        <strong>Train:</strong> 188,647 &nbsp; <strong>Val:</strong> 43,491 &nbsp; <strong>Test:</strong> 53,788<br>
+        <strong>Group 0709:</strong> 195,551 &nbsp; <strong>Group 1416:</strong> 90,375<br>
+        Zero sender overlap asserted — the leakage discipline is load-bearing (CLAUDE.md rule 3).
+      </div>
+    </div>
+    <div class="arrow">↓</div>
+    <div class="box" style="border-color:#484f58;">
+      <div class="box-label" style="color:#8b949e;">To do: scripts/prepare_data.py</div>
+      <div class="box-desc">Extract the prep out of the notebook so regeneration is one command (plan 2.6). Kills the run-from-repo-root footgun.</div>
+    </div>
+  </div>
 
-    const head = document.createElement("div");
-    head.className = "phase-head";
-    const caret = document.createElement("span"); caret.className = "caret"; caret.textContent = "▼";
-    const h2 = document.createElement("h2"); h2.textContent = ph.name;
-    const pct = document.createElement("span"); pct.className = "phase-pct";
-    pct.textContent = fmtPct(phaseProgress(ph)) + " · " +
-      ph.tasks.filter(([id]) => data.states[id] === "done").length + "/" + ph.tasks.length + " done";
-    head.append(caret, h2, pct);
-    head.addEventListener("click", () => {
-      data.collapsed[ph.name] = !data.collapsed[ph.name];
-      save(); render();
-    });
-    card.appendChild(head);
+  <!-- Column 2: Model -->
+  <div class="column" style="grid-column: 2;">
+    <div class="column-title col-title-model">RoadFM-Lite — Pretrain → Transfer</div>
 
-    const barWrap = document.createElement("div");
-    barWrap.className = "phase-bar";
-    const bar = document.createElement("div"); bar.className = "bar";
-    const fill = document.createElement("span"); fill.style.width = phaseProgress(ph) + "%";
-    bar.appendChild(fill); barWrap.appendChild(bar); card.appendChild(barWrap);
+    <div class="box box-highlight">
+      <span class="tag tag-llm">Encoder</span>
+      <div class="box-label">Transformer encoder — the transferable asset</div>
+      <div class="box-desc">
+        <span class="badge">in</span>13 → linear proj → d_model 128<br>
+        <span class="badge">arch</span>8 heads · 6 layers · FFN 512 · dropout 0.1 · sinusoidal PE<br>
+        <span class="badge">pool</span>mean-pooled window embedding
+      </div>
+    </div>
 
-    const list = document.createElement("div"); list.className = "tasks";
-    for (const [id, title] of ph.tasks) {
-      const state = data.states[id] || "todo";
-      const row = document.createElement("div");
-      row.className = "task state-" + state;
+    <div class="arrow">↓</div>
+    <div class="arrow-label">pretraining (unlabeled windows)</div>
 
-      const tid = document.createElement("span"); tid.className = "tid"; tid.textContent = id;
-      const t = document.createElement("span"); t.className = "title"; t.textContent = title;
+    <div style="display:flex; gap:12px;">
+      <div class="box" style="flex:1; background:#0d2b1a;">
+        <span class="tag tag-core">Task 1</span>
+        <div class="box-label">MTR — Masked Trajectory Reconstruction</div>
+        <div class="box-desc">Mask 15% of timesteps; 6-layer decoder reconstructs via cross-attention; L2 on masked positions only. <strong style="color:#5be05b;">Implemented.</strong></div>
+      </div>
+      <div class="box" style="flex:1; background:#2b0d1b;">
+        <span class="tag tag-llm">Task 2</span>
+        <div class="box-label">TCP — Trajectory Consistency Prediction</div>
+        <div class="box-desc">5-way head over {identity, replay, shuffle, speed-scale, position-offset}. <strong style="color:#f85149;">v1 only ever sees identity — the 4 corruption operators are the main outstanding methodology work.</strong></div>
+      </div>
+    </div>
 
-      const chip = document.createElement("span");
-      chip.className = "chip " + state;
-      chip.textContent = STATE_LABEL[state];
-      chip.title = "Click to cycle: todo → in progress → done";
-      chip.addEventListener("click", () => {
-        const next = STATES[(STATES.indexOf(data.states[id] || "todo") + 1) % STATES.length];
-        data.states[id] = next;
-        save(); render();
-      });
+    <div class="arrow">↓</div>
+    <div class="arrow-label">L = λ₁·L_MTR + λ₂·L_TCP &nbsp;(v1: 1.0 / 0.5, untuned)</div>
 
-      const note = document.createElement("input");
-      note.type = "text"; note.className = "note"; note.placeholder = "note…";
-      note.value = data.notes[id] || "";
-      note.addEventListener("input", () => {
-        if (note.value) data.notes[id] = note.value; else delete data.notes[id];
-        save();
-      });
+    <div class="box">
+      <span class="tag tag-core">Optimize</span>
+      <div class="box-label">AdamW · lr 1e-3 · CosineAnnealing · batch 32 · 5 epochs (v1) · MPS</div>
+      <div class="box-desc">Seed policy not yet frozen (plan 3.7). Torch environment unpinned — training env is separate from the committed requirements.txt and must be exported.</div>
+    </div>
 
-      row.append(tid, t, chip, note);
-      list.appendChild(row);
-    }
-    card.appendChild(list);
-    root.appendChild(card);
-  });
+    <div class="arrow">↓</div>
+    <div class="arrow-label">discard decoder · transfer encoder</div>
 
-  const op = overallProgress();
-  document.getElementById("overall-pct").textContent = fmtPct(op);
-  document.getElementById("overall-bar").style.width = op + "%";
-}
+    <div style="display:flex; gap:12px;">
+      <div class="box" style="flex:1;">
+        <span class="tag tag-core">Head A</span>
+        <div class="box-label">Binary Sybil head</div>
+        <div class="box-desc">benign vs any attack — the v1 pilot ran this (F1 0.900, single seed).</div>
+      </div>
+      <div class="box" style="flex:1;">
+        <span class="tag tag-core">Head B</span>
+        <div class="box-label">5-class attack head</div>
+        <div class="box-desc">benign + 4 attack families; per-class recall identifies the hardest family.</div>
+      </div>
+    </div>
 
-document.getElementById("reset-btn").addEventListener("click", () => {
-  if (confirm("Reset all task states and notes to the project defaults? This cannot be undone.")) {
-    data = defaultData();
-    save(); render();
-  }
-});
+    <div class="arrow">↓</div>
 
-render();
-</script>
-</body>
-</html>
+    <div class="box" style="border-color:#f0883e; background:#1a1500;">
+      <div class="box-label" style="color:#f0883e;">The critical control — task 4.4</div>
+      <div class="box-desc">The <strong>same architecture trained from scratch</strong> on the same splits. Every pretraining claim is a Δ against this. It does not exist yet — nothing on this page is a thesis result until it does.</div>
+    </div>
+
+    <div class="arrow">↓</div>
+
+    <div class="box" style="border-color:#484f58; background:#0d1117; text-align:center;">
+      <div class="box-label" style="color:#8b949e;">checkpoints: models/roadfm_lite_pretrained.pt · roadfm_lite_final.pt · config: roadfm_lite_config.json</div>
+    </div>
+  </div>
+
+  <!-- Column 3: Evaluation Protocols -->
+  <div class="column">
+    <div class="column-title col-title-eval">Evaluation Protocols</div>
+
+    <div class="box"><span class="badge badge-h1">H1</span><strong>Full supervision</strong><br>
+      <span class="box-desc">100% labels, pretrained vs from-scratch, binary + 5-class. Macro-F1, AUROC, per-class recall, ≥3 seeds.</span></div>
+    <div class="arrow">↓</div>
+    <div class="box"><span class="badge badge-h2">H2</span><strong>Label efficiency</strong><br>
+      <span class="box-desc">Fine-tune at 1 / 5 / 10 / 50 / 100% of labels; also K∈{5,10,20}-shot InfoNCE + linear probe, 5 support-set resamples. The headline figure.</span></div>
+    <div class="arrow">↓</div>
+    <div class="box"><span class="badge badge-h2">H2</span><strong>Zero-shot</strong><br>
+      <span class="box-desc">Benign memory bank from verified-benign training windows; mean k-NN L2 distance as anomaly score; k and threshold chosen on validation only.</span></div>
+    <div class="arrow">↓</div>
+    <div class="box"><span class="badge badge-h3">H3</span><strong>Scenario holdout</strong><br>
+      <span class="box-desc">Train 0709 → test 1416 and reverse. Report Δ_scenario for pretrained vs from-scratch. Group indices exist and are leakage-checked.</span></div>
+    <div class="arrow">↓</div>
+    <div class="box"><span class="badge badge-h4">H4</span><strong>Ablations</strong><br>
+      <span class="box-desc">MTR-only vs TCP-only vs both; model size; delta features; window length. Judged on downstream val F1, never pretraining loss.</span></div>
+
+    <div style="height:1px; background:#21262d; margin:14px 0 8px;"></div>
+    <div class="column-title col-title-eval" style="margin-top:0;">Baselines (Phase 4)</div>
+    <div class="box" style="border-left:3px solid #5be05b;"><strong>From-scratch transformer</strong><br><span class="box-desc">same arch, no pretraining — the critical control</span></div>
+    <div class="box" style="border-left:3px solid #58a6ff;"><strong>Random Forest</strong> <span class="box-desc">on flattened window features (proposal-committed)</span></div>
+    <div class="box" style="border-left:3px solid #bc8cff;"><strong>BiLSTM</strong> <span class="box-desc">supervised sequence baseline (proposal-committed)</span></div>
+    <div class="box" style="border-left:3px solid #8b949e;"><strong>Literature numbers</strong> <span class="box-desc">from docs/research-notes/related-papers.md — comparable only where splits match</span></div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION: Data Flow -->
+<!-- ============================================================ -->
+<div class="section">
+  <h2 class="section-header-blue">Data Flow — VeReMi-Extension to Model-Ready Windows</h2>
+  <div class="section-body">
+
+  <div class="data-flow">
+    <div class="data-step">
+      <div class="step-num">1</div>
+      <div class="step-title">Raw Scenarios</div>
+      <ul class="step-items">
+        <li>DataReplaySybil_0709 — 1.9 G</li>
+        <li>DataReplaySybil_1416 — 578 M</li>
+        <li>DoSDisruptiveSybil_0709 — 2.4 G</li>
+        <li>DoSDisruptiveSybil_1416 — 733 M</li>
+        <li>DoSRandomSybil_0709 — 2.4 G</li>
+        <li>DoSRandomSybil_1416 — 729 M</li>
+        <li>GridSybil_0709 — 3.4 G</li>
+        <li>GridSybil_1416 — 1.0 G</li>
+        <li>0709 / 1416 = SUMO time-of-day segments</li>
+      </ul>
+    </div>
+    <div class="data-step">
+      <div class="step-num">2</div>
+      <div class="step-title">Parse &amp; Assemble</div>
+      <ul class="step-items">
+        <li>JSON BSM logs → per-sender trajectories</li>
+        <li>Fields: pos, spd, acl, hed (2-D each)</li>
+        <li>Ground-truth attacker labels per sender</li>
+        <li>Derived: dt, dpos, dspd per step</li>
+        <li>→ notebooks/eda_veremi.ipynb</li>
+      </ul>
+    </div>
+    <div class="data-step">
+      <div class="step-num">3</div>
+      <div class="step-title">Windows &amp; Labels</div>
+      <ul class="step-items">
+        <li>X_windows.npy — 285,926 × 20 × 13 (297 MB)</li>
+        <li>y_binary.npy · y_multiclass.npy</li>
+        <li>window_metadata.parquet (provenance)</li>
+        <li>norm_mean.npy / norm_std.npy</li>
+        <li>config.json — full pipeline manifest</li>
+      </ul>
+    </div>
+    <div class="data-step">
+      <div class="step-num">4</div>
+      <div class="step-title">Splits</div>
+      <ul class="step-items">
+        <li>idx_train — 188,647</li>
+        <li>idx_val — 43,491</li>
+        <li>idx_test — 53,788</li>
+        <li>idx_group_0709 — 195,551</li>
+        <li>idx_group_1416 — 90,375</li>
+        <li>Sender-level GroupShuffleSplit,</li>
+        <li>zero sender overlap asserted</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>The 13 Features</h3>
+  <table class="metrics-table" style="font-size:11px;">
+    <thead><tr><th style="text-align:left;">Feature</th><th style="text-align:left;">Meaning</th><th style="text-align:left;">Why it matters for Sybil detection</th></tr></thead>
+    <tbody>
+      <tr><td>pos_x, pos_y</td><td style="text-align:left;">position in scenario frame (m)</td><td style="text-align:left;">position-offset attacks teleport off plausible road geometry</td></tr>
+      <tr><td>spd_x, spd_y</td><td style="text-align:left;">velocity components (m/s)</td><td style="text-align:left;">speed-scaled forgeries leave the physical envelope (benign mean ≈ 10.2 m/s)</td></tr>
+      <tr><td>acl_x, acl_y</td><td style="text-align:left;">acceleration components</td><td style="text-align:left;">forged motion often has unrealistic acceleration profiles</td></tr>
+      <tr><td>hed_x, hed_y</td><td style="text-align:left;">heading unit vector</td><td style="text-align:left;">heading-change rate exposes physically impossible turns</td></tr>
+      <tr><td>dt</td><td style="text-align:left;">inter-message time gap (s)</td><td style="text-align:left;">replay artifacts show up as timing discontinuities</td></tr>
+      <tr><td>dpos_x, dpos_y</td><td style="text-align:left;">position delta between steps</td><td style="text-align:left;">must stay consistent with spd·dt — the core plausibility constraint</td></tr>
+      <tr><td>dspd_x, dspd_y</td><td style="text-align:left;">velocity delta between steps</td><td style="text-align:left;">jerk-like signal; corruptions must recompute deltas or they self-reveal</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-amber">
+    <strong style="color:#f0883e;">Two data facts that govern everything downstream.</strong>
+    (1) <strong>Windows from one sender overlap</strong> (stride 10 &lt; window 20), so any split that is not sender-level leaks
+    half-windows across the boundary — the committed splits are sender-level, and any new split must be too.
+    (2) <strong>Attack labels are per-sender, not per-window</strong> — an attacker's individual windows can look locally benign,
+    which is both the motivation for sequence modeling and a source of label noise the thesis must disclose (plan 6.6).
+  </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION: v1 Pilot Results -->
+<!-- ============================================================ -->
+<div class="section">
+  <h2 class="section-header-green">v1 Pilot Results — read the caveats before citing any number</h2>
+  <div class="section-body">
+
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-val">0.914</div><div class="stat-label">test accuracy (binary)</div></div>
+    <div class="stat-card"><div class="stat-val">0.900</div><div class="stat-label">F1 score</div></div>
+    <div class="stat-card"><div class="stat-val">0.992</div><div class="stat-label">precision</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:#d29922;">0.824</div><div class="stat-label">recall — the weak side</div></div>
+    <div class="stat-card"><div class="stat-val">5 + 5</div><div class="stat-label">pretrain + fine-tune epochs</div></div>
+    <div class="stat-card"><div class="stat-val">1</div><div class="stat-label">seed (MPS, unpinned env)</div></div>
+  </div>
+
+  <div class="callout callout-red">
+    <strong style="color:#f85149;">Results status — no v1 number is citable as a thesis result.</strong>
+    The pilot (<code>models/transformer_model.ipynb</code> → <code>models/results/results_summary.json</code>) establishes that the
+    pipeline trains end to end and the representation carries signal. It supports no comparative claim, for five reasons that
+    each independently disqualify it:
+    <ul style="margin:8px 0 8px 18px;">
+      <li><strong>No control.</strong> There is no from-scratch run, so the number measures "a transformer on VeReMi," not "pretraining helps."</li>
+      <li><strong>TCP degenerate.</strong> The consistency task only ever saw identity corruptions — the pretraining that ran is not the pretraining the thesis describes.</li>
+      <li><strong>Single seed, 5 epochs.</strong> No variance estimate; almost certainly undertrained.</li>
+      <li><strong>Precision/recall asymmetry unexplained.</strong> 0.992 vs 0.824 — the model misses ~18% of attacks; per-class and per-attack-family breakdown does not exist yet.</li>
+      <li><strong>Environment unpinned.</strong> The torch training env has no committed freeze; the run is not reproducible by a third party today.</li>
+    </ul>
+    What the pilot legitimately shows: the loss decreases (<code>training_loss.png</code>), the classifier beats chance by a wide
+    margin, and the t-SNE (<code>embeddings_tsne.png</code>) separates classes visibly. That is a green light for the plan, not a result.
+  </div>
+
+  <h3>What exists on disk</h3>
+  <table class="pt-table">
+    <thead><tr><th style="width:280px;">Artifact</th><th style="width:110px;">Status</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="src">models/roadfm_lite_pretrained.pt</td><td><span class="pill pill-partial">v1</span></td><td>MTR + degenerate-TCP pretraining checkpoint (11 MB). Superseded the moment corruption operators land.</td></tr>
+      <tr><td class="src">models/roadfm_lite_final.pt</td><td><span class="pill pill-partial">v1</span></td><td>Fine-tuned binary classifier. Same caveats.</td></tr>
+      <tr><td class="src">models/roadfm_lite_config.json</td><td><span class="pill pill-ready">CURRENT</span></td><td>d_model 128 · 8 heads · 6 layers · FFN 512 · dropout 0.1 · lr 1e-3 · batch 32.</td></tr>
+      <tr><td class="src">models/results/training_loss.png</td><td><span class="pill pill-ready">CURRENT</span></td><td>Pretraining loss curve.</td></tr>
+      <tr><td class="src">models/results/classification_metrics.png</td><td><span class="pill pill-partial">v1</span></td><td>Confusion matrix + metrics for the pilot run.</td></tr>
+      <tr><td class="src">models/results/embeddings_tsne.png</td><td><span class="pill pill-partial">v1</span></td><td>t-SNE of encoder embeddings, class-colored.</td></tr>
+      <tr><td class="src">results/figures/eda/ (7 figures)</td><td><span class="pill pill-ready">CURRENT</span></td><td>Speed/accel/trajectory-length distributions, spatial coverage, time gaps, correlations, vehicle counts.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION: Phase tracker — the full arc -->
+<!-- ============================================================ -->
+<div class="section">
+  <h2 class="section-header-amber">Phase Tracker — Proposal → Research → Writing → Defense</h2>
+  <div class="section-body">
+
+  <p style="font-size:11px; color:#8b949e; margin-top:4px;">
+    Mirrors <code>docs/plan/research-plan.md</code> (the authoritative task list — keep the two in sync; each task's ID is shared).
+    Status reflects artifacts that exist in this repository, not work intended.
+    <span class="pill pill-ready">DONE</span> artifact exists and passes its acceptance criteria ·
+    <span class="pill pill-partial">PARTIAL</span> exists but incomplete or superseded-pending ·
+    <span class="pill pill-todo">TODO</span> not started ·
+    <span class="pill pill-blocked">BLOCKED</span> waiting on an upstream task.
+  </p>
+
+  <div class="stats-grid" style="margin-top:16px; grid-template-columns: repeat(4, 1fr);">
+    <div class="stat-card"><div class="stat-val" style="color:#5be05b;">9</div><div class="stat-label">tasks done</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:#d29922;">12</div><div class="stat-label">partial</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:#8b949e;">42</div><div class="stat-label">todo / blocked</div></div>
+    <div class="stat-card"><div class="stat-val">24%</div><div class="stat-label">of 63 tasks (partial = 0.5) — counted 2026-09-10</div></div>
+  </div>
+
+  <!-- Phase 0 -->
+  <h3 style="margin-top:24px;">Phase 0 — Proposal &amp; Planning</h3>
+  <table class="pt-table">
+    <thead><tr><th style="width:52px;">ID</th><th>Task</th><th style="width:90px;">Status</th><th style="width:340px;">Artifact / note</th></tr></thead>
+    <tbody>
+      <tr><td class="num">0.1</td><td>Research idea &amp; scope definition</td><td><span class="pill pill-ready">DONE</span></td><td class="src">docs/research-notes/research-idea-seed.txt (superseded by proposal)</td></tr>
+      <tr><td class="num">0.2</td><td>Literature survey — annotated related papers</td><td><span class="pill pill-ready">DONE</span></td><td class="src">docs/research-notes/related-papers.md (top-30, clustered)</td></tr>
+      <tr><td class="num">0.3</td><td>Gap analysis vs existing literature</td><td><span class="pill pill-ready">DONE</span></td><td class="src">docs/research-notes/gap-analysis.md (10 gaps)</td></tr>
+      <tr><td class="num">0.4</td><td>Novelty analysis of RoadFM-Lite</td><td><span class="pill pill-ready">DONE</span></td><td class="src">docs/research-notes/novelty-analysis.md</td></tr>
+      <tr><td class="num">0.5</td><td>Work breakdown structure</td><td><span class="pill pill-ready">DONE</span></td><td class="src">docs/planning/wbs.md</td></tr>
+      <tr><td class="num">0.6</td><td>Proposal document</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">proposal/main.tex + proposal-draft.md — Figure 1 placeholder pending (original ref was a 0-byte file)</td></tr>
+      <tr><td class="num">0.7</td><td>Proposal presentation slides</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">proposal/thesis-proposal-presentation.html</td></tr>
+      <tr><td class="num">0.8</td><td>Proposal defense &amp; committee approval</td><td><span class="pill pill-todo">TODO</span></td><td>Committee sign-off — the gate for everything downstream being "the thesis"</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Phase 1 -->
+  <h3 style="margin-top:24px;">Phase 1 — Data Understanding</h3>
+  <table class="pt-table">
+    <thead><tr><th style="width:52px;">ID</th><th>Task</th><th style="width:90px;">Status</th><th style="width:340px;">Artifact / note</th></tr></thead>
+    <tbody>
+      <tr><td class="num">1.1</td><td>VeReMi-Extension structure: scenarios, message logs, GT files</td><td><span class="pill pill-todo">TODO</span></td><td>Written description of log/GT schema; message counts per scenario</td></tr>
+      <tr><td class="num">1.2</td><td>Characterize the 4 Sybil attack types vs benign</td><td><span class="pill pill-todo">TODO</span></td><td>Per-family behavioral signature doc + example trajectories</td></tr>
+      <tr><td class="num">1.3</td><td>Message field semantics (pos/spd/acl/hed, noise model)</td><td><span class="pill pill-todo">TODO</span></td><td>Field reference incl. simulator noise assumptions</td></tr>
+      <tr><td class="num">1.4</td><td>Class balance per scenario &amp; time window</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">counts exist in config.json; per-scenario table not yet written</td></tr>
+      <tr><td class="num">1.5</td><td>Leakage audit: vehicle-level &amp; scenario-level split design</td><td><span class="pill pill-todo">TODO</span></td><td>Standalone audit script asserting zero sender overlap on all split pairs</td></tr>
+      <tr><td class="num">1.6</td><td>EDA: distributions, spatial coverage, time gaps</td><td><span class="pill pill-ready">DONE</span></td><td class="src">results/figures/eda/* + notebooks/eda_veremi.ipynb</td></tr>
+      <tr><td class="num">1.7</td><td>Data-quality checks: duplicates, gaps, coordinate frame</td><td><span class="pill pill-todo">TODO</span></td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Phase 2 -->
+  <h3 style="margin-top:24px;">Phase 2 — Feature Engineering</h3>
+  <table class="pt-table">
+    <thead><tr><th style="width:52px;">ID</th><th>Task</th><th style="width:90px;">Status</th><th style="width:340px;">Artifact / note</th></tr></thead>
+    <tbody>
+      <tr><td class="num">2.1</td><td>Windowing pipeline (T=20, stride 10) — verify + document</td><td><span class="pill pill-ready">DONE</span></td><td class="src">X_windows.npy (285,926 × 20 × 13) + config.json manifest</td></tr>
+      <tr><td class="num">2.2</td><td>13 kinematic features: definitions, units, normalization</td><td><span class="pill pill-ready">DONE</span></td><td class="src">config.json feature_cols + norm stats; verify train-only recomputation</td></tr>
+      <tr><td class="num">2.3</td><td>Physical-plausibility features (speed-pos consistency, heading rate, jerk)</td><td><span class="pill pill-todo">TODO</span></td><td>Extended columns behind a config flag; EDA must show separation</td></tr>
+      <tr><td class="num">2.4</td><td><strong>SSL corruption suite</strong> — replay / shuffle / speed-scale / position-offset</td><td><span class="pill pill-todo">TODO</span></td><td class="src">scripts/corruptions.py + unit tests. Proposed ranges: speed-scale 0.5–2.0×, offset 10–100 m (pos std ≈ 335–421 m). Corrupt unnormalized, recompute deltas, renormalize. <strong style="color:#f0883e;">On the critical path.</strong></td></tr>
+      <tr><td class="num">2.5</td><td>Masking strategy for MTR (span vs random, ratio)</td><td><span class="pill pill-todo">TODO</span></td><td>Configurable module; masked positions recorded for loss</td></tr>
+      <tr><td class="num">2.6</td><td>Reproducible scripts/prepare_data.py</td><td><span class="pill pill-todo">TODO</span></td><td>Must regenerate data/prepared_data/ with matching counts from raw</td></tr>
+      <tr><td class="num">2.7</td><td>Group splits — no vehicle leakage across 0709/1416</td><td><span class="pill pill-ready">DONE</span></td><td class="src">idx_group_0709 (195,551) / idx_group_1416 (90,375), GroupShuffleSplit + asserts</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Phase 3 -->
+  <h3 style="margin-top:24px;">Phase 3 — Methodology</h3>
+  <table class="pt-table">
+    <thead><tr><th style="width:52px;">ID</th><th>Task</th><th style="width:90px;">Status</th><th style="width:340px;">Artifact / note</th></tr></thead>
+    <tbody>
+      <tr><td class="num">3.1</td><td>Architecture spec — document the running config exactly</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">roadfm_lite_config.json matches code; parameter count + thesis section pending</td></tr>
+      <tr><td class="num">3.2</td><td>MTR pretext task — loss + implementation + unit test</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">Implemented in transformer_model.ipynb (mask 0.15, loss on masked only); test pending</td></tr>
+      <tr><td class="num">3.3</td><td><strong>TCP pretext task over 4 corruption types</strong></td><td><span class="pill pill-blocked">BLOCKED</span></td><td class="src">Blocked on 2.4. v1's TCP head is degenerate (identity-only). Needs per-operator sanity figures.</td></tr>
+      <tr><td class="num">3.4</td><td>Multi-task loss weighting (λ sweep)</td><td><span class="pill pill-todo">TODO</span></td><td>v1 uses λ₁=1.0 / λ₂=0.5 untuned; sweep λ₂ ∈ {0.1, 0.5, 1.0} on downstream val F1</td></tr>
+      <tr><td class="num">3.5</td><td>Fine-tuning heads: binary + 5-class</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">Binary head ran in v1; 5-class head and frozen-encoder probe pending</td></tr>
+      <tr><td class="num">3.6</td><td>Few-shot / zero-shot protocol definitions — frozen before runs</td><td><span class="pill pill-todo">TODO</span></td><td>K∈{5,10,20}, 5 resamples, InfoNCE; benign memory-bank k-NN; val-only threshold selection</td></tr>
+      <tr><td class="num">3.7</td><td>Training config + seed policy frozen</td><td><span class="pill pill-todo">TODO</span></td><td>One config file; ≥3 fixed seeds; export the torch env freeze</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Phase 4 -->
+  <h3 style="margin-top:24px;">Phase 4 — Baselines <span style="color:#f85149; font-size:11px; font-weight:400;">— nothing here exists yet, and 4.4 gates every claim</span></h3>
+  <table class="pt-table">
+    <thead><tr><th style="width:52px;">ID</th><th>Task</th><th style="width:90px;">Status</th><th style="width:340px;">Artifact / note</th></tr></thead>
+    <tbody>
+      <tr><td class="num">4.1</td><td>Literature baselines on VeReMi — published numbers + settings</td><td><span class="pill pill-todo">TODO</span></td><td class="src">From related-papers.md; comparable only where splits/features match — say so per row</td></tr>
+      <tr><td class="num">4.2</td><td>Classical ML: RF / XGBoost / SVM on flattened windows</td><td><span class="pill pill-todo">TODO</span></td><td>Metrics JSON per classifier, same splits</td></tr>
+      <tr><td class="num">4.3</td><td>Sequence baselines: BiLSTM (committed), GRU, 1D-CNN</td><td><span class="pill pill-todo">TODO</span></td><td>—</td></tr>
+      <tr><td class="num">4.4</td><td><strong>Same-architecture transformer from scratch</strong></td><td><span class="pill pill-todo">TODO</span></td><td><strong style="color:#f0883e;">The critical control.</strong> Identical arch/config/splits/seeds, no pretraining. Every H1–H3 number is a Δ against this.</td></tr>
+      <tr><td class="num">4.5</td><td>Reproduce one published baseline end to end</td><td><span class="pill pill-todo">TODO</span></td><td>Calibrates our pipeline against the literature</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Phase 5 -->
+  <h3 style="margin-top:24px;">Phase 5 — Experiments</h3>
+  <table class="pt-table">
+    <thead><tr><th style="width:52px;">ID</th><th>Task</th><th style="width:90px;">Status</th><th style="width:340px;">Artifact / note</th></tr></thead>
+    <tbody>
+      <tr><td class="num">5.1</td><td>SSL pretraining runs + loss curves + checkpoints</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">v1 run exists (5 epochs, degenerate TCP) — superseded when 2.4/3.3 land</td></tr>
+      <tr><td class="num">5.2</td><td>Full-label fine-tuning: binary + 5-class</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">Binary v1 done (F1 0.900, uncontrolled); 5-class and multi-seed pending</td></tr>
+      <tr><td class="num">5.3</td><td>Label-efficiency curves (1/5/10/50/100% + K-shot)</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>Blocked on 3.6 (protocols) + 4.4 (control). The thesis's headline figure.</td></tr>
+      <tr><td class="num">5.4</td><td>Cross-scenario transfer 0709 ↔ 1416</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>Splits ready; blocked on 4.4 for the comparison to mean anything</td></tr>
+      <tr><td class="num">5.5</td><td>Ablations: MTR-only / TCP-only / both; model size</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>Blocked on 3.3 — cannot ablate a task that does not exist yet</td></tr>
+      <tr><td class="num">5.6</td><td>Multi-seed runs (≥3) + significance</td><td><span class="pill pill-todo">TODO</span></td><td>Mean±std everywhere; paired tests on identical splits</td></tr>
+      <tr><td class="num">5.7</td><td>Representation analysis: t-SNE/UMAP, attention</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">v1 t-SNE exists; per-class and per-scenario views + attention inspection pending</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Phase 6 -->
+  <h3 style="margin-top:24px;">Phase 6 — Results &amp; Discussion</h3>
+  <table class="pt-table">
+    <thead><tr><th style="width:52px;">ID</th><th>Task</th><th style="width:90px;">Status</th><th style="width:340px;">Artifact / note</th></tr></thead>
+    <tbody>
+      <tr><td class="num">6.1</td><td>Headline metrics tables (macro-F1, AUROC, per-class)</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>Downstream of Phase 5; one table per protocol, mean±std over seeds</td></tr>
+      <tr><td class="num">6.2</td><td>Label-efficiency figure</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>Pretrained vs scratch curves with error bands; the gap at low fractions is the claim</td></tr>
+      <tr><td class="num">6.3</td><td>Cross-scenario transfer matrix figure</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>F1 cells with Δ_scenario annotated, both model types</td></tr>
+      <tr><td class="num">6.4</td><td>Ablation results table</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>One sentence of interpretation per removed component</td></tr>
+      <tr><td class="num">6.5</td><td>Error analysis: confusion deep-dive, hardest family, failure cases</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>≥3 misclassified windows plotted with a hypothesis each</td></tr>
+      <tr><td class="num">6.6</td><td>Limitations &amp; threats to validity</td><td><span class="pill pill-todo">TODO</span></td><td>Simulation-only; single road network; per-sender label noise; overlapping-window leakage mitigation; compute bounds. Draftable now.</td></tr>
+      <tr><td class="num">6.7</td><td>Thesis results + discussion chapters</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>Only findings backed by Phase 5 artifacts; hypotheses answered explicitly</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Phase 7 -->
+  <h3 style="margin-top:24px;">Phase 7 — Thesis Writing (Introduction → Conclusion)</h3>
+  <table class="pt-table">
+    <thead><tr><th style="width:52px;">ID</th><th>Task</th><th style="width:90px;">Status</th><th style="width:340px;">Artifact / note</th></tr></thead>
+    <tbody>
+      <tr><td class="num">7.1</td><td>Abstract</td><td><span class="pill pill-todo">TODO</span></td><td>Written last, from frozen results — never before</td></tr>
+      <tr><td class="num">7.2</td><td>Ch. 1 — Introduction (problem, motivation, contributions)</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">Strong base: docs/proposal/proposal-introduction-guide.md + proposal intro</td></tr>
+      <tr><td class="num">7.3</td><td>Ch. 2 — Literature Review / Related Work</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">related-papers.md + gap-analysis.md exist as notes; prose conversion pending</td></tr>
+      <tr><td class="num">7.4</td><td>Ch. 3 — Methodology</td><td><span class="pill pill-todo">TODO</span></td><td>Must match Phase 2–3 artifacts exactly — the code is the spec</td></tr>
+      <tr><td class="num">7.5</td><td>Ch. 4 — Results</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>Built from Phase 6 tables/figures only; every claim traces to an artifact</td></tr>
+      <tr><td class="num">7.6</td><td>Ch. 5 — Discussion</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>Answers the research question + H1–H4 explicitly, nulls included</td></tr>
+      <tr><td class="num">7.7</td><td>Ch. 6 — Conclusion &amp; Future Work</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>Restates findings without new data; 3–4 future directions</td></tr>
+      <tr><td class="num">7.8</td><td>References &amp; citations complete</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">proposal/references.bib is the seed; every in-text citation must have an entry and vice versa</td></tr>
+      <tr><td class="num">7.9</td><td>Florida Poly formatting compliance</td><td><span class="pill pill-todo">TODO</span></td><td class="src">Per docs/planning/thesis-format-manual.txt</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Phase 8 -->
+  <h3 style="margin-top:24px;">Phase 8 — Defense &amp; Submission</h3>
+  <table class="pt-table">
+    <thead><tr><th style="width:52px;">ID</th><th>Task</th><th style="width:90px;">Status</th><th style="width:340px;">Artifact / note</th></tr></thead>
+    <tbody>
+      <tr><td class="num">8.1</td><td>Full thesis draft to advisor</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>—</td></tr>
+      <tr><td class="num">8.2</td><td>Committee revisions incorporated</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>Keep a revision changelog</td></tr>
+      <tr><td class="num">8.3</td><td>Defense presentation slides</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>—</td></tr>
+      <tr><td class="num">8.4</td><td>Thesis defense</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>Schedule per the Graduate Studies timeline</td></tr>
+      <tr><td class="num">8.5</td><td>Final formatted submission</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>Office of Graduate Studies requirements</td></tr>
+      <tr><td class="num">8.6</td><td>Code &amp; data archive — reproducibility package</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">Repo reorganized, README/plan/tracker in place. Missing: pinned torch env, prepare_data.py, per-run configs+seeds</td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION: Critical path -->
+<!-- ============================================================ -->
+<div class="section">
+  <h2 class="section-header-purple">Critical Path — the order is not optional</h2>
+  <div class="section-body">
+
+  <table class="pt-table">
+    <thead><tr><th style="width:52px;">Step</th><th>What</th><th style="width:110px;">Status</th><th style="width:330px;">Why it gates the next step</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="num">1</td>
+        <td><strong>Corruption operators + masking module</strong> (tasks 2.4, 2.5) — pure functions, unit-tested, physically calibrated ranges</td>
+        <td><span class="pill pill-todo">NEXT</span></td>
+        <td class="src">Pretraining runs before this exist are all superseded the day it lands — every checkpoint would need regeneration</td>
+      </tr>
+      <tr>
+        <td class="num">2</td>
+        <td><strong>Real TCP + frozen training config</strong> (3.3, 3.4, 3.7) — 5-way consistency head, λ sweep, seed list, env freeze</td>
+        <td><span class="pill pill-blocked">BLOCKED on 1</span></td>
+        <td class="src">The pretraining the thesis describes starts existing here</td>
+      </tr>
+      <tr>
+        <td class="num">3</td>
+        <td><strong>From-scratch control + baselines</strong> (4.4, then 4.2–4.3) on identical splits</td>
+        <td><span class="pill pill-blocked">BLOCKED on 2</span></td>
+        <td class="src">Must share the final feature/config contract or every comparison is invalid</td>
+      </tr>
+      <tr>
+        <td class="num">4</td>
+        <td><strong>Protocol freeze, then the experiment grid</strong> (3.6, then 5.1–5.7) — full-label, label-efficiency, transfer, ablations, ≥3 seeds</td>
+        <td><span class="pill pill-blocked">BLOCKED on 3</span></td>
+        <td class="src">Protocols frozen before runs so nothing is tuned post-hoc; this unblocks every Phase 6 row</td>
+      </tr>
+      <tr>
+        <td class="num">5</td>
+        <td><strong>Results chapters + defense</strong> (6.x, 7.5–7.7, 8.x)</td>
+        <td><span class="pill pill-blocked">BLOCKED on 4</span></td>
+        <td class="src">Chapters 1–3 and 6.6 (limitations) are writable in parallel starting now</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-amber">
+    <strong style="color:#d29922;">Writable today, in parallel with steps 1–2:</strong> Chapter 1 (from the intro guide),
+    Chapter 2 (from the literature notes), the Chapter 3 data/feature sections (the pipeline is stable), the limitations
+    section 6.6, Phase 1's documentation tasks (1.1–1.5, 1.7), and the reproducibility gaps in 8.6
+    (export the torch env freeze, write prepare_data.py). None of it depends on new experiments.
+  </div>
+
+  <div class="callout callout-red">
+    <strong style="color:#f85149;">Standing integrity rules (CLAUDE.md).</strong> Never fabricate or hand-pick results — nulls
+    get reported. The split/group indices are load-bearing; any change to splitting invalidates all downstream numbers and must
+    be announced loudly. Normalization stats come from train only. Every reported number must trace to a config + seed.
+    The v1 pilot's numbers are not thesis results and must never be quoted as if they were.
+  </div>
+
+  <div style="font-size:11px; color:#484f58; margin-top:16px;">
+    Maintained by hand — update after every substantive change (statuses, counts, the alignment table's "last reviewed" line).
+    Authoritative task list: <code>docs/plan/research-plan.md</code> · Rules: <code>CLAUDE.md</code> · Local file, no network required.
+  </div>
+  </div>
+</div>
+
+</body></html>

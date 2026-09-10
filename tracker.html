@@ -103,7 +103,7 @@
 <div class="wrap">
   <header>
     <h1>RoadFM-Lite Research Tracker</h1>
-    <p class="subtitle">Thesis progress: Sybil attack detection on the VeReMi-Extension dataset via a self-supervised trajectory transformer (RoadFM-Lite). Plan: <code>docs/plan/research-plan.md</code></p>
+    <p class="subtitle">Full thesis lifecycle — proposal → research → writing → defense. Sybil attack detection on the VeReMi-Extension dataset via a self-supervised trajectory transformer (RoadFM-Lite). Plan: <code>docs/plan/research-plan.md</code></p>
   </header>
 
   <div class="toolbar">
@@ -137,6 +137,16 @@ const STATE_LABEL = { todo: "todo", inprogress: "in progress", done: "done" };
 const STATE_WEIGHT = { todo: 0, inprogress: 0.5, done: 1 };
 
 const PHASES = [
+  { name: "Phase 0 — Proposal & Planning", tasks: [
+    ["0.1", "Research idea & scope definition"],
+    ["0.2", "Literature survey (annotated related papers)"],
+    ["0.3", "Gap analysis vs existing literature"],
+    ["0.4", "Novelty analysis of RoadFM-Lite"],
+    ["0.5", "Work breakdown structure (WBS)"],
+    ["0.6", "Proposal document (main.tex + draft)"],
+    ["0.7", "Proposal presentation slides"],
+    ["0.8", "Proposal defense & committee approval"],
+  ]},
   { name: "Phase 1 — Data Understanding", tasks: [
     ["1.1", "VeReMi-Extension structure (scenarios, message logs, GT files)"],
     ["1.2", "Characterize 4 Sybil attack types vs benign"],
@@ -189,13 +199,36 @@ const PHASES = [
     ["6.6", "Limitations & threats to validity"],
     ["6.7", "Thesis results+discussion chapters"],
   ]},
+  { name: "Phase 7 — Thesis Writing (Introduction → Conclusion)", tasks: [
+    ["7.1", "Abstract"],
+    ["7.2", "Ch. 1: Introduction (problem, motivation, contributions)"],
+    ["7.3", "Ch. 2: Literature Review / Related Work"],
+    ["7.4", "Ch. 3: Methodology (data, features, model, protocols)"],
+    ["7.5", "Ch. 4: Results"],
+    ["7.6", "Ch. 5: Discussion"],
+    ["7.7", "Ch. 6: Conclusion & Future Work"],
+    ["7.8", "References & citations complete (references.bib)"],
+    ["7.9", "Florida Poly thesis formatting compliance"],
+  ]},
+  { name: "Phase 8 — Defense & Submission", tasks: [
+    ["8.1", "Full thesis draft to advisor"],
+    ["8.2", "Committee revisions incorporated"],
+    ["8.3", "Defense presentation slides"],
+    ["8.4", "Thesis defense"],
+    ["8.5", "Final formatted submission to Graduate Studies"],
+    ["8.6", "Code & data archive (repo, README, reproducibility)"],
+  ]},
 ];
 
 const DEFAULT_STATES = {
+  "0.1": "done", "0.2": "done", "0.3": "done", "0.4": "done", "0.5": "done",
+  "0.6": "inprogress", "0.7": "inprogress",
   "1.6": "done",
   "2.1": "done", "2.2": "done", "2.7": "done",
   "3.1": "inprogress", "3.2": "inprogress", "3.5": "inprogress",
   "5.1": "inprogress", "5.2": "inprogress", "5.7": "inprogress",
+  "7.2": "inprogress", "7.3": "inprogress", "7.8": "inprogress",
+  "8.6": "inprogress",
 };
 
 function defaultData() {
@@ -245,9 +278,9 @@ function fmtPct(p) { return (Math.round(p * 10) / 10).toFixed(p % 1 === 0 ? 0 : 
 function render() {
   const root = document.getElementById("phases");
   root.textContent = "";
-  PHASES.forEach((ph, pi) => {
+  PHASES.forEach((ph) => {
     const card = document.createElement("section");
-    card.className = "phase" + (data.collapsed[pi] ? " collapsed" : "");
+    card.className = "phase" + (data.collapsed[ph.name] ? " collapsed" : "");
 
     const head = document.createElement("div");
     head.className = "phase-head";
@@ -258,7 +291,7 @@ function render() {
       ph.tasks.filter(([id]) => data.states[id] === "done").length + "/" + ph.tasks.length + " done";
     head.append(caret, h2, pct);
     head.addEventListener("click", () => {
-      data.collapsed[pi] = !data.collapsed[pi];
+      data.collapsed[ph.name] = !data.collapsed[ph.name];
       save(); render();
     });
     card.appendChild(head);

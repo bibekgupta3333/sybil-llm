@@ -29,12 +29,32 @@ This plan operationalizes the thesis proposal into six executable phases. The ap
 
 | Phase | Name | Goal | Status |
 |-------|------|------|--------|
+| 0 | **Proposal & Planning** | Idea, literature survey, gap/novelty analysis, proposal, defense | 🟡 In progress |
 | 1 | **Data Understanding** | Know the benchmark cold: scenarios, fields, attacks, balance, leakage risks | 🟡 In progress |
 | 2 | **Feature Engineering** | Leakage-safe windows, features, normalization, corruption operators | 🟡 In progress |
 | 3 | **Methodology** | Encoder-decoder architecture, MTR + TCP pretraining, downstream heads | 🟡 In progress |
 | 4 | **Baselines** | From-scratch encoder, feature-engineered RF, supervised BiLSTM | ⬜ Todo |
 | 5 | **Experiments** | Few-shot, zero-shot, full supervision, scenario holdout, ablations | ⬜ Todo |
 | 6 | **Results & Discussion** | Tables, figures, error analysis, thesis chapters, paper draft | ⬜ Todo |
+| 7 | **Thesis Writing** | Chapters from Introduction through Conclusion, references, formatting | 🟡 In progress |
+| 8 | **Defense & Submission** | Advisor/committee review, defense, final submission, code archive | ⬜ Todo |
+
+---
+
+## Phase 0 — Proposal & Planning
+
+The pre-research phase: define the idea, position it against the literature, and get the proposal approved. Most artifacts already exist from the proposal effort.
+
+| ID | Task | Status | Artifact |
+|----|------|--------|----------|
+| 0.1 | Research idea & scope definition | ✅ Done | `docs/research-notes/research-idea-seed.txt` (superseded by proposal) |
+| 0.2 | Literature survey (annotated related papers) | ✅ Done | `docs/research-notes/related-papers.md` (top-30 annotated) |
+| 0.3 | Gap analysis vs existing literature | ✅ Done | `docs/research-notes/gap-analysis.md` (10 gaps) |
+| 0.4 | Novelty analysis of RoadFM-Lite | ✅ Done | `docs/research-notes/novelty-analysis.md` |
+| 0.5 | Work breakdown structure (WBS) | ✅ Done | `docs/planning/wbs.md` |
+| 0.6 | Proposal document (main.tex + draft) | 🔶 Partial | `proposal/main.tex`, `proposal/proposal-draft.md` |
+| 0.7 | Proposal presentation slides | 🔶 Partial | `proposal/thesis-proposal-presentation.html` |
+| 0.8 | Proposal defense & committee approval | ⬜ Todo | Committee sign-off |
 
 ---
 
@@ -198,6 +218,37 @@ Goal: turn Phase 5 outputs into the thesis results chapter — every table and f
 - **6.5** — Confusion matrices for binary and 5-class; identify the hardest attack family (lowest recall) and show ≥3 concrete misclassified windows with trajectories plotted and a hypothesis for each failure.
 - **6.6** — Covers at minimum: simulation-only data (VeReMi/SUMO, no real traces), single road network (one LuST-derived map), window-label noise (attack labels applied per sender, not per window), overlapping-window leakage risk and how the split protocol mitigates it, and compute limits on ablation breadth. Negative or null results reported, not hidden.
 - **6.7** — Results chapter contains only findings backed by Phase 5 artifacts; discussion answers the research question and the three sub-questions from the proposal explicitly; advisor has reviewed a full draft.
+
+## Phase 7 — Thesis Writing (Introduction → Conclusion)
+
+The document itself, chapter by chapter. Chapters 3–6 depend on Phases 2–6 producing their artifacts; Chapters 1–2 can draft now from the existing research notes.
+
+| ID | Task | Status | Artifact |
+|----|------|--------|----------|
+| 7.1 | Abstract | ⬜ Todo | Thesis abstract (write last, from final results) |
+| 7.2 | Ch. 1: Introduction (problem, motivation, contributions) | 🔶 Partial | Draft from `docs/proposal/proposal-introduction-guide.md` + proposal intro |
+| 7.3 | Ch. 2: Literature Review / Related Work | 🔶 Partial | Expand `docs/research-notes/related-papers.md` + `gap-analysis.md` into prose |
+| 7.4 | Ch. 3: Methodology (data, features, model, protocols) | ⬜ Todo | Chapter matching Phase 2–3 artifacts exactly |
+| 7.5 | Ch. 4: Results | ⬜ Todo | Chapter built from Phase 6 tables/figures only |
+| 7.6 | Ch. 5: Discussion | ⬜ Todo | Answers research question + hypotheses H1–H4 explicitly |
+| 7.7 | Ch. 6: Conclusion & Future Work | ⬜ Todo | Contributions recap, limitations, future directions |
+| 7.8 | References & citations complete | 🔶 Partial | `proposal/references.bib` extended to all cited work |
+| 7.9 | Florida Poly thesis formatting compliance | ⬜ Todo | Formatted per `docs/planning/thesis-format-manual.txt` |
+
+**Acceptance criteria:** each chapter reviewed by the advisor before the next begins; every claim in Ch. 4–5 traces to a Phase 5/6 artifact; the abstract is written only after results are frozen; no citation appears in text without a `references.bib` entry and vice versa.
+
+## Phase 8 — Defense & Submission
+
+| ID | Task | Status | Artifact |
+|----|------|--------|----------|
+| 8.1 | Full thesis draft to advisor | ⬜ Todo | Complete draft PDF |
+| 8.2 | Committee revisions incorporated | ⬜ Todo | Revision changelog |
+| 8.3 | Defense presentation slides | ⬜ Todo | Defense deck |
+| 8.4 | Thesis defense | ⬜ Todo | Committee approval |
+| 8.5 | Final formatted submission to Graduate Studies | ⬜ Todo | Submitted thesis per Office of Graduate Studies requirements |
+| 8.6 | Code & data archive (repo, README, reproducibility) | 🔶 Partial | This repo: reorganized, README + plan + tracker in place; needs pinned training env + regeneration scripts |
+
+**Acceptance criteria:** defense scheduled per the Graduate Studies timeline in `docs/planning/thesis-format-manual.txt`; the archived repo lets a third party regenerate `data/prepared_data/` and every reported number from committed code, configs, and seeds.
 
 ### Definition of done for the thesis
 

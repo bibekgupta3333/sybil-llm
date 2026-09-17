@@ -64,13 +64,13 @@ The pre-research phase: define the idea, position it against the literature, and
 
 | ID | Task | Status | Artifact |
 |----|------|--------|----------|
-| 1.1 | VeReMi-Extension structure: scenarios, JSON message logs, ground-truth files | ✅ Done | `docs/research-notes/veremi-dataset-structure.md` |
-| 1.2 | Characterize the 4 Sybil attack types (DataReplay, DoSDisruptive, DoSRandom, Grid) vs benign | ✅ Done | `docs/research-notes/attack-taxonomy.md`, `results/figures/eda/attack_trajectory_examples.png` |
-| 1.3 | Message field semantics: `pos`, `spd`, `acl`, `hed`, noise model | ✅ Done | `docs/research-notes/field-reference.md` |
-| 1.4 | Class balance per scenario and time window (0709 vs 1416) | ✅ Done | `docs/research-notes/class-balance.md` |
-| 1.5 | Leakage audit: vehicle-level and scenario-level split design | ✅ Done | `docs/research-notes/split-protocol.md`, `scripts/audit_splits.py` (all checks pass) |
+| 1.1 | VeReMi-Extension structure: scenarios, JSON message logs, ground-truth files | ✅ Done | `docs/research-notes/data_understanding/veremi-dataset-structure.md` |
+| 1.2 | Characterize the 4 Sybil attack types (DataReplay, DoSDisruptive, DoSRandom, Grid) vs benign | ✅ Done | `docs/research-notes/data_understanding/attack-taxonomy.md`, `results/figures/eda/attack_trajectory_examples.png` |
+| 1.3 | Message field semantics: `pos`, `spd`, `acl`, `hed`, noise model | ✅ Done | `docs/research-notes/data_understanding/field-reference.md` |
+| 1.4 | Class balance per scenario and time window (0709 vs 1416) | ✅ Done | `docs/research-notes/data_understanding/class-balance.md` |
+| 1.5 | Leakage audit: vehicle-level and scenario-level split design | ✅ Done | `docs/research-notes/data_understanding/split-protocol.md`, `scripts/audit_splits.py` (all checks pass) |
 | 1.6 | EDA: trajectory lengths, speed/accel distributions, spatial coverage, time gaps | ✅ Done | `results/figures/eda/*`, `notebooks/eda_veremi.ipynb` |
-| 1.7 | Data-quality checks: duplicates, gaps, coordinate frame | ✅ Done | `docs/research-notes/data-quality-checks.md`, QA cells appended to `notebooks/eda_veremi.ipynb` |
+| 1.7 | Data-quality checks: duplicates, gaps, coordinate frame | ✅ Done | `docs/research-notes/data_understanding/data-quality-checks.md`, QA cells appended to `notebooks/eda_veremi.ipynb` |
 
 **All 7 Phase 1 tasks are now done.** One task surfaced a real defect during investigation — see
 "GridSybil_0709 windowing defect" below, which must be resolved as part of Phase 2 task 2.6 before the current
@@ -113,7 +113,7 @@ therefore splices unrelated vehicles' messages together by timestamp order, prod
 the entire 285,926-window dataset)** with physically meaningless `dt`/`dpos`/`dspd` values. Scoped entirely to
 `GridSybil_0709` (both subfolders) — `GridSybil_1416` and every other family/group are unaffected. Full detail,
 evidence, and the required fix (group by raw `sender`/`node_id`, not `senderPseudo`) are in
-`docs/research-notes/gridsybil-windowing-defect.md`. Any number computed from the current `X_windows.npy` for
+`docs/research-notes/data_understanding/gridsybil-windowing-defect.md`. Any number computed from the current `X_windows.npy` for
 GridSybil_0709 (including the v1 pilot results in `models/results/`) carries this caveat until task 2.6 fixes it.
 
 ### Known risks

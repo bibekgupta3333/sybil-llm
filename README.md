@@ -22,6 +22,8 @@ sybil-llm/
 │   ├── plan/                # research-plan.md — the 6-phase executable research plan
 │   ├── proposal/            # Long-form proposal introduction/dataset guide
 │   ├── research-notes/      # Gap analysis, novelty analysis, related-papers survey, simplified intro
+│   │   └── data_understanding/  # Phase 1 notes: dataset structure, attack taxonomy, field reference,
+│   │                             #   class balance, split protocol, data-quality checks, windowing defect
 │   └── planning/            # WBS, thesis formatting manual, example proposal template
 ├── notebooks/                # EDA notebook, DL/transformer refresher notebook, utility script
 ├── proposal/                 # Thesis proposal LaTeX source, Markdown draft, references.bib, slides HTML, Figures/

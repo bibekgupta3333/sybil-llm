@@ -20,7 +20,9 @@ numbers until leakage and idempotency are ruled out.
 |---|---|
 | `docs/plan/research-plan.md` | The research plan — phases, tasks, status. Keep current. |
 | `tracker.html` | Standalone progress tracker (open in a browser; localStorage state). |
-| `docs/proposal/` · `docs/research-notes/` · `docs/planning/` | Intro guide · gap/novelty/related-papers analyses · WBS, formatting manual |
+| `docs/proposal/` · `docs/planning/` | Intro guide · WBS, formatting manual |
+| `docs/research-notes/` | Proposal-stage notes: gap/novelty/related-papers analyses, research idea |
+| `docs/research-notes/data_understanding/` | Phase 1 notes: dataset structure, attack taxonomy, field reference, class balance, split protocol, data-quality checks, the GridSybil_0709 windowing defect |
 | `proposal/` | Thesis proposal: `main.tex` (authoritative), `proposal-draft.md`, `references.bib`, `Figures/`, slides HTML |
 | `notebooks/` | `eda_veremi.ipynb` (EDA + data prep), `refresher_deep_learning.ipynb` (study notes) |
 | `models/` | `transformer_model.ipynb` (pretrain + fine-tune + eval), `roadfm_lite_{pretrained,final}.pt`, `roadfm_lite_config.json`, `results/` |

@@ -71,6 +71,7 @@ The pre-research phase: define the idea, position it against the literature, and
 | 1.5 | Leakage audit: vehicle-level and scenario-level split design | ✅ Done | `docs/research-notes/data_understanding/split-protocol.md`, `scripts/audit_splits.py` (all checks pass) |
 | 1.6 | EDA: trajectory lengths, speed/accel distributions, spatial coverage, time gaps | ✅ Done | `results/figures/eda/*`, `notebooks/eda_veremi.ipynb` |
 | 1.7 | Data-quality checks: duplicates, gaps, coordinate frame | ✅ Done | `docs/research-notes/data_understanding/data-quality-checks.md`, QA cells appended to `notebooks/eda_veremi.ipynb` |
+| 1.8 | Interactive window simulator — replay prepared windows (map, kinematics, tensor heatmap, physics consistency, Sybil multi-identity, scenario picker, window-index navigation, map zoom/pan, ground-truth-vs-attack window compare, prepared-vs-raw-VeReMi map compare, benign-vs-attack three-map view for all four attack types) | ✅ Done | `simulation/` (TypeScript + Vite, 39 unit tests), `scripts/export_simulation_sample.py` (+ 15 pytest), committed 6.4 MB sample in `simulation/public/data/`, `notebooks/benign_vs_attack_maps.ipynb` |
 
 **All 7 Phase 1 tasks are now done.** One task surfaced a real defect during investigation — see
 "GridSybil_0709 windowing defect" below, which must be resolved as part of Phase 2 task 2.6 before the current
@@ -103,6 +104,45 @@ The pre-research phase: define the idea, position it against the literature, and
 - **DoSDisruptiveSybil's real attack signature (message sparsity/timing irregularity) does not map cleanly onto
   any of the 4 planned SSL corruption types** (replay/shuffle/speed-scale/position-offset) — flag for Phase 2/3
   design: either add a timing-corruption operator or accept this as a known blind spot.
+- **Two proposal figures are mislabeled** (found 2026-09-17 while building the slide deck; both live in
+  `proposal/Figures/` and `PROPOSAL_2` is included by `proposal/main.tex`): `PROPOSAL_2_temporal_discriminator.png`
+  is titled "message sending rate / DoS sends 2× faster" but its axes plot *average velocity (m/s)*;
+  `PROPOSAL_3_spatial_grounding.png` labels its axes "Latitude/Longitude (normalized)" but the data are SUMO planar
+  metres (`pos_x`/`pos_y`). Regenerate both from `notebooks/eda_veremi.ipynb` before the proposal is re-submitted
+  (task 0.6). The correctly-labeled equivalents are `results/figures/eda/fig_time_gaps.png` and
+  `proposal/Figures/fig_spatial_coverage.png`.
+- **`dt == 0` sentinel scope corrected** (2026-09-17, verified while building the simulator exporter): deltas
+  were computed over each identity's *full* sequence before windowing, so `dt = dpos = dspd = 0` occurs only at
+  the first row of each identity — i.e. step 0 of windows with `window_start_idx == 0` (3,502 of 3,502 zero-`dt`
+  cases in a 40k sample; ≈ 8.8% of windows), **not** step 0 of every window. Consecutive windows of one identity
+  are bit-identical on their 10-step overlap. Wording fixed in `data-quality-checks.md` and the tracker deck.
+- **`fig_traj_length_dist.png` is visual evidence of the GridSybil_0709 splice** — its x-axis runs to ~70,000
+  messages for a single "sender"; no vehicle beacons 70k times in an hour. Re-plot after the task 2.6 fix.
+- **Balance depends on the unit** (added 2026-09-17, from the Data Understanding slide deck in `tracker.html`):
+  at the *window* level the binary problem is ~50/50 (142,925 benign vs 143,001 attack); at the *identity* level
+  it is 61/39 (15,387 vs 9,807 `sender_uid`s); DoS attackers yield ~19 windows per identity vs ~9 for benign, so
+  a window-level pretraining pool up-weights message-rate attacks purely by volume. Always state the unit with
+  any balance figure; consider identity-level sampling for pretraining (decision 5 below).
+
+### Decisions forced by the label-free constraint (advisor, recorded 2026-09-17)
+
+Pretraining uses **no labels**; labels are consumed only by evaluation and optional downstream heads (linear
+probe, K-shot). Consequences that change the plan, in priority order — each is presented on the closing slide of
+the `tracker.html` Data Understanding deck for the advisor conversation:
+
+1. **Fix the GridSybil_0709 splice before any cited pretraining run** (task 2.6). For a reconstruction objective
+   the 14,764 spliced windows are worse than label noise — they teach impossible kinematics as normal.
+2. **The pretext task reads `X[idx_train]` only** — never val/test windows, even though no labels are involved
+   (transductive leakage). For 0709↔1416 transfer, pretraining reads the *source* group's train identities only.
+   To be codified in task 3.7's frozen training config.
+3. **"Benign memory bank" zero-shot conflicts with the constraint** — selecting benign windows uses labels. Task
+   3.6 must either build the anomaly score from *unlabeled* train embeddings (threshold on val only) or relabel
+   the protocol as label-consuming.
+4. **Add a temporal-irregularity corruption** to TCP for DoSDisruptiveSybil (task 2.4), and ablate it, or
+   declare that family a known blind spot in the limitations.
+5. **Pretraining sampling unit**: window-level (rate-weighted) vs identity-level (balanced). Run both; default to
+   identity-level unless results argue otherwise. Class-weighted losses / label-based resampling are **not**
+   available in pretraining; a class-balanced *probe* is legitimate and must be described as a head-side choice.
 
 ### ⚠ GridSybil_0709 windowing defect (found during Phase 1, blocks a Phase 2 acceptance criterion)
 
@@ -134,7 +174,7 @@ Turn raw VeReMi ground-truth messages into model-ready trajectory windows, and d
 | 2.3 | Physical-plausibility features: speed–position consistency, heading-change rate, jerk | ⬜ Todo | extended feature columns + updated `config.json` |
 | 2.4 | SSL corruption suite for TCP pretext task: replay, shuffle, speed-scale, positional-offset | ⬜ Todo | `scripts/corruptions.py` + unit tests |
 | 2.5 | Masking strategy for Masked Trajectory Reconstruction (span vs random masking, mask ratio) | ⬜ Todo | masking module + ablation config |
-| 2.6 | Extract data-prep out of the notebook into a reproducible script (`scripts/prepare_data.py`) | ⬜ Todo | `scripts/prepare_data.py`, regenerates `data/prepared_data/` byte-identically |
+| 2.6 | Extract data-prep out of the notebook into a reproducible script (`scripts/prepare_data.py`), fixing the GridSybil_0709 splice | 🔶 Partial | `scripts/prepare_data.py` (+ 16 pytest incl. a synthetic reproduction of the splice), verified end-to-end on synthetic data — **not yet run against the real 13 GB dataset** (needs the user's go-ahead per CLAUDE.md rule 2 before writing `data/prepared_data/`) |
 | 2.7 | Group splits for cross-scenario transfer (`idx_group_0709` / `idx_group_1416`) — verify no vehicle leakage | ✅ Done | `idx_group_0709.npy` (195,551), `idx_group_1416.npy` (90,375); sender-level `GroupShuffleSplit` with leakage asserts in `eda_veremi.ipynb` §6 |
 
 ### Acceptance criteria
@@ -144,7 +184,7 @@ Turn raw VeReMi ground-truth messages into model-ready trajectory windows, and d
 - **2.3** — New plausibility features are computed per timestep (speed–position consistency: ‖Δpos/Δt − spd‖; heading-change rate: Δθ/Δt from the `hed` unit vector; jerk: Δacl/Δt), added without breaking the existing 13-feature contract (either appended columns with a new `feature_dim`, or a separate feature set behind a config flag), and shown in EDA to separate at least one attack class from benign.
 - **2.4** — Each corruption is a pure function `(T, D) window → (T, D) corrupted window` with a fixed random seed interface; unit tests assert shape preservation, determinism under seed, and that the corruption actually changes the window. Corruptions operate on **unnormalized** features then renormalize, so magnitudes are physically meaningful.
 - **2.5** — Masking is configurable between random-timestep and contiguous-span masking with a settable mask ratio; masked positions are recorded so the MTR loss is computed only on masked steps.
-- **2.6** — `python scripts/prepare_data.py` regenerates all of `data/prepared_data/` from `data/VeReMi-Dataset/` with the same seeds, and the resulting `config.json` counts match the committed one. Kills the current run-from-repo-root footgun in the notebook.
+- **2.6** — `python scripts/prepare_data.py` regenerates prepared data from `data/VeReMi-Dataset/` with the same seeds, and the resulting `config.json` counts are close to (not byte-identical to — see below) the currently-committed one. Kills the run-from-repo-root footgun. **Fixes the GridSybil_0709 splice** by changing the sequence-grouping key from `(family, group, subfolder, senderPseudo)` to `(family, group, subfolder, sender, senderPseudo)` — `sender` (the physical vehicle, resolved 100%-reliably from trace filenames) always disambiguates the `senderPseudo == 1` collision documented in `gridsybil-windowing-defect.md`, while every previously-correct identity is untouched. Proven on synthetic data reproducing the exact collision (`scripts/tests/test_prepare_data.py::TestGridSybilSpliceFix`): the old key merges 5 physical vehicles into 1 group; the new key keeps them separate and the resulting max implied speed drops from a teleport-scale value to the real ~12 m/s driving speed. `WindowBuilder` also defensively asserts no sequence group ever mixes more than one physical sender. **Not yet run against the real 13 GB dataset** — that write targets a new `--out` directory by default (never `data/prepared_data/` unless explicitly requested), and regenerating the canonical prepared data needs the user's explicit go-ahead (CLAUDE.md rule 2) since it both takes a while and changes cited counts (GridSybil_0709 window count will drop from what the splice inflated it to).
 - **2.7** — Re-assert zero sender-UID overlap between train/val/test, and additionally verify that no `senderPseudo` appears in both the 0709 and 1416 group index sets (transfer evaluation must be leakage-free at the vehicle level, not just the window level).
 
 ### Design notes — corruption parameters (decisions to make)
@@ -169,8 +209,8 @@ RoadFM-Lite is an encoder–decoder foundation model pretrained on unlabeled tra
 | 3.3 | Pretext task 2: Trajectory Consistency Prediction (TCP) over 4 corruption types | ⬜ Todo | Corruption operators `g ∈ {identity, replay, local-shuffle, speed-scale, position-offset}` + TCP head |
 | 3.4 | Multi-task loss weighting between MTR and TCP | ⬜ Todo | λ₁/λ₂ sweep results, chosen weighting with justification |
 | 3.5 | Fine-tuning heads: binary Sybil detection + 5-class attack classification | 🔶 Partial | Classification heads + evaluation script |
-| 3.6 | Few-shot / zero-shot evaluation protocol definitions | ⬜ Todo | Written protocol doc (K∈{5,10,20} support sets; benign memory bank + k-NN distance) |
-| 3.7 | Training config: optimizer, LR schedule, batch size, epochs, hardware, seed policy | ⬜ Todo | Frozen training-config file + seed policy note |
+| 3.6 | Few-shot / zero-shot evaluation protocol definitions — **label-free zero-shot** | ⬜ Todo | Written protocol doc (K∈{5,10,20} support sets from train identities; zero-shot anomaly score from *unlabeled* train embeddings — no benign-only memory bank, see Phase 1 decision 3) |
+| 3.7 | Training config: optimizer, LR schedule, batch size, epochs, hardware, seed policy, **pretraining data scope** | ⬜ Todo | Frozen training-config file + seed policy note; must state that the pretext task reads `X[idx_train]` only (Phase 1 decision 2) |
 
 **Acceptance criteria**
 
@@ -179,8 +219,8 @@ RoadFM-Lite is an encoder–decoder foundation model pretrained on unlabeled tra
 - **3.3** — All four non-identity corruption operators are implemented and applied at pretraining time with corruption-class labels feeding the 5-way TCP softmax head. *Current v1 trains TCP only on identity (label 0) — the corruption operators are the main outstanding methodology work.* Each operator has a visual sanity-check figure (original vs. corrupted window).
 - **3.4** — The pretraining loss is L = λ₁·L_MTR + λ₂·L_TCP (v1 uses λ₁=1.0, λ₂=0.5 untuned). A small sweep (e.g. λ₂ ∈ {0.1, 0.5, 1.0}) justifies the final weighting, judged on downstream validation F1, not pretraining loss.
 - **3.5** — Both a binary (benign vs. Sybil) head and a 5-class (benign + 4 attack families) head run on frozen and fine-tuned encoder embeddings; the few-shot path uses supervised-contrastive (InfoNCE) fine-tuning followed by a linear classifier, per the proposal.
-- **3.6** — The protocol document fixes, before experiments run: support-set sizes K∈{5,10,20} sampled from the training partition only; zero-shot memory bank built from verified-benign training windows with mean k-NN L2 distance as the anomaly score; the threshold/k selection procedure uses validation data only.
-- **3.7** — One frozen config records optimizer (AdamW, weight_decay=1e-5), scheduler (CosineAnnealingLR), lr=1e-3, batch_size=32, epochs (v1: 5 — expected to grow), device (MPS/M4 Pro or CUDA), and the multi-seed policy (≥3 seeds, fixed list). Every reported number must trace to this config.
+- **3.6** — The protocol document fixes, before experiments run: support-set sizes K∈{5,10,20} sampled from the training partition only (the *only* place labels are consumed for training a head); a zero-shot anomaly score built from **unlabeled** training-window embeddings (e.g. mean k-NN L2 distance to the train embedding pool, or reconstruction/consistency error from the pretext heads) — a benign-only memory bank would consume labels and violates the advisor's label-free constraint, so it is either dropped or explicitly reported as a labeled method; the threshold/k selection procedure uses validation data only.
+- **3.7** — One frozen config records optimizer (AdamW, weight_decay=1e-5), scheduler (CosineAnnealingLR), lr=1e-3, batch_size=32, epochs (v1: 5 — expected to grow), device (MPS/M4 Pro or CUDA), the multi-seed policy (≥3 seeds, fixed list), **and the pretraining data scope: `X[idx_train]` only (source-group train identities for the 0709↔1416 transfer variant), plus the sampling unit (window- vs identity-level)**. Every reported number must trace to this config.
 
 ## Phase 4 — Baselines
 

@@ -44,10 +44,14 @@ within sampling noise). Beacon interval and gap threshold are derived from the d
   BSM broadcast rate).
 - Gap threshold = 3× median = 3.0 s. **2,119 / 1,000,000 steps (0.21%)** exceed it — consistent with ordinary
   broadcast jitter and occasional real network gaps, not a systemic defect.
-- **`dt ≤ 0`: 4,371 steps, all exactly `dt == 0`, all at timestep index 0 of every window with zero exceptions**
-  (verified per-column: indices 1–19 have zero occurrences). This is not a data gap — a window's first step has
-  no "previous step" inside that window to difference against, so `dt` is a deterministic sentinel there, not a
-  raw-data timing defect. Downstream modeling should be aware that column-0 `dt` carries no signal.
+- **`dt ≤ 0`: 4,371 steps, all exactly `dt == 0`, all at timestep index 0** (verified per-column: indices 1–19
+  have zero occurrences). **Correction (2026-09-17):** these are not "every window's step 0" — 4,371 of 50,000
+  sampled windows ≈ 8.7%, matching the share of *first* windows (`window_start_idx == 0`, 25,194 identities /
+  285,926 windows = 8.8%). Deltas were computed over each identity's full sequence before slicing, so only an
+  identity's very first message has no predecessor; step 0 of every later window carries a real `dt` (its
+  10-step overlap with the previous window is bit-identical). Re-verified on a 40k sample: 3,502 zero-`dt`
+  cases, all at `window_start_idx == 0`, zero exceptions. Not a raw-data defect; downstream modeling should
+  treat `dt == 0` as "undefined", not as a real zero-gap observation.
 
 ## Check 4 — Coordinate-frame sanity: **PASS (with an expected attacker-only exception)**
 

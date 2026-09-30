@@ -1,4 +1,4 @@
-data
+/data/
 .venv
 __pycache__/
 *.pyc
@@ -6,3 +6,9 @@ __pycache__/
 .DS_Store
 *.DS_Store
 .env
+.gstack/
+simulation/node_modules/
+simulation/dist/
+simulation/.cache/
+/notebooks/data/
+/simulation/public/

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RoadFM-Lite · Window Simulator</title>
+    <link rel="stylesheet" href="./src/ui/styles.css" />
+  </head>
+  <body>
+    <div id="app" class="app">
+      <header class="topbar">
+        <div class="brand">
+          <h1>RoadFM-Lite · Window Simulator</h1>
+          <p class="sub">Replaying the 20 × 13 trajectory windows the model pretrains on — label-free. VeReMi-Extension sample.</p>
+        </div>
+        <div id="status" class="status">loading sample…</div>
+      </header>
+
+      <div class="workspace">
+        <aside id="sidebar" class="sidebar"></aside>
+        <div id="sidebar-resizer" class="sidebar-resizer" title="Drag to resize · double-click to reset"></div>
+
+        <main class="stage">
+          <div id="standard-view" class="standard-view">
+            <section class="panel map-panel">
+              <div class="panel-head">
+                <span class="panel-title">Map replay</span>
+                <span id="map-caption" class="panel-caption"></span>
+              </div>
+              <div id="window-scrubber" class="window-scrubber"></div>
+              <canvas id="map-canvas" class="canvas"></canvas>
+              <div id="map-triptych" class="map-triptych" hidden>
+                <figure class="tri-cell">
+                  <figcaption id="tri-title-benign" class="tri-title tri-benign">x · Benign vehicle</figcaption>
+                  <canvas id="map-benign" class="canvas"></canvas>
+                </figure>
+                <figure class="tri-cell">
+                  <figcaption id="tri-title-attack" class="tri-title tri-attack">y · Attack broadcast</figcaption>
+                  <canvas id="map-attack" class="canvas"></canvas>
+                </figure>
+                <figure class="tri-cell">
+                  <figcaption id="tri-title-both" class="tri-title">Both, same clock</figcaption>
+                  <canvas id="map-both" class="canvas"></canvas>
+                </figure>
+              </div>
+            </section>
+
+            <section class="panel strips-panel">
+              <div class="panel-head"><span class="panel-title">Kinematics · synced to the playhead</span></div>
+              <canvas id="strips-canvas" class="canvas"></canvas>
+            </section>
+
+            <div class="bottom-row">
+              <section class="panel heatmap-panel">
+                <div class="panel-head">
+                  <span class="panel-title">Window tensor · what the model sees</span>
+                  <span id="heatmap-caption" class="panel-caption"></span>
+                </div>
+                <canvas id="heatmap-canvas" class="canvas"></canvas>
+              </section>
+              <section class="panel consistency-panel">
+                <div class="panel-head"><span class="panel-title">Physics consistency</span></div>
+                <div id="consistency" class="consistency"></div>
+              </section>
+            </div>
+
+            <section id="provenance" class="panel provenance"></section>
+
+            <section id="bva-windows" class="panel bva-windows" hidden></section>
+          </div>
+
+          <section id="window-compare-view" class="panel window-compare-view" hidden>
+            <div class="panel-head"><span class="panel-title">Window compare · ground truth vs. attack, frozen snapshots</span></div>
+            <div id="window-compare" class="wc-grid"></div>
+          </section>
+        </main>
+      </div>
+
+      <footer id="transport" class="transport"></footer>
+    </div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

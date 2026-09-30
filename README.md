@@ -26,6 +26,9 @@ sybil-llm/
 │   │                             #   class balance, split protocol, data-quality checks, windowing defect
 │   └── planning/            # WBS, thesis formatting manual, example proposal template
 ├── notebooks/                # EDA notebook, DL/transformer refresher notebook, utility script
+├── simulation/               # TypeScript + Vite window simulator (map replay, kinematics, tensor heatmap,
+│                             #   physics consistency, Sybil multi-identity) — see simulation/README.md
+├── scripts/                  # audit_splits.py, export_simulation_sample.py (+ tests/), organize_repo.sh
 ├── proposal/                 # Thesis proposal LaTeX source, Markdown draft, references.bib, slides HTML, Figures/
 ├── models/
 │   ├── transformer_model.ipynb   # Pretraining + fine-tuning + evaluation notebook

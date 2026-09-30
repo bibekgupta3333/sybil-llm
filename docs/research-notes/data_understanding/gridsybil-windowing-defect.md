@@ -1,9 +1,24 @@
 # GridSybil_0709 windowing defect — spliced-vehicle windows
 
-**Status: confirmed, quantified, unresolved.** Surfaced during Phase 1 parallel investigation (tasks 1.1 and 1.3
-independently flagged pieces of this; verified and quantified directly against `data/prepared_data/window_metadata.parquet`
-and the raw ground truth on 2026-09-10). This is a real defect in the windowing pipeline, not a documentation gap —
-it belongs in Phase 2 (task 2.6, `scripts/prepare_data.py`) as a fix, not just a note.
+**Status: confirmed, quantified, fix built and proven on synthetic data — not yet applied to the real dataset.**
+Surfaced during Phase 1 parallel investigation (tasks 1.1 and 1.3 independently flagged pieces of this; verified
+and quantified directly against `data/prepared_data/window_metadata.parquet` and the raw ground truth on
+2026-09-10). This is a real defect in the windowing pipeline, not a documentation gap.
+
+**Fix (2026-09-17, task 2.6):** `scripts/prepare_data.py` groups sequences by
+`(family, group, subfolder, sender, senderPseudo)` instead of `(family, group, subfolder, senderPseudo)` — adding
+the physical `sender` (resolved 100%-reliably from trace filenames) disambiguates the `senderPseudo == 1`
+collision documented below, and every previously-correct identity is unaffected since its `sender` was already
+implied by its unique `senderPseudo`. `scripts/tests/test_prepare_data.py::TestGridSybilSpliceFix` reproduces the
+exact collision on synthetic data and proves the fix: the old key merges N physical vehicles into one splice
+group; the new key keeps every vehicle's window separate, and `WindowBuilder` additionally asserts, defensively,
+that no sequence group ever mixes more than one physical sender.
+
+**Not yet run against `data/VeReMi-Dataset/`.** The script writes to a new `--out` directory by default, never
+`data/prepared_data/`, and regenerating the canonical prepared data requires the user's explicit go-ahead
+(CLAUDE.md rule 2) — it both takes a while over the 13 GB raw corpus and will change the committed GridSybil_0709
+window count (currently inflated by the splice) and possibly downstream class-balance numbers in
+`class-balance.md`, which should be re-derived once the real data is regenerated.
 
 ## The bug
 

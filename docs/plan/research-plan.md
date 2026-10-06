@@ -61,7 +61,7 @@ plan with every fix from the review, and decisions D1–D8 are adopted as writte
 |---|---|
 | D1 | Network-heard pseudonym sequences (de-duplicated by `messageID`), **T = 64** (128 as sensitivity), fixed length, equal windows per vehicle |
 | D2 | "Receiver observed" = the receiver's own GPS position and velocity at rcvTime |
-| D3 | sin/cos time of day **dropped**; replaced by range + bearing to the claimed position; log-Δτ kept (13 features) |
+| D3 | sin/cos time of day **dropped**; replaced by range + bearing to the claimed position; log-Δτ kept (13 features; bearing = one wrapped angle, not sin/cos — 2026-10-06) |
 | D4 | Physics heads **P1–P3 detect injected violations** (speed spike / position jump, speed without matching positions, impossible turn; p = 0.5); original H1–H3 rules are diagnostics only |
 | D5 | **TCP dropped** (covered by the injected-violation heads) |
 | D6 | Hard negatives: same 50 m grid cell, same group, different pseudonym, ≥ 10 min apart (β = 0.5) |

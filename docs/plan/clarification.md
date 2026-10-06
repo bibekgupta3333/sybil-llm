@@ -179,8 +179,9 @@ Both describe where the sender *claims* to be, as seen from the receiving car.
 
 **Why they help:** honest cars claim positions close to the receiver, at a median of 81 m and rarely beyond radio
 range (about 384 m at p99). DoSRandom attackers claim positions a median of 743 m away. A sudden jump in range or
-bearing between messages is also suspicious. In practice, bearing is stored as sin/cos of the angle so that 359°
-and 1° count as close.
+bearing between messages is also suspicious. Bearing is stored as **one angle**, atan2(dy, dx) wrapped to (−π, π],
+so the input stays at 13 features (decided 2026-10-06). Its jump at ±π (directly behind-left vs behind-right) is a
+known wrap-around that the model sees as a large change.
 
 ### Does the data contain latitude/longitude?
 

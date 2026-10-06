@@ -20,6 +20,7 @@ numbers until leakage and idempotency are ruled out.
 |---|---|
 | `docs/plan/research-plan.md` | The research plan — phases, tasks, status. Keep current. |
 | `tracker.html` | Standalone progress tracker (open in a browser; localStorage state). |
+| `docs/plan/stage1-ssl-wbs.md` · `stage1-plan.html` | Stage 1 WBS for the advisor's TimesNet SSL plan (findings, decisions D1–D9, tasks S1.0–S1.4) · its interactive page (localStorage ticks) |
 | `docs/proposal/` · `docs/planning/` | Intro guide · WBS, formatting manual |
 | `docs/research-notes/` | Proposal-stage notes: gap/novelty/related-papers analyses, research idea |
 | `docs/research-notes/data_understanding/` | Phase 1 notes: dataset structure, attack taxonomy, field reference, class balance, split protocol, data-quality checks, the GridSybil_0709 windowing defect |

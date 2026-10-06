@@ -39,6 +39,59 @@ This plan operationalizes the thesis proposal into six executable phases. The ap
 | 7 | **Thesis Writing** | Chapters from Introduction through Conclusion, references, formatting | 🟡 In progress |
 | 8 | **Defense & Submission** | Advisor/committee review, defense, final submission, code archive | ⬜ Todo |
 
+
+### Stage 1 plan — advisor's TimesNet SSL design (recorded 2026-09-30; corrected plan adopted 2026-10-05)
+
+The advisor proposed a revised method: a **TimesNet** encoder (4 TimesBlocks + global average pooling) over
+13-feature BSM trajectories (sender-claimed and receiver-observed position/velocity, acceleration, time of day,
+Δτ), pretrained without attack labels on **masked reconstruction + three physical-constraint heads +
+SimCLR/InfoNCE contrastive learning**. Stage 2 (supervised-contrastive few-shot fine-tuning, a memory bank with
+FAISS kNN scoring) is deferred. Full WBS: `docs/plan/stage1-ssl-wbs.md` (Stage 1 ≈ 45 working days, 38 tasks, S1.0–S1.4; Stage 2 ≈ 14.5
+days, 9 tasks, S2.0–S2.3, deferred; plus the hyperparameter sweep plan); corrected plan in the professor's format: `docs/plan/clarification.md`; interactive version: `stage1-plan.html` (plain-language review of 19 issues in the plan with measured evidence, fixes and questions for the advisor — added 2026-10-04; task tracker, a 12-slide presentation of steps 1–2, Step 1 pipeline diagrams and data charts, a TimesNet architecture diagram and an interactive FFT/fold explainer — added 2026-10-01; synthetic signals are labelled illustrative on screen).
+
+This changes the method described in `proposal/main.tex` (Transformer encoder-decoder, MTR + TCP). **Decision
+D9 (2026-10-05, student): the deviation is accepted** — the advisor's Stage 1 plan supersedes the proposal's
+method, deviating from `main.tex` is not treated as an issue, and no `main.tex` revision is required before
+Stage 1 work (former task S1.0.3 removed).
+
+**Corrected plan adopted (2026-10-05, student decision):** `docs/plan/clarification.md` rewrites the advisor's
+plan with every fix from the review, and decisions D1–D8 are adopted as written there:
+
+| ID | Adopted |
+|---|---|
+| D1 | Network-heard pseudonym sequences (de-duplicated by `messageID`), **T = 64** (128 as sensitivity), fixed length, equal windows per vehicle |
+| D2 | "Receiver observed" = the receiver's own GPS position and velocity at rcvTime |
+| D3 | sin/cos time of day **dropped**; replaced by range + bearing to the claimed position; log-Δτ kept (13 features) |
+| D4 | Physics heads **P1–P3 detect injected violations** (speed spike / position jump, speed without matching positions, impossible turn; p = 0.5); original H1–H3 rules are diagnostics only |
+| D5 | **TCP dropped** (covered by the injected-violation heads) |
+| D6 | Hard negatives: same 50 m grid cell, same group, different pseudonym, ≥ 10 min apart (β = 0.5) |
+| D7 | Normalised losses; λ1 = 1, λ3–λ5 = 0.3, λ2 ∈ {0.1, 0.3, 1} + one uncertainty-weighting run; label-free checkpoint selection |
+| D8 | **Re-split** on (time window, physical vehicle) across the 4 scenarios — **RULE 3 split change, adopted but not yet executed** (WBS S1.1.5) |
+| D9 | Deviation from `proposal/main.tex` accepted |
+
+Updated 2026-10-06: the WBS now carries the adopted Stage 2 tasks (deferred until Stage 1 ends) and a sweep plan
+stating, for each hyperparameter, whether it is chosen label-free in Stage 1 or on validation in Stage 2.
+Stage 2 defaults adopted at the same time: train on A16/A18/A19 (+ benign), hold out A17 DataReplay; memory bank
+from unlabeled training embeddings with K, θ chosen on val; FL as deployment motivation only. The professor is
+shown the corrected plan (S1.0.1); any objection is recorded as a change. Next executable steps: S1.1.1 (leak
+audit) and S1.2.x (encoder) need nothing else; S1.1.2 needs the user's OK to write `data/prepared_receiver/`.
+Findings from checking the plan against the data (details and evidence in the WBS §0):
+
+- **F1 — cross-scenario train/test leak (RULE 3, see Known risks below).**
+- **F2 — the existing TCP objective is trivial:** `models/transformer_model.ipynb` cell 7 uses all-zero TCP
+  labels and applies no corruption; masks are shared across a batch. The v1 pilot is effectively MTR-only.
+- **F3 — only A0 + A16–A19 exist locally** (A16 = GridSybil, A17 = DataReplay). Stage 2's A1–A4/A9 classes need
+  the full 19-type VeReMi-Extension (new dataset, RULE 7); its "A16 data replay" hold-out is A17.
+- **F4 — 1 Hz beacons** (Δτ median 1.000 s; `rcvTime == sendTime`), not 100 ms.
+- **F5 — time of day separates 0709 from 1416 perfectly** → dropped (D3).
+- **F8 — physical head H1 as specified is an attack-label proxy** (flags 0% of benign, 84–88% of DoS/Grid
+  windows; P(attack | flag) = 1.000); H2 has no local map and no violations above 70 km/h; H3 fires on 33% of
+  benign windows. Heads renamed **P1–P3** to avoid clashing with hypotheses H1–H4, and redesigned to detect
+  injected violations (D4).
+
+Task mapping (superseded / modified / kept / deferred) is in the WBS §3 and now applies; the phase tables below
+keep their historical statuses, and Stage 1 progress is tracked in the WBS / `stage1-plan.html`.
+
 ---
 
 ## Phase 0 — Proposal & Planning
@@ -55,6 +108,10 @@ The pre-research phase: define the idea, position it against the literature, and
 | 0.6 | Proposal document (main.tex + draft) | 🔶 Partial | `proposal/main.tex`, `proposal/proposal-draft.md` |
 | 0.7 | Proposal presentation slides | 🔶 Partial | `proposal/thesis-proposal-presentation.html` |
 | 0.8 | Proposal defense & committee approval | ⬜ Todo | Committee sign-off |
+| 0.9 | Stage 1 / Stage 2 WBS for the adopted TimesNet SSL plan (F1–F10, 38 + 9 tasks, sweep plan) | ✅ Done | `docs/plan/stage1-ssl-wbs.md` |
+| 0.10 | Corrected plan in the professor's format + what changed and why + Q&A | ✅ Done | `docs/plan/clarification.md` (sharing it with the professor is S1.0.1) |
+| 0.11 | Interactive Stage 1/2 page (per-task ticks, plan review, diagrams, slides) | ✅ Done | `stage1-plan.html` |
+| 0.12 | Decision record D1–D9 (adopted 2026-10-05) + task mapping | ✅ Done | "Stage 1 plan" section above (= S1.0.2) |
 
 ---
 
@@ -162,6 +219,14 @@ GridSybil_0709 (including the v1 pilot results in `models/results/`) carries thi
 - **Per-scenario leakage via sender pseudonyms:** the same underlying vehicle contributes many overlapping windows; pseudonym reuse within a scenario means naive random window splits leak near-duplicates across train/test. All splits must be assigned at the sender-sequence level *before* window generation — verified for the existing `idx_*` files (task 1.5, `scripts/audit_splits.py`, all pass).
 - **Simulator regularity:** SUMO traces are smoother than real telemetry; the model may key on simulation artifacts. Note as a limitation (Phase 6) and keep the noise-variant fields in reserve for a robustness check.
 - **Windowing groupby key bug (new, see above):** `senderPseudo` is not a reliable per-vehicle key across the whole dataset — confirmed to break down specifically in `GridSybil_0709`. Must be fixed at the source (task 2.6) rather than patched downstream.
+- **Cross-scenario vehicle duplication — split change required (found 2026-09-30, RULE 3):** the four attack
+  scenarios reuse the same SUMO traffic, so each benign vehicle appears in all four scenario folders with the same
+  pseudonym and positions within 0.21 m median (max 1.0 m). `sender_uid` is per scenario folder, so the current
+  `idx_{train,val,test}` split keeps a vehicle's copies apart: **89.7% of test benign identities (2,283 / 2,546)
+  have a near-copy in train** (GridSybil_0709 excluded; measured from `window_metadata.parquet` + `idx_*.npy`).
+  `scripts/audit_splits.py` checks within-scenario disjointness only, so it passes. Every number from the current
+  split — including `models/results/` — is optimistic until a re-split grouped on (time window, physical vehicle)
+  across scenarios (Stage 1 tasks S1.1.1 / S1.1.5). **The split has not been changed yet**; that needs sign-off.
 
 ## Phase 2 — Feature Engineering
 
@@ -253,7 +318,7 @@ Goal: execute the evaluation plan in `proposal/main.tex` — few-shot, zero-shot
 | 5.1 | SSL pretraining runs with loss curves + checkpoints | 🔶 Partial | `models/roadfm_lite_pretrained.pt`, `models/results/training_loss.png` (v1: 5 epochs; final run TBD) |
 | 5.2 | Full-label fine-tuning: binary + 5-class heads | 🔶 Partial | `models/roadfm_lite_final.pt`, `models/results/results_summary.json` (v1: binary only) |
 | 5.3 | Label-efficiency curves: fine-tune with 1%, 5%, 10%, 50%, 100% of labels vs from-scratch | ⬜ Todo | label-efficiency results table + curve data (also covers proposal's K∈{5,10,20}-shot protocol) |
-| 5.4 | Cross-scenario transfer: train 0709 → test 1416 and reverse | ⬜ Todo | transfer results (both directions) + Δ_scenario degradation numbers |
+| 5.4 | Cross-scenario transfer: train 0709 → test 1416 and reverse | ⬜ Todo | transfer results (both directions) + Δ_scenario degradation numbers — now S1.4.3, on the new vehicle-grouped split (F1/D8) with no time-of-day feature |
 | 5.5 | Ablations: MTR-only vs TCP-only vs both; model-size sweep | ⬜ Todo | ablation results table (each variant at K=10 few-shot + full supervision) |
 | 5.6 | Multi-seed runs (≥3 seeds) with mean±std and significance tests | ⬜ Todo | per-seed logs + aggregated mean±std tables |
 | 5.7 | Representation analysis: t-SNE/UMAP of embeddings, attention-pattern inspection | 🔶 Partial | `models/results/embeddings_tsne.png` (v1); attention inspection TBD |
@@ -321,7 +386,7 @@ The document itself, chapter by chapter. Chapters 3–6 depend on Phases 2–6 p
 | 8.3 | Defense presentation slides | ⬜ Todo | Defense deck |
 | 8.4 | Thesis defense | ⬜ Todo | Committee approval |
 | 8.5 | Final formatted submission to Graduate Studies | ⬜ Todo | Submitted thesis per Office of Graduate Studies requirements |
-| 8.6 | Code & data archive (repo, README, reproducibility) | 🔶 Partial | This repo: reorganized, README + plan + tracker in place; needs pinned training env + regeneration scripts |
+| 8.6 | Code & data archive (repo, README, reproducibility) | 🔶 Partial | This repo: reorganized, README + plan + tracker in place; needs pinned training env (S1.0.4), the receiver-centric prep script (S1.1.2) and per-run configs + seeds; `scripts/prepare_data.py` exists for the v1 prep |
 
 **Acceptance criteria:** defense scheduled per the Graduate Studies timeline in `docs/planning/thesis-format-manual.txt`; the archived repo lets a third party regenerate `data/prepared_data/` and every reported number from committed code, configs, and seeds.
 

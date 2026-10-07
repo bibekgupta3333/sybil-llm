@@ -66,11 +66,72 @@ plan with every fix from the review, and decisions D1–D8 are adopted as writte
 | D5 | **TCP dropped** (covered by the injected-violation heads) |
 | D6 | Hard negatives: same 50 m grid cell, same group, different pseudonym, ≥ 10 min apart (β = 0.5) |
 | D7 | Normalised losses; λ1 = 1, λ3–λ5 = 0.3, λ2 ∈ {0.1, 0.3, 1} + one uncertainty-weighting run; label-free checkpoint selection |
-| D8 | **Re-split** on (time window, physical vehicle) across the 4 scenarios — **RULE 3 split change, adopted but not yet executed** (WBS S1.1.5) |
+| D8 | **Re-split** on (scenario group, physical vehicle) across the 4 scenarios and the group's time windows — **RULE 3 split change, adopted but not yet executed** (WBS S1.1.5) |
 | D9 | Deviation from `proposal/main.tex` accepted |
 
 Updated 2026-10-06: the WBS now carries the adopted Stage 2 tasks (deferred until Stage 1 ends) and a sweep plan
 stating, for each hyperparameter, whether it is chosen label-free in Stage 1 or on validation in Stage 2.
+**Prepared data rebuilt in the receiver's view (2026-10-06, D1′, user's instruction).** `src/pipeline/input_representation.ipynb`
+now keeps **every received copy** (no de-duplication — VeReMi is designed as per-receiver logs) and writes one
+prepared JSON per raw trace file, mirroring `data/VeReMi-Dataset/<Family>_<group>/<run>/`, plus `index.json`
+(labels from file names, vehicle split over sender vehicles 4,730 / 526 / 1,126 / 1,126 — RULE 3, train-only
+normalisation, counts, provenance). 23,032 files, 20,364,658 messages, 5,321,657 links, 2.9 GB, 66 s. Attack
+messages are all present (e.g. DoSRandom_0709: 1.74 M messages) but DataReplay/DoS links are 1–2 messages long,
+so no link of theirs reaches 64 — how to form encoder windows from links is the next decision. The earlier
+de-duplicated T64/T128 output was replaced.
+
+**Fixed T = 64 for every window (2026-10-06, user's choice; supersedes the bucketed layout below).** Same crop,
+but every window is padded to 64 rows + mask (`buckets = (64,)`): 376,427 windows of 64 × 13, 71.0% padding,
+1.8 GB in 39 shards (`<split>/b64/`). EDA (`src/eda/benign_gridsybil/eda_encoder_input_T64.ipynb`): no single feature separates the
+classes (|AUC − 0.5| ≤ 0.04); length-only AUC 0.531; an unmasked mean leaks length (log_dtau AUC 0.492 → 0.442),
+so the encoder must use the mask. Masking in the model is blocked on the torch env (S1.0.4).
+
+**Encoder notebook (2026-10-07, no training):** `src/model/benign_gridsybil/timesnet_encoder_T64.ipynb` builds the masked TimesNet encoder (2.30M params), the untrained heads (reconstruction, P1–P3, projection) and the loss definitions; checks pass (padding ignored exactly, batch-invariant, CPU = MPS). Training env pinned (`.venv-train`, torch 2.14.1).
+
+**Status 2026-10-07:** input representation done for benign + GridSybil (S1.1.2–S1.1.5); S1.1.6 shortcut probes
+partly done in the EDA (length AUC 0.531); next is S1.0.4 (torch env) → S1.2 TimesNet encoder with masked pooling
+and masked losses. DataReplay / DoS windows (receiver time window) remain open.
+
+Earlier — **Crop + length buckets + mask, max T = 64 (2026-10-06, adopted after research).** `src/pipeline/benign_gridsybil/encoder_input_T64.ipynb` now
+cuts every benign / GridSybil link into non-overlapping pieces of at most 64 messages, assigns each piece to the
+smallest bucket of {8, 16, 32, 64} that fits and pads only to that size with a mask (1 = real). All 6,980,356
+messages are used once: 376,427 windows (train 236,432 / pretrain-val 28,406 / val 57,621 / test 53,968), 26.3%
+padding (b08 50.7%, b16 23.7%, b32 28.0%, b64 19.5%; 71.0% if everything were padded to 64), 1.0 GB in 48 shards
+(one split × bucket each). Rationale and references: `docs/plan/stage1-preprocessing-feature-engineering.md`.
+Open: 1–3-message windows (benign 13.9% vs GridSybil 20.2% → possible length shortcut; `min_messages` floor
+option); the encoder must use the mask (masked pooling and losses).
+
+Earlier the same day — **Padding removed (2026-10-06, user's decision).** TimesNet's FFT and convolutions would read padding rows as
+data, so the encoder input now keeps only full windows of exactly 64 real messages: 22,976 windows (train 4,776
+benign + 9,349 GridSybil / pretrain-val 481 + 1,232 / val 1,066 + 2,569 / test 1,111 + 2,392), 153 MB, no mask.
+Trade-off: only 1,470,464 of the 6,980,356 kept messages are used (benign 18.2%, GridSybil 22.8%); links shorter
+than 64 are unused. Options if more data is needed: shorter T, overlapping windows (stride < 64), or masked padding.
+
+Earlier the same day — **Encoder input, benign + GridSybil, T = 64 (2026-10-06, user's choice).** `src/pipeline/benign_gridsybil/encoder_input_T64.ipynb` reads the
+two GridSybil scenario folders of the prepared data, keeps benign + GridSybil senders (271 unlabeled links dropped),
+cuts every link into non-overlapping 64-row windows with **end padding + mask** (every message used once), splits by
+sender vehicle (index.json), normalises with train-only statistics, and writes sharded JSON to
+`src/data/encoder_input/benign_gridsybil/T64/`: 376,427 windows (train 236,432 / pretrain-val 28,406 / val 57,621 / test 53,968),
+1.8 GB. Padding ≈ 69–72% of rows (median 12–15 real messages per window); a padding-only probe gives val AUC 0.531.
+
+Earlier the same day: **S1.1 redone as a notebook (2026-10-06) — ⚠ RULE 3: the vehicle-grouped split is in force again.**
+`src/pipeline/input_representation.ipynb` reads the whole raw dataset and writes the encoder input as JSON only into
+`src/data/prepared_data/T64/` and `T128/` (`{train,pretrain_val,val,test}.json` = inputs only;
+`*_info.json` = labels/vehicle for evaluation; `metadata.json` = train-only normalisation + provenance).
+T = 64: 15,904 samples, split train 9,964 / pretrain-val 1,196 / val 2,365 / test 2,379 (5,356 vehicles, none
+shared). S1.1.1 (leak audit script) and S1.1.6 (shortcut probes) are not part of the notebook.
+
+Earlier the same day: **S1.1 removed (user's request).** The S1.1 code in `src/` and the prepared data (`src/data/`,
+`data/prepared_receiver/`, incl. the new `idx_*_rx.npy` split) were deleted; S1.1 tasks are back to *not done* and
+the **D8 split is not in force** (the v1 `idx_*` files were never touched). Kept as evidence from that run:
+- **F1 confirmed by script:** 89.7% of benign test identities (2,283 / 2,546) — note
+  `docs/research-notes/data_understanding/cross-scenario-leak.md`.
+- **F11:** at T = 64, pseudonym-level sequences kept benign 70.5%, GridSybil 48.5%, DataReplay 1 sample, DoS 0
+  (user decision at the time: keep pseudonym-level).
+- **F12/F13:** primary-listener range 36 / 348 m; GridSybil ghosts share pseudonym 1 in every GridSybil run.
+- **D8 refinement:** group key = (scenario group, physical vehicle) — vehicles cross time-window boundaries.
+- Shortcut probe on that data: sequence length AUC 0.551, time of day 0.544, run id 0.886.
+
 Stage 2 defaults adopted at the same time: train on A16/A18/A19 (+ benign), hold out A17 DataReplay; memory bank
 from unlabeled training embeddings with K, θ chosen on val; FL as deployment motivation only. The professor is
 shown the corrected plan (S1.0.1); any objection is recorded as a change. Next executable steps: S1.1.1 (leak

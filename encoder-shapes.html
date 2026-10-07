@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Encoder Shapes</title>
+<style>
+:root {
+  --bg: #fafaf9; --card: #ffffff; --ink: #1c1917; --muted: #57534e; --line: #e7e5e4;
+  --accent: #2563eb; --accent-soft: #dbeafe; --real: #16a34a; --real-soft: #dcfce7;
+  --pad: #a8a29e; --pad-soft: #f5f5f4; --warn-soft: #fef3c7; --warn: #b45309;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c0a09; --card: #1c1917; --ink: #f5f5f4; --muted: #a8a29e; --line: #292524;
+    --accent: #60a5fa; --accent-soft: #1e3a5f; --real: #4ade80; --real-soft: #14532d;
+    --pad: #78716c; --pad-soft: #292524; --warn-soft: #422006; --warn: #fbbf24;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c0a09; --card: #1c1917; --ink: #f5f5f4; --muted: #a8a29e; --line: #292524;
+  --accent: #60a5fa; --accent-soft: #1e3a5f; --real: #4ade80; --real-soft: #14532d;
+  --pad: #78716c; --pad-soft: #292524; --warn-soft: #422006; --warn: #fbbf24;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+header h1 { font-size: 1.7rem; margin: 0 0 6px; }
+header p { color: var(--muted); margin: 0 0 18px; }
+nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 24px; }
+nav a { font-size: .85rem; text-decoration: none; color: var(--accent); background: var(--accent-soft);
+  padding: 3px 10px; border-radius: 999px; }
+.stage { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px;
+  margin: 0 0 18px; }
+.stage h2 { margin: 0 0 4px; font-size: 1.25rem; }
+.stage h3 { margin: 18px 0 6px; font-size: 1.02rem; }
+.lead { color: var(--muted); margin: 0 0 14px; }
+.m { display: inline-block; font: 600 .9rem ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent);
+  background: var(--accent-soft); padding: 1px 8px; border-radius: 6px; white-space: nowrap; }
+.ar { color: var(--muted); margin: 0 4px; }
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0 14px; line-height: 2; }
+.calc { border-left: 3px solid var(--accent); background: var(--pad-soft); padding: 10px 14px; border-radius: 0 8px 8px 0;
+  margin: 10px 0; overflow-x: auto; }
+.calc code { display: block; font: .92rem ui-monospace, SFMono-Regular, Menlo, monospace; margin: 2px 0; white-space: pre-wrap; }
+.calc-row { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-bottom: 1px dashed var(--line); }
+.calc-row:last-child { border-bottom: 0; }
+.params { font-size: .92rem; margin: 8px 0; color: var(--muted); }
+.params b { color: var(--ink); }
+.t { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: .92rem; }
+.t th, .t td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.t th { color: var(--muted); font-weight: 600; }
+.table-wrap { overflow-x: auto; }
+.note { background: var(--warn-soft); border-radius: 8px; padding: 8px 12px; margin: 12px 0 0; font-size: .92rem; }
+.mask { background: var(--real-soft); border-radius: 8px; padding: 8px 12px; margin: 12px 0 0; font-size: .92rem; }
+svg { width: 100%; max-height: 180px; display: block; margin: 10px 0; }
+.dg { max-height: none; height: auto; margin: 14px 0; }
+.dg text { fill: var(--ink); font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+.dg .mut { fill: var(--muted); font-size: 12px; }
+.dg .sz { fill: var(--accent); font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.dg .b { font-weight: 600; }
+.dg .box { fill: var(--card); stroke: var(--line); stroke-width: 1.5; }
+.dg .acc { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+.dg .real { fill: var(--real); } .dg .pad { fill: var(--pad); opacity: .45; }
+.dg .cell { fill: var(--accent-soft); fill-opacity: .35; stroke: var(--muted); stroke-opacity: .6; }
+.dg .hl { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+.dg .arr { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+.dg .ah { fill: var(--muted); }
+footer { color: var(--muted); font-size: .85rem; margin-top: 24px; }
+@media (max-width: 640px) { .t { display: block; overflow-x: auto; } .stage { padding: 16px 14px; } header h1 { font-size: 1.4rem; } }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>Encoder shapes: the matrix math</h1>
+  <p>One window through the TimesNet encoder (benign + GridSybil trial, T = 64), with the size of every matrix.
+  Worked example: a window with <b>28 real messages</b> and 36 padding rows. Not trained yet: shapes and sizes only.</p>
+  <div class="flow"><span class="m">64 × 13</span><span class="ar">→</span><span class="m">64 × 128</span>
+    <span class="ar">→ 4 × TimesBlock →</span><span class="m">64 × 128</span><span class="ar">= H →</span>
+    <span class="m">128</span><span class="ar">= z</span></div>
+<svg class="dg" viewBox="0 0 900 230" role="img"><title>The whole encoder: input, embedding, four TimesBlocks, H, masked mean, z, heads</title><defs><marker id="ah1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker></defs><rect class="box" x="10" y="80" width="120" height="64" rx="8"/><text class="b" x="70.0" y="108.0" text-anchor="middle">Input</text><text class="sz" x="70.0" y="126.0" text-anchor="middle">64×13 + mask</text><rect class="acc" x="160" y="80" width="130" height="64" rx="8"/><text class="b" x="225.0" y="108.0" text-anchor="middle">Embedding</text><text class="sz" x="225.0" y="126.0" text-anchor="middle">64 × 128</text><rect class="acc" x="338" y="92" width="140" height="64" rx="8"/><rect class="acc" x="332" y="86" width="140" height="64" rx="8"/><rect class="acc" x="326" y="80" width="140" height="64" rx="8"/><rect class="acc" x="320" y="74" width="140" height="64" rx="8"/><text class="b" x="399" y="108" text-anchor="middle">4 × TimesBlock</text><text class="sz" x="399" y="126" text-anchor="middle">64×128 → 64×128</text><rect class="box" x="500" y="80" width="100" height="64" rx="8"/><text class="b" x="550.0" y="108.0" text-anchor="middle">H</text><text class="sz" x="550.0" y="126.0" text-anchor="middle">64 × 128</text><rect class="box" x="630" y="80" width="110" height="64" rx="8"/><text class="b" x="685.0" y="108.0" text-anchor="middle">masked mean</text><text class="sz" x="685.0" y="126.0" text-anchor="middle">z: 128</text><rect class="box" x="775" y="10" width="115" height="50" rx="8"/><text class="b" x="832.5" y="31.0" text-anchor="middle">recon head</text><text class="sz" x="832.5" y="49.0" text-anchor="middle">64 × 13</text><rect class="box" x="775" y="90" width="115" height="50" rx="8"/><text class="b" x="832.5" y="111.0" text-anchor="middle">P1 · P2 · P3</text><text class="sz" x="832.5" y="129.0" text-anchor="middle">1 + 1 + 1</text><rect class="box" x="775" y="170" width="115" height="50" rx="8"/><text class="b" x="832.5" y="191.0" text-anchor="middle">projection</text><text class="sz" x="832.5" y="209.0" text-anchor="middle">128</text><path class="arr" d="M130,112 L158,112" marker-end="url(#ah1)"/><path class="arr" d="M290,112 L318,112" marker-end="url(#ah1)"/><path class="arr" d="M478,112 L498,112" marker-end="url(#ah1)"/><path class="arr" d="M600,112 L628,112" marker-end="url(#ah1)"/><path class="arr" d="M740,112 L773,115" marker-end="url(#ah1)"/><path class="arr" d="M740,125 L773,192" marker-end="url(#ah1)"/><path class="arr" d="M550,80 L550,35 L773,35" marker-end="url(#ah1)"/><text class="mut" x="600" y="28">reads H</text><text class="mut" x="10" y="190">mask = 28 ones, 36 zeros · used in every box</text><text class="mut" x="10" y="210">encoder = 2,301,312 parameters · heads: Stage 1 only, untrained</text></svg>
+</header>
+<nav>
+  <a href="#input">Input</a><a href="#embedding">Embedding</a><a href="#timesblock">TimesBlock</a>
+  <a href="#output">Output</a><a href="#heads">Heads</a><a href="#summary">Summary</a>
+</nav>
+<section class="stage" id="input">
+  <h2>Input</h2>
+  <p class="lead">One window is a 64 × 13 table: 64 messages (rows) with 13 numbers each (columns), plus a mask that marks which rows are real.</p>
+
+  <div class="flow"><span class="m">x: 64 × 13</span> <span class="ar">+</span> <span class="m">mask: 64</span></div>
+
+  <svg viewBox="0 0 640 60" width="100%" style="max-height:180px" role="img">
+    <title>64 rows: 28 real rows, then 36 padding rows</title>
+    <rect x="0" y="10" width="280" height="30" fill="var(--real)"/>
+    <rect x="280" y="10" width="360" height="30" fill="var(--pad)"/>
+    <text x="140" y="56" text-anchor="middle" font-size="12" fill="currentColor">28 real rows (mask = 1)</text>
+    <text x="460" y="56" text-anchor="middle" font-size="12" fill="currentColor">36 padding rows (all 0, mask = 0)</text>
+  </svg>
+
+  <p>Each row is one message. Messages arrive once per second. Values are already z-scored (mean 0, std 1).</p>
+
+  <table class="t">
+    <tr><th>Columns</th><th>Count</th></tr>
+    <tr><td>claimed position x, y</td><td>2</td></tr>
+    <tr><td>receiver position x, y</td><td>2</td></tr>
+    <tr><td>claimed velocity x, y</td><td>2</td></tr>
+    <tr><td>receiver velocity x, y</td><td>2</td></tr>
+    <tr><td>claimed acceleration x, y</td><td>2</td></tr>
+    <tr><td>range, bearing, log_dtau</td><td>3</td></tr>
+    <tr><th>Total</th><th>13</th></tr>
+  </table>
+
+  <div class="mask">Our worked window has 28 real messages. Rows 29–64 are padding: every value is 0. The mask is 64 numbers: 28 ones, then 36 zeros.</div>
+
+  <div class="note">A batch just adds B in front: <span class="m">B × 64 × 13</span> and <span class="m">B × 64</span>. Here we follow one window (B = 1).</div>
+</section>
+
+<section class="stage" id="embedding">
+  <h2>Embedding</h2>
+  <p class="lead">Each 13-number row becomes a 128-number row, so the window goes from 64 × 13 to 64 × 128.</p>
+
+  <div class="flow"><span class="m">64 × 13</span> <span class="ar">→</span> <span class="m">64 × 128</span> <span class="ar">→</span> <span class="m">64 × 128</span> <span class="ar">→</span> <span class="m">X⁽⁰⁾: 64 × 128</span></div>
+<svg class="dg" viewBox="0 0 780 200" role="img"><title>Embedding: three neighbouring rows of 13 features become one row of 128 numbers</title><defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker></defs><text class="mut" x="20" y="53" text-anchor="end">t−3</text><rect class="cell" x="26" y="40" width="15" height="18"/><rect class="cell" x="41" y="40" width="15" height="18"/><rect class="cell" x="56" y="40" width="15" height="18"/><rect class="cell" x="71" y="40" width="15" height="18"/><rect class="cell" x="86" y="40" width="15" height="18"/><rect class="cell" x="101" y="40" width="15" height="18"/><rect class="cell" x="116" y="40" width="15" height="18"/><rect class="cell" x="131" y="40" width="15" height="18"/><rect class="cell" x="146" y="40" width="15" height="18"/><rect class="cell" x="161" y="40" width="15" height="18"/><rect class="cell" x="176" y="40" width="15" height="18"/><rect class="cell" x="191" y="40" width="15" height="18"/><rect class="cell" x="206" y="40" width="15" height="18"/><text class="mut" x="20" y="71" text-anchor="end">t−2</text><rect class="cell" x="26" y="58" width="15" height="18"/><rect class="cell" x="41" y="58" width="15" height="18"/><rect class="cell" x="56" y="58" width="15" height="18"/><rect class="cell" x="71" y="58" width="15" height="18"/><rect class="cell" x="86" y="58" width="15" height="18"/><rect class="cell" x="101" y="58" width="15" height="18"/><rect class="cell" x="116" y="58" width="15" height="18"/><rect class="cell" x="131" y="58" width="15" height="18"/><rect class="cell" x="146" y="58" width="15" height="18"/><rect class="cell" x="161" y="58" width="15" height="18"/><rect class="cell" x="176" y="58" width="15" height="18"/><rect class="cell" x="191" y="58" width="15" height="18"/><rect class="cell" x="206" y="58" width="15" height="18"/><text class="mut" x="20" y="89" text-anchor="end">t−1</text><rect class="cell" x="26" y="76" width="15" height="18"/><rect class="cell" x="41" y="76" width="15" height="18"/><rect class="cell" x="56" y="76" width="15" height="18"/><rect class="cell" x="71" y="76" width="15" height="18"/><rect class="cell" x="86" y="76" width="15" height="18"/><rect class="cell" x="101" y="76" width="15" height="18"/><rect class="cell" x="116" y="76" width="15" height="18"/><rect class="cell" x="131" y="76" width="15" height="18"/><rect class="cell" x="146" y="76" width="15" height="18"/><rect class="cell" x="161" y="76" width="15" height="18"/><rect class="cell" x="176" y="76" width="15" height="18"/><rect class="cell" x="191" y="76" width="15" height="18"/><rect class="cell" x="206" y="76" width="15" height="18"/><text class="mut" x="20" y="107" text-anchor="end">t</text><rect class="cell" x="26" y="94" width="15" height="18"/><rect class="cell" x="41" y="94" width="15" height="18"/><rect class="cell" x="56" y="94" width="15" height="18"/><rect class="cell" x="71" y="94" width="15" height="18"/><rect class="cell" x="86" y="94" width="15" height="18"/><rect class="cell" x="101" y="94" width="15" height="18"/><rect class="cell" x="116" y="94" width="15" height="18"/><rect class="cell" x="131" y="94" width="15" height="18"/><rect class="cell" x="146" y="94" width="15" height="18"/><rect class="cell" x="161" y="94" width="15" height="18"/><rect class="cell" x="176" y="94" width="15" height="18"/><rect class="cell" x="191" y="94" width="15" height="18"/><rect class="cell" x="206" y="94" width="15" height="18"/><text class="mut" x="20" y="125" text-anchor="end">t+1</text><rect class="cell" x="26" y="112" width="15" height="18"/><rect class="cell" x="41" y="112" width="15" height="18"/><rect class="cell" x="56" y="112" width="15" height="18"/><rect class="cell" x="71" y="112" width="15" height="18"/><rect class="cell" x="86" y="112" width="15" height="18"/><rect class="cell" x="101" y="112" width="15" height="18"/><rect class="cell" x="116" y="112" width="15" height="18"/><rect class="cell" x="131" y="112" width="15" height="18"/><rect class="cell" x="146" y="112" width="15" height="18"/><rect class="cell" x="161" y="112" width="15" height="18"/><rect class="cell" x="176" y="112" width="15" height="18"/><rect class="cell" x="191" y="112" width="15" height="18"/><rect class="cell" x="206" y="112" width="15" height="18"/><text class="mut" x="20" y="143" text-anchor="end">t+2</text><rect class="cell" x="26" y="130" width="15" height="18"/><rect class="cell" x="41" y="130" width="15" height="18"/><rect class="cell" x="56" y="130" width="15" height="18"/><rect class="cell" x="71" y="130" width="15" height="18"/><rect class="cell" x="86" y="130" width="15" height="18"/><rect class="cell" x="101" y="130" width="15" height="18"/><rect class="cell" x="116" y="130" width="15" height="18"/><rect class="cell" x="131" y="130" width="15" height="18"/><rect class="cell" x="146" y="130" width="15" height="18"/><rect class="cell" x="161" y="130" width="15" height="18"/><rect class="cell" x="176" y="130" width="15" height="18"/><rect class="cell" x="191" y="130" width="15" height="18"/><rect class="cell" x="206" y="130" width="15" height="18"/><text class="mut" x="20" y="161" text-anchor="end">t+3</text><rect class="cell" x="26" y="148" width="15" height="18"/><rect class="cell" x="41" y="148" width="15" height="18"/><rect class="cell" x="56" y="148" width="15" height="18"/><rect class="cell" x="71" y="148" width="15" height="18"/><rect class="cell" x="86" y="148" width="15" height="18"/><rect class="cell" x="101" y="148" width="15" height="18"/><rect class="cell" x="116" y="148" width="15" height="18"/><rect class="cell" x="131" y="148" width="15" height="18"/><rect class="cell" x="146" y="148" width="15" height="18"/><rect class="cell" x="161" y="148" width="15" height="18"/><rect class="cell" x="176" y="148" width="15" height="18"/><rect class="cell" x="191" y="148" width="15" height="18"/><rect class="cell" x="206" y="148" width="15" height="18"/><rect class="hl" x="25" y="75" width="197" height="56" rx="3"/><text class="mut" x="26" y="30">x: 64 rows × 13 features (7 rows shown)</text><text class="sz" x="26" y="185">window of 3 rows: 3 × 13</text><path class="arr" d="M230,103 L268,103" marker-end="url(#ah2)"/><text x="276" y="88">W₋₁·x(t−1) + W₀·x(t) + W₊₁·x(t+1)</text><text class="mut" x="276" y="110">each W is 128 × 13, each x is 13 × 1</text><text class="mut" x="276" y="128">→ 128 × 1 for row t (weights 4,992)</text><path class="arr" d="M520,103 L548,103" marker-end="url(#ah2)"/><rect class="acc" x="556" y="72" width="210" height="18" rx="3"/><text class="sz" x="661" y="66" text-anchor="middle">e_t: 128 numbers</text><text x="556" y="116">+ position row t (128, fixed)</text><text x="556" y="138">× mask_t (0 if padding)</text><text class="mut" x="556" y="170">repeat for all 64 rows → 64 × 128</text></svg>
+
+  <p>Token embedding, then add position, then multiply by the mask.</p>
+
+  <h3>Token embedding (Conv1d, kernel 3)</h3>
+  <p>For each row t, look at the row before, the row itself and the row after. Rows outside 1…64 count as 0. There is no bias.</p>
+  <div class="calc">
+    <code>e_t = W₋₁ · x_{t−1} + W₀ · x_t + W₊₁ · x_{t+1}</code>
+    <div class="calc-row"><span>each W</span><span class="m">128 × 13</span></div>
+    <div class="calc-row"><span>each x</span><span class="m">13 × 1</span></div>
+    <div class="calc-row"><span>each e_t</span><span class="m">128 × 1</span></div>
+    <div class="calc-row"><span>all 64 rows stacked</span><span class="m">64 × 128</span></div>
+  </div>
+  <div class="params">weights 128 × 13 × 3 = <b>4,992</b></div>
+
+  <h3>Positional embedding</h3>
+  <p>A fixed sine/cosine table tells the model where each row sits. It is added, not learned. There is no time of day.</p>
+  <div class="calc">
+    <code>E = TokenEmbedding(x) + PE</code>
+    <div class="calc-row"><span>PE (fixed table)</span><span class="m">64 × 128</span></div>
+    <div class="calc-row"><span>E</span><span class="m">64 × 128</span></div>
+  </div>
+  <div class="params">positional table: <b>0</b> parameters</div>
+
+  <h3>Apply the mask</h3>
+  <div class="calc">
+    <code>X⁽⁰⁾ = E × mask</code>
+    <div class="calc-row"><span>mask, one value per row</span><span class="m">64</span></div>
+    <div class="calc-row"><span>X⁽⁰⁾</span><span class="m">64 × 128</span></div>
+  </div>
+  <div class="mask">The kernel and the position table put non-zero values into the 36 padding rows. Multiplying by the mask sets those rows back to 0. The 28 real rows keep their values.</div>
+</section>
+<section class="stage" id="timesblock">
+<h2>Inside one TimesBlock</h2>
+<p class="lead">A TimesBlock takes a 64 × 128 matrix, finds repeating periods, folds time into a 2-D grid, convolves it, and gives back 64 × 128 again.</p>
+
+<div class="flow"><span class="m">64 × 128</span><span class="ar">→</span><span class="m">128 × 5 × 14</span><span class="ar">→</span><span class="m">64 × 5 × 14</span><span class="ar">→</span><span class="m">128 × 5 × 14</span><span class="ar">→</span><span class="m">64 × 128</span></div>
+<svg class="dg" viewBox="0 0 900 320" role="img"><title>One TimesBlock: FFT picks three periods, each branch folds, convolves and unfolds, then a weighted sum, residual, LayerNorm and mask</title><defs><marker id="ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker></defs><rect class="box" x="10" y="130" width="100" height="60" rx="8"/><text class="b" x="60.0" y="156.0" text-anchor="middle">X</text><text class="sz" x="60.0" y="174.0" text-anchor="middle">64 × 128</text><rect class="acc" x="130" y="120" width="125" height="80" rx="8"/><text class="b" x="192.5" y="156.0" text-anchor="middle">FFT</text><text class="sz" x="192.5" y="174.0" text-anchor="middle">real rows only</text><text class="mut" x="192" y="214" text-anchor="middle">periods 14 · 7 · 5</text><path class="arr" d="M110,160 L128,160" marker-end="url(#ah3)"/><path class="arr" d="M255,160 L283,47" marker-end="url(#ah3)"/><rect class="box" x="285" y="20" width="115" height="54" rx="8"/><text class="b" x="342.5" y="43.0" text-anchor="middle">fold p = 14</text><text class="sz" x="342.5" y="61.0" text-anchor="middle">128 × 5 × 14</text><path class="arr" d="M400,47 L418,47" marker-end="url(#ah3)"/><rect class="box" x="420" y="20" width="150" height="54" rx="8"/><text class="b" x="495.0" y="43.0" text-anchor="middle">Inception ×2</text><text class="sz" x="495.0" y="61.0" text-anchor="middle">128→64→128</text><path class="arr" d="M570,47 L588,47" marker-end="url(#ah3)"/><rect class="box" x="590" y="20" width="100" height="54" rx="8"/><text class="b" x="640.0" y="43.0" text-anchor="middle">unfold</text><text class="sz" x="640.0" y="61.0" text-anchor="middle">64 × 128</text><text class="sz" x="640" y="88" text-anchor="middle">weight 0.46</text><path class="arr" d="M690,47 L733,158" marker-end="url(#ah3)"/><path class="arr" d="M255,160 L283,152" marker-end="url(#ah3)"/><rect class="box" x="285" y="125" width="115" height="54" rx="8"/><text class="b" x="342.5" y="148.0" text-anchor="middle">fold p = 7</text><text class="sz" x="342.5" y="166.0" text-anchor="middle">128 × 10 × 7</text><path class="arr" d="M400,152 L418,152" marker-end="url(#ah3)"/><rect class="box" x="420" y="125" width="150" height="54" rx="8"/><text class="b" x="495.0" y="148.0" text-anchor="middle">Inception ×2</text><text class="sz" x="495.0" y="166.0" text-anchor="middle">128→64→128</text><path class="arr" d="M570,152 L588,152" marker-end="url(#ah3)"/><rect class="box" x="590" y="125" width="100" height="54" rx="8"/><text class="b" x="640.0" y="148.0" text-anchor="middle">unfold</text><text class="sz" x="640.0" y="166.0" text-anchor="middle">64 × 128</text><text class="sz" x="640" y="193" text-anchor="middle">weight 0.29</text><path class="arr" d="M690,152 L733,158" marker-end="url(#ah3)"/><path class="arr" d="M255,160 L283,257" marker-end="url(#ah3)"/><rect class="box" x="285" y="230" width="115" height="54" rx="8"/><text class="b" x="342.5" y="253.0" text-anchor="middle">fold p = 5</text><text class="sz" x="342.5" y="271.0" text-anchor="middle">128 × 13 × 5</text><path class="arr" d="M400,257 L418,257" marker-end="url(#ah3)"/><rect class="box" x="420" y="230" width="150" height="54" rx="8"/><text class="b" x="495.0" y="253.0" text-anchor="middle">Inception ×2</text><text class="sz" x="495.0" y="271.0" text-anchor="middle">128→64→128</text><path class="arr" d="M570,257 L588,257" marker-end="url(#ah3)"/><rect class="box" x="590" y="230" width="100" height="54" rx="8"/><text class="b" x="640.0" y="253.0" text-anchor="middle">unfold</text><text class="sz" x="640.0" y="271.0" text-anchor="middle">64 × 128</text><text class="sz" x="640" y="298" text-anchor="middle">weight 0.25</text><path class="arr" d="M690,257 L733,158" marker-end="url(#ah3)"/><circle class="acc" cx="748" cy="160" r="15"/><text class="b" x="748" y="165" text-anchor="middle">Σ</text><path class="arr" d="M763,160 L781,160" marker-end="url(#ah3)"/><rect class="acc" x="783" y="118" width="110" height="84" rx="8"/><text class="b" x="838" y="140" text-anchor="middle">+ X</text><text x="838" y="160" text-anchor="middle">LayerNorm</text><text x="838" y="180" text-anchor="middle">× mask</text><text class="sz" x="838" y="196" text-anchor="middle">64 × 128</text><path class="arr" d="M60,190 L60,305 L838,305 L838,204" marker-end="url(#ah3)"/><text class="mut" x="420" y="298" text-anchor="middle">residual: the block input is added back</text></svg>
+
+<p>The flow shows one period (p = 14). The block does this for 3 periods, then mixes them. There are 4 blocks, one after another.</p>
+
+<h3>Find periods</h3>
+<p>Run an FFT along time over the 28 real rows only. Padding is left out.</p>
+<div class="calc">
+<div class="calc-row"><span>real rows of X</span><span class="m">28 × 128</span></div>
+<div class="calc-row"><span>FFT along time: 15 frequencies (0…14)</span><span class="m">15 × 128</span></div>
+<div class="calc-row"><span>average |amplitude| over 128 channels</span><span class="m">15</span></div>
+<code>skip f = 0 and f = 1, keep top 3 → f = 2, 4, 5</code><br>
+<code>p = 28 // f → 14, 7, 5   (amplitudes ≈ 2.02, 1.56, 1.42)</code>
+</div>
+
+<h3>Fold</h3>
+<p>Pad the 64 rows with zeros up to a multiple of p. Reshape into cycles × positions.</p>
+<svg viewBox="0 0 600 180" width="100%" style="max-height:180px" role="img" aria-labelledby="fold-t"><title id="fold-t">Fold for period 14: 64 rows plus 6 zero rows become a grid of 5 cycles by 14 positions; the 28 real rows fill the first 2 cycles</title>
+<text x="20" y="14" font-size="11" fill="currentColor">64 rows in time (28 real, 36 padding) + 6 added zero rows = 70</text>
+<rect x="20" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="28" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="36" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="44" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="52" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="60" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="68" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="76" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="84" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="92" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="100" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="108" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="116" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="124" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="132" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="140" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="148" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="156" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="164" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="172" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="180" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="188" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="196" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="204" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="212" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="220" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="228" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="236" y="20" width="7" height="16" fill="var(--real)"/>
+<rect x="244" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="252" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="260" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="268" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="276" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="284" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="292" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="300" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="308" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="316" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="324" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="332" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="340" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="348" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="356" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="364" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="372" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="380" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="388" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="396" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="404" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="412" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="420" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="428" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="436" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="444" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="452" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="460" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="468" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="476" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="484" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="492" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="500" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="508" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="516" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="524" y="20" width="7" height="16" fill="var(--pad)"/>
+<rect x="532" y="20" width="7" height="16" fill="none" stroke="currentColor" stroke-dasharray="2 2" stroke-opacity="0.6"/>
+<rect x="540" y="20" width="7" height="16" fill="none" stroke="currentColor" stroke-dasharray="2 2" stroke-opacity="0.6"/>
+<rect x="548" y="20" width="7" height="16" fill="none" stroke="currentColor" stroke-dasharray="2 2" stroke-opacity="0.6"/>
+<rect x="556" y="20" width="7" height="16" fill="none" stroke="currentColor" stroke-dasharray="2 2" stroke-opacity="0.6"/>
+<rect x="564" y="20" width="7" height="16" fill="none" stroke="currentColor" stroke-dasharray="2 2" stroke-opacity="0.6"/>
+<rect x="572" y="20" width="7" height="16" fill="none" stroke="currentColor" stroke-dasharray="2 2" stroke-opacity="0.6"/>
+<path d="M300 44 L300 66" stroke="currentColor" stroke-width="1.5"/><path d="M295 60 L300 68 L305 60" fill="none" stroke="currentColor" stroke-width="1.5"/>
+<text x="310" y="60" font-size="11" fill="currentColor">reshape: 70 = 5 × 14</text>
+<rect x="160" y="76" width="18" height="16" fill="var(--real)"/>
+<rect x="180" y="76" width="18" height="16" fill="var(--real)"/>
+<rect x="200" y="76" width="18" height="16" fill="var(--real)"/>
+<rect x="220" y="76" width="18" height="16" fill="var(--real)"/>
+<rect x="240" y="76" width="18" height="16" fill="var(--real)"/>
+<rect x="260" y="76" width="18" height="16" fill="var(--real)"/>
+<rect x="280" y="76" width="18" height="16" fill="var(--real)"/>
+<rect x="300" y="76" width="18" height="16" fill="var(--real)"/>
+<rect x="320" y="76" width="18" height="16" fill="var(--real)"/>
+<rect x="340" y="76" width="18" height="16" fill="var(--real)"/>
+<rect x="360" y="76" width="18" height="16" fill="var(--real)"/>
+<rect x="380" y="76" width="18" height="16" fill="var(--real)"/>
+<rect x="400" y="76" width="18" height="16" fill="var(--real)"/>
+<rect x="420" y="76" width="18" height="16" fill="var(--real)"/>
+<rect x="160" y="94" width="18" height="16" fill="var(--real)"/>
+<rect x="180" y="94" width="18" height="16" fill="var(--real)"/>
+<rect x="200" y="94" width="18" height="16" fill="var(--real)"/>
+<rect x="220" y="94" width="18" height="16" fill="var(--real)"/>
+<rect x="240" y="94" width="18" height="16" fill="var(--real)"/>
+<rect x="260" y="94" width="18" height="16" fill="var(--real)"/>
+<rect x="280" y="94" width="18" height="16" fill="var(--real)"/>
+<rect x="300" y="94" width="18" height="16" fill="var(--real)"/>
+<rect x="320" y="94" width="18" height="16" fill="var(--real)"/>
+<rect x="340" y="94" width="18" height="16" fill="var(--real)"/>
+<rect x="360" y="94" width="18" height="16" fill="var(--real)"/>
+<rect x="380" y="94" width="18" height="16" fill="var(--real)"/>
+<rect x="400" y="94" width="18" height="16" fill="var(--real)"/>
+<rect x="420" y="94" width="18" height="16" fill="var(--real)"/>
+<rect x="160" y="112" width="18" height="16" fill="var(--pad)"/>
+<rect x="180" y="112" width="18" height="16" fill="var(--pad)"/>
+<rect x="200" y="112" width="18" height="16" fill="var(--pad)"/>
+<rect x="220" y="112" width="18" height="16" fill="var(--pad)"/>
+<rect x="240" y="112" width="18" height="16" fill="var(--pad)"/>
+<rect x="260" y="112" width="18" height="16" fill="var(--pad)"/>
+<rect x="280" y="112" width="18" height="16" fill="var(--pad)"/>
+<rect x="300" y="112" width="18" height="16" fill="var(--pad)"/>
+<rect x="320" y="112" width="18" height="16" fill="var(--pad)"/>
+<rect x="340" y="112" width="18" height="16" fill="var(--pad)"/>
+<rect x="360" y="112" width="18" height="16" fill="var(--pad)"/>
+<rect x="380" y="112" width="18" height="16" fill="var(--pad)"/>
+<rect x="400" y="112" width="18" height="16" fill="var(--pad)"/>
+<rect x="420" y="112" width="18" height="16" fill="var(--pad)"/>
+<rect x="160" y="130" width="18" height="16" fill="var(--pad)"/>
+<rect x="180" y="130" width="18" height="16" fill="var(--pad)"/>
+<rect x="200" y="130" width="18" height="16" fill="var(--pad)"/>
+<rect x="220" y="130" width="18" height="16" fill="var(--pad)"/>
+<rect x="240" y="130" width="18" height="16" fill="var(--pad)"/>
+<rect x="260" y="130" width="18" height="16" fill="var(--pad)"/>
+<rect x="280" y="130" width="18" height="16" fill="var(--pad)"/>
+<rect x="300" y="130" width="18" height="16" fill="var(--pad)"/>
+<rect x="320" y="130" width="18" height="16" fill="var(--pad)"/>
+<rect x="340" y="130" width="18" height="16" fill="var(--pad)"/>
+<rect x="360" y="130" width="18" height="16" fill="var(--pad)"/>
+<rect x="380" y="130" width="18" height="16" fill="var(--pad)"/>
+<rect x="400" y="130" width="18" height="16" fill="var(--pad)"/>
+<rect x="420" y="130" width="18" height="16" fill="var(--pad)"/>
+<rect x="160" y="148" width="18" height="16" fill="var(--pad)"/>
+<rect x="180" y="148" width="18" height="16" fill="var(--pad)"/>
+<rect x="200" y="148" width="18" height="16" fill="var(--pad)"/>
+<rect x="220" y="148" width="18" height="16" fill="var(--pad)"/>
+<rect x="240" y="148" width="18" height="16" fill="var(--pad)"/>
+<rect x="260" y="148" width="18" height="16" fill="var(--pad)"/>
+<rect x="280" y="148" width="18" height="16" fill="var(--pad)"/>
+<rect x="300" y="148" width="18" height="16" fill="var(--pad)"/>
+<rect x="320" y="148" width="18" height="16" fill="none" stroke="currentColor" stroke-dasharray="2 2" stroke-opacity="0.6"/>
+<rect x="340" y="148" width="18" height="16" fill="none" stroke="currentColor" stroke-dasharray="2 2" stroke-opacity="0.6"/>
+<rect x="360" y="148" width="18" height="16" fill="none" stroke="currentColor" stroke-dasharray="2 2" stroke-opacity="0.6"/>
+<rect x="380" y="148" width="18" height="16" fill="none" stroke="currentColor" stroke-dasharray="2 2" stroke-opacity="0.6"/>
+<rect x="400" y="148" width="18" height="16" fill="none" stroke="currentColor" stroke-dasharray="2 2" stroke-opacity="0.6"/>
+<rect x="420" y="148" width="18" height="16" fill="none" stroke="currentColor" stroke-dasharray="2 2" stroke-opacity="0.6"/>
+<text x="152" y="88" font-size="10" text-anchor="end" fill="currentColor">cycle 1</text>
+<text x="152" y="106" font-size="10" text-anchor="end" fill="currentColor">cycle 2</text>
+<text x="152" y="124" font-size="10" text-anchor="end" fill="currentColor">cycle 3</text>
+<text x="152" y="142" font-size="10" text-anchor="end" fill="currentColor">cycle 4</text>
+<text x="152" y="160" font-size="10" text-anchor="end" fill="currentColor">cycle 5</text>
+<text x="448" y="106" font-size="11" fill="currentColor">columns = position</text>
+<text x="448" y="120" font-size="11" fill="currentColor">in the cycle (14)</text>
+<text x="448" y="142" font-size="11" fill="var(--accent)">2-D conv sees both</text>
+<text x="448" y="156" font-size="11" fill="var(--accent)">directions at once</text>
+</svg>
+<table class="t">
+<tr><th>period p</th><th>rows after padding</th><th>grid (channels × cycles × position)</th></tr>
+<tr><td>14</td><td>64 → 70</td><td><span class="m">128 × 5 × 14</span></td></tr>
+<tr><td>7</td><td>64 → 70</td><td><span class="m">128 × 10 × 7</span></td></tr>
+<tr><td>5</td><td>64 → 65</td><td><span class="m">128 × 13 × 5</span></td></tr>
+</table>
+
+<h3>2-D convolution (Inception)</h3>
+<p>Inception = three Conv2d in parallel (1×1, 3×3, 5×5, "same" padding). Their outputs are averaged, so the grid size does not change.</p>
+<div class="calc">
+<code>Inception(128 → 64) → GELU → Inception(64 → 128)</code>
+<div class="calc-row"><span>input grid (p = 14)</span><span class="m">128 × 5 × 14</span></div>
+<div class="calc-row"><span>after first Inception + GELU</span><span class="m">64 × 5 × 14</span></div>
+<div class="calc-row"><span>after second Inception</span><span class="m">128 × 5 × 14</span></div>
+</div>
+<div class="params">first 64 × 128 × (1 + 9 + 25) + 3 × 64 = <b>286,912</b></div>
+<div class="params">second 128 × 64 × 35 + 3 × 128 = <b>287,104</b></div>
+<div class="params">one block = <b>574,016</b></div>
+
+<h3>Unfold and mix</h3>
+<div class="flow"><span class="m">128 × 5 × 14</span><span class="ar">→</span><span class="m">70 × 128</span><span class="ar">→</span><span class="m">64 × 128</span></div>
+<p>Unfold back to rows and cut the extra rows. Do the same for p = 7 and p = 5. Now there are three 64 × 128 results.</p>
+<div class="calc">
+<code>w = softmax(2.02, 1.56, 1.42) ≈ 0.46, 0.29, 0.25</code><br>
+<code>Y = 0.46 · Y₁₄ + 0.29 · Y₇ + 0.25 · Y₅</code>
+<div class="calc-row"><span>weighted sum</span><span class="m">64 × 128</span></div>
+</div>
+
+<h3>Residual + LayerNorm</h3>
+<div class="calc">
+<code>X⁽ⁿᵉʷ⁾ = LayerNorm(Y + X) × mask</code>
+<div class="calc-row"><span>add block input X</span><span class="m">64 × 128</span></div>
+<div class="calc-row"><span>LayerNorm over the 128 numbers of each row</span><span class="m">64 × 128</span></div>
+</div>
+<div class="mask">× mask after the residual and again after LayerNorm: the 36 padding rows go back to 0.</div>
+<div class="params">LayerNorm 2 × 128 = <b>256</b> (one LayerNorm, shared by all 4 blocks)</div>
+
+<div class="note">Output is 64 × 128, the same size as the input, so blocks stack. The periods can change from block to block (this window: 14, 7, 5 in block 1; 14, 7, 9 in blocks 2–4). A window with fewer than 4 real rows uses period 1. d_ff = 64 is a bottleneck that keeps the block small.</div>
+</section>
+<section class="stage" id="output">
+  <h2>Output: H and z</h2>
+  <p class="lead">After 4 TimesBlocks the encoder gives one vector per message (H) and one vector per window (z).</p>
+
+  <div class="flow">
+    <span class="m">64 × 128</span><span class="ar">→</span>
+    <span class="m">H 64 × 128</span><span class="ar">→</span>
+    <span class="m">28 × 128</span><span class="ar">→</span>
+    <span class="m">z 128</span>
+  </div>
+<svg class="dg" viewBox="0 0 780 200" role="img"><title>Masked mean: average the 28 real rows of H, ignore the 36 padding rows</title><defs><marker id="ah4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker></defs><rect class="real" x="20" y="40" width="7" height="70"/><rect class="real" x="28" y="40" width="7" height="70"/><rect class="real" x="36" y="40" width="7" height="70"/><rect class="real" x="44" y="40" width="7" height="70"/><rect class="real" x="52" y="40" width="7" height="70"/><rect class="real" x="60" y="40" width="7" height="70"/><rect class="real" x="68" y="40" width="7" height="70"/><rect class="real" x="76" y="40" width="7" height="70"/><rect class="real" x="84" y="40" width="7" height="70"/><rect class="real" x="92" y="40" width="7" height="70"/><rect class="real" x="100" y="40" width="7" height="70"/><rect class="real" x="108" y="40" width="7" height="70"/><rect class="real" x="116" y="40" width="7" height="70"/><rect class="real" x="124" y="40" width="7" height="70"/><rect class="real" x="132" y="40" width="7" height="70"/><rect class="real" x="140" y="40" width="7" height="70"/><rect class="real" x="148" y="40" width="7" height="70"/><rect class="real" x="156" y="40" width="7" height="70"/><rect class="real" x="164" y="40" width="7" height="70"/><rect class="real" x="172" y="40" width="7" height="70"/><rect class="real" x="180" y="40" width="7" height="70"/><rect class="real" x="188" y="40" width="7" height="70"/><rect class="real" x="196" y="40" width="7" height="70"/><rect class="real" x="204" y="40" width="7" height="70"/><rect class="real" x="212" y="40" width="7" height="70"/><rect class="real" x="220" y="40" width="7" height="70"/><rect class="real" x="228" y="40" width="7" height="70"/><rect class="real" x="236" y="40" width="7" height="70"/><rect class="pad" x="244" y="40" width="7" height="70"/><rect class="pad" x="252" y="40" width="7" height="70"/><rect class="pad" x="260" y="40" width="7" height="70"/><rect class="pad" x="268" y="40" width="7" height="70"/><rect class="pad" x="276" y="40" width="7" height="70"/><rect class="pad" x="284" y="40" width="7" height="70"/><rect class="pad" x="292" y="40" width="7" height="70"/><rect class="pad" x="300" y="40" width="7" height="70"/><rect class="pad" x="308" y="40" width="7" height="70"/><rect class="pad" x="316" y="40" width="7" height="70"/><rect class="pad" x="324" y="40" width="7" height="70"/><rect class="pad" x="332" y="40" width="7" height="70"/><rect class="pad" x="340" y="40" width="7" height="70"/><rect class="pad" x="348" y="40" width="7" height="70"/><rect class="pad" x="356" y="40" width="7" height="70"/><rect class="pad" x="364" y="40" width="7" height="70"/><rect class="pad" x="372" y="40" width="7" height="70"/><rect class="pad" x="380" y="40" width="7" height="70"/><rect class="pad" x="388" y="40" width="7" height="70"/><rect class="pad" x="396" y="40" width="7" height="70"/><rect class="pad" x="404" y="40" width="7" height="70"/><rect class="pad" x="412" y="40" width="7" height="70"/><rect class="pad" x="420" y="40" width="7" height="70"/><rect class="pad" x="428" y="40" width="7" height="70"/><rect class="pad" x="436" y="40" width="7" height="70"/><rect class="pad" x="444" y="40" width="7" height="70"/><rect class="pad" x="452" y="40" width="7" height="70"/><rect class="pad" x="460" y="40" width="7" height="70"/><rect class="pad" x="468" y="40" width="7" height="70"/><rect class="pad" x="476" y="40" width="7" height="70"/><rect class="pad" x="484" y="40" width="7" height="70"/><rect class="pad" x="492" y="40" width="7" height="70"/><rect class="pad" x="500" y="40" width="7" height="70"/><rect class="pad" x="508" y="40" width="7" height="70"/><rect class="pad" x="516" y="40" width="7" height="70"/><rect class="pad" x="524" y="40" width="7" height="70"/><text class="mut" x="20" y="30">H: 64 rows (left to right) × 128 numbers each (height)</text><text class="sz" x="132" y="130" text-anchor="middle">28 real rows</text><text class="sz" x="388" y="130" text-anchor="middle">36 padding rows (all 0, ignored)</text><path class="arr" d="M132,138 L132,160 L560,160" marker-end="url(#ah4)"/><text x="330" y="182" text-anchor="middle">add the 28 real rows, divide by 28</text><rect class="acc" x="566" y="140" width="200" height="40" rx="6"/><text class="b" x="666" y="157" text-anchor="middle">z</text><text class="sz" x="666" y="174" text-anchor="middle">128 numbers</text><text class="mut" x="566" y="62">dividing by 64 instead would</text><text class="mut" x="566" y="80">shrink z to 28/64 ≈ 0.44 of its</text><text class="mut" x="566" y="98">value and leak the window length</text></svg>
+
+
+  <p><b>H</b> is 64 × 128: one 128-vector for each message. The 36 padding rows of H are 0.</p>
+  <p><b>z</b> is the masked mean of H. Only the 28 real rows count.</p>
+
+  <div class="calc">
+    <code>z = (sum of the 28 real rows of H) ÷ 28</code>
+    <div class="calc-row"><span>real rows of H</span><span class="m">28 × 128</span></div>
+    <div class="calc-row"><span>sum over rows</span><span class="m">1 × 128</span></div>
+    <div class="calc-row"><span>÷ 28 → z</span><span class="m">128</span></div>
+  </div>
+
+  <div class="mask">Why not divide by 64? The 36 zero rows would shrink z and reveal the window length.
+    Example: real values [2, 4, 6] plus 2 padding zeros. Plain mean = 12 ÷ 5 = 2.4. Masked mean = 12 ÷ 3 = 4.0.</div>
+
+  <div class="params">encoder: embedding 4,992 + 4 × 574,016 + LayerNorm 256 = <b>2,301,312</b></div>
+
+  <div class="note">A batch just adds B in front: x B × 64 × 13 → H B × 64 × 128 → z B × 128 (B = 256 in the notebook).</div>
+</section>
+
+<section class="stage" id="heads">
+  <h2>Heads (Stage 1, untrained)</h2>
+  <p class="lead">Small heads sit on H or z during pretraining and are dropped afterwards.</p>
+
+  <table class="t">
+    <tr><th>Head</th><th>Reads</th><th>Layers</th><th>Output</th><th>Params</th></tr>
+    <tr><td>Reconstruction</td><td><span class="m">H 64 × 128</span></td><td>Linear 128→128, GELU, Linear 128→13</td><td><span class="m">64 × 13</span></td><td>18,189</td></tr>
+    <tr><td>Physics P1 speed jump</td><td><span class="m">z 128</span></td><td>Linear 128→64, Linear 64→1</td><td><span class="m">1</span></td><td>8,321</td></tr>
+    <tr><td>Physics P2 speed scaled</td><td><span class="m">z 128</span></td><td>Linear 128→64, Linear 64→1</td><td><span class="m">1</span></td><td>8,321</td></tr>
+    <tr><td>Physics P3 sharp turn</td><td><span class="m">z 128</span></td><td>Linear 128→64, Linear 64→1</td><td><span class="m">1</span></td><td>8,321</td></tr>
+    <tr><td>Projection (contrastive)</td><td><span class="m">z 128</span></td><td>128→128→128, then L2-normalise</td><td><span class="m">128</span></td><td>33,024</td></tr>
+  </table>
+
+  <div class="calc">
+    <code>reconstruction: 128·128 + 128 + 128·13 + 13 = 18,189</code>
+    <code>physics: 3 × (128·64 + 64 + 64·1 + 1) = 3 × 8,321 = 24,963</code>
+    <code>projection: 2 × (128·128 + 128) = 33,024</code>
+  </div>
+
+  <p>The reconstruction head rebuilds hidden rows: 25% of the real rows are hidden, so 7 of the 28.</p>
+
+  <div class="note">Not trained yet: these are shapes and sizes only.</div>
+</section>
+
+<section class="stage" id="summary">
+  <h2>All shapes on one line</h2>
+  <p class="lead">One window (B = 1) from input to heads, with the parameters at each stage.</p>
+
+  <div class="flow">
+    <span class="m">64 × 13</span><span class="ar">→</span>
+    <span class="m">64 × 128</span><span class="ar">→</span>
+    <span class="m">64 × 128</span><span class="ar">→</span>
+    <span class="m">H 64 × 128</span><span class="ar">→</span>
+    <span class="m">z 128</span>
+  </div>
+
+  <table class="t">
+    <tr><th>Stage</th><th>Shape</th><th>Params</th></tr>
+    <tr><td>Input x (+ mask 64)</td><td><span class="m">64 × 13</span></td><td>0</td></tr>
+    <tr><td>Token embedding (Conv1d 13→128, kernel 3)</td><td><span class="m">64 × 128</span></td><td>4,992</td></tr>
+    <tr><td>Positional embedding (fixed, added) × mask</td><td><span class="m">64 × 128</span></td><td>0</td></tr>
+    <tr><td>4 TimesBlocks</td><td><span class="m">64 × 128</span></td><td>4 × 574,016 = 2,296,064</td></tr>
+    <tr><td>Shared LayerNorm</td><td><span class="m">64 × 128</span></td><td>256</td></tr>
+    <tr><td>H (per message)</td><td><span class="m">64 × 128</span></td><td>0</td></tr>
+    <tr><td>z (masked mean)</td><td><span class="m">128</span></td><td>0</td></tr>
+    <tr><th>Encoder total</th><th></th><th>2,301,312</th></tr>
+    <tr><td>Reconstruction head</td><td><span class="m">64 × 13</span></td><td>18,189</td></tr>
+    <tr><td>Physics heads P1–P3</td><td><span class="m">3 × 1</span></td><td>24,963</td></tr>
+    <tr><td>Projection head</td><td><span class="m">128</span></td><td>33,024</td></tr>
+    <tr><th>Total with heads</th><th></th><th>2,377,488</th></tr>
+  </table>
+</section>
+<footer>Source: <code>src/model/benign_gridsybil/timesnet_encoder_T64.ipynb</code> · longer notes:
+<code>docs/plan/stage1-encoder-notes.md</code> · TimesNet: Wu et al., ICLR 2023.</footer>
+</main>
+</body>
+</html>

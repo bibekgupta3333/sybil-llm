@@ -1,0 +1,2133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stage 1 · Input representation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* Design tokens: Power BI light palette, same as stage1-plan.html / tracker.html */
+  :root {
+    --primary: #2563EB; --primary-dark: #1E3A8A; --primary-light: #DBEAFE;
+    --accent: #8B5CF6;
+    --good: #16A34A; --warn: #F59E0B; --bad: #DC2626;
+    --muted: #64748B; --border: #E2E8F0; --divider: #CBD5E1;
+    --card: #FFFFFF; --alt: #F1F5F9; --page: #F8FAFC;
+    --text: #0F172A; --text-2: #475569;
+    --fill-good: #DCFCE7; --fill-good-text: #166534;
+    --fill-info: #DBEAFE; --fill-info-text: #1E40AF;
+    --fill-warn: #FEF3C7; --fill-warn-text: #92400E;
+    --fill-bad: #FEE2E2; --fill-bad-text: #991B1B;
+    --c-benign: #16A34A; --c-grid: #BE185D; --c-replay: #0284C7; --c-dosrand: #7C3AED; --c-dosdis: #EA580C;
+    --shadow: 0 1px 2px rgba(15,23,42,.05), 0 4px 16px rgba(15,23,42,.06);
+    --chrome-h: 112px;
+  }
+
+  html, body { height: 100%; }
+  body {
+    background: var(--page); color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px; line-height: 1.5;
+    display: flex; flex-direction: column; align-items: center;
+    overflow-x: hidden;
+  }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .86em; background: var(--alt); padding: .05em .35em; border-radius: 4px; color: var(--text); }
+
+  /* ---------- Deck chrome ---------- */
+  .deck { width: min(100vw - 32px, (100vh - var(--chrome-h)) * 16 / 9); max-width: 1600px; margin: 12px auto; display: flex; flex-direction: column; outline: none; }
+  .deck-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--alt); border: 1px solid var(--border); border-bottom: 0; border-radius: 12px 12px 0 0; }
+  .deck-bar .spacer { flex: 1; min-width: 0; }
+  .deck-btn { font: inherit; font-size: 13px; font-weight: 500; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+  .deck-btn:hover { border-color: var(--primary); color: var(--primary-dark); }
+  .deck-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+  .deck-btn:disabled { opacity: .45; cursor: default; border-color: var(--border); color: var(--text); }
+  .deck-counter { font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .deck-title { font-size: 13px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .deck-progress { height: 4px; background: var(--border); }
+  .deck-progress > span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width .3s ease; }
+
+  .stage { container-type: inline-size; position: relative; aspect-ratio: 16 / 9; width: 100%; overflow: hidden; background: var(--card); border: 1px solid var(--border); border-top: 0; border-radius: 0 0 12px 12px; box-shadow: var(--shadow); }
+  .deck:fullscreen { width: 100vw; height: 100vh; max-width: none; margin: 0; justify-content: center; background: var(--page); padding: 0 max(0px, calc((100vw - (100vh - 60px) * 16 / 9) / 2)); }
+  .deck:fullscreen .stage { border-radius: 0; }
+
+  .dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 12px 8px 4px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; border: 0; background: var(--divider); cursor: pointer; padding: 0; }
+  .dot:hover { background: var(--muted); }
+  .dot.is-active { background: var(--primary); transform: scale(1.25); }
+  .dot:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .hint { font-size: 12px; color: var(--muted); text-align: center; padding: 2px 8px 12px; }
+
+  /* ---------- Slide markup contract ---------- */
+  .slide { position: absolute; inset: 0; display: none; flex-direction: column; padding: 3.2cqw 4.2cqw 2.2cqw; overflow: auto; font-size: clamp(13px, 1.85cqw, 26px); color: var(--text-2); line-height: 1.42; }
+  .slide.is-active { display: flex; animation: fade .25s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .slide > * + * { margin-top: .55em; }
+  .slide strong, .slide b { color: var(--text); font-weight: 600; }
+
+  .kicker { font-size: clamp(10px, 1.2cqw, 16px); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--primary); }
+  .slide h2 { font-size: clamp(19px, 3.2cqw, 44px); font-weight: 700; color: var(--text); letter-spacing: -.02em; line-height: 1.15; margin-top: .15em; }
+  .lead { font-size: 1.08em; color: var(--text-2); max-width: 62em; }
+
+  .cols { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: 2.4cqw; align-items: start; flex: 1 1 auto; min-height: 0; margin-top: 1.1em; }
+  .col { min-width: 0; display: flex; flex-direction: column; gap: .7em; }
+
+  ul.bullets { list-style: none; display: flex; flex-direction: column; gap: .5em; }
+  ul.bullets li { position: relative; padding-left: 1.1em; }
+  ul.bullets li::before { content: ""; position: absolute; left: 0; top: .52em; width: .45em; height: .45em; border-radius: 50%; background: var(--primary); }
+
+  table.tbl { width: 100%; border-collapse: collapse; font-size: .82em; font-variant-numeric: tabular-nums; }
+  table.tbl th { text-align: left; font-size: .8em; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; padding: .45em .6em; border-bottom: 1.5px solid var(--border); background: var(--alt); }
+  table.tbl td { padding: .4em .6em; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
+  table.tbl td.num, table.tbl th.num { text-align: right; }
+  table.tbl tr:last-child td { border-bottom: 0; }
+
+  .card { background: var(--alt); border: 1px solid var(--border); border-left: 4px solid var(--divider); border-radius: 10px; padding: .7em .9em; color: var(--text-2); }
+  .card > b:first-child, .card > strong:first-child { display: block; margin-bottom: .15em; }
+  .card.good { background: var(--fill-good); border-color: #BBF7D0; border-left-color: var(--good); }
+  .card.warn { background: var(--fill-warn); border-color: #FDE68A; border-left-color: var(--warn); }
+  .card.bad  { background: var(--fill-bad);  border-color: #FECACA; border-left-color: var(--bad); }
+  .card.info { background: var(--fill-info); border-color: #BFDBFE; border-left-color: var(--primary); }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(9em, 1fr)); gap: 1.2cqw; }
+  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: .6em .8em; box-shadow: 0 1px 2px rgba(15,23,42,.05); display: flex; flex-direction: column; }
+  .kpi b { font-size: 1.75em; font-weight: 700; color: var(--text); line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .kpi span { font-size: .78em; color: var(--muted); margin-top: .2em; }
+
+  .note { margin-top: auto !important; padding-top: .7em; border-top: 1px dashed var(--border); font-size: clamp(10px, 1.15cqw, 15px); color: var(--muted); line-height: 1.4; }
+  .slide > .note { margin-top: auto; }
+  .slide .cols + .note, .slide .note { flex-shrink: 0; }
+
+  .slide svg { display: block; width: 100%; height: auto; max-height: 100%; }
+  .slide svg text { font-family: inherit; }
+  .tag { display: inline-block; font-size: .68em; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: .1em .55em; border-radius: 999px; background: var(--fill-warn); color: var(--fill-warn-text); vertical-align: middle; }
+
+  /* ---------- Shell's own slides (prefix sS) ---------- */
+  .sS.sS-hero { justify-content: center; background: radial-gradient(120% 90% at 100% 0%, var(--primary-light) 0%, rgba(219,234,254,0) 55%), var(--card); }
+  .sS.sS-hero h2 { font-size: clamp(26px, 5cqw, 68px); background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; padding-bottom: .05em; }
+  .sS .sS-sub { font-size: 1.2em; color: var(--text-2); max-width: 34em; }
+  .sS .sS-meta { font-size: .8em; color: var(--muted); }
+  .sS .sS-flow { display: flex; align-items: stretch; gap: .5em; margin-top: 1.4em; }
+  .sS .sS-node { flex: 1 1 0; background: var(--card); border: 1.5px solid var(--border); border-radius: 10px; padding: .55em .75em; }
+  .sS .sS-node b { display: block; font-size: 1.15em; font-variant-numeric: tabular-nums; }
+  .sS .sS-node span { font-size: .78em; color: var(--muted); }
+  .sS .sS-node.is-out { border-color: var(--primary); background: var(--fill-info); }
+  .sS .sS-arrow { align-self: center; color: var(--muted); font-size: 1.2em; }
+  .sS .sS-agenda { list-style: none; display: grid; grid-template-columns: repeat(5, 1fr); gap: 1.2cqw; margin-top: 1.4em; counter-reset: none; }
+  .sS .sS-agenda li { background: var(--alt); border: 1px solid var(--border); border-top: 4px solid var(--primary); border-radius: 10px; padding: .7em .8em; display: flex; flex-direction: column; gap: .3em; }
+  .sS .sS-agenda li b { font-size: 1em; }
+  .sS .sS-agenda li span { font-size: .8em; color: var(--text-2); }
+  .sS .sS-agenda li.sS-a2 { border-top-color: var(--accent); }
+  .sS .sS-agenda li.sS-a3 { border-top-color: var(--bad); }
+  .sS .sS-agenda li.sS-a4 { border-top-color: var(--good); }
+  .sS .sS-agenda li.sS-a5 { border-top-color: var(--warn); }
+  .sS .sS-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1cqw; margin-top: 1em; }
+  .sS .sS-grid .card { font-size: .86em; }
+  .sS .sS-grid .card.sS-wide { grid-column: span 1; }
+  .sS .sS-kpis { grid-template-columns: repeat(5, 1fr); margin-top: 1.1em; }
+  .sS .sS-kpis .kpi b { font-size: 1.6em; }
+  .sS .sS-kpis .kpi.sS-zero b { color: var(--good); }
+
+  /* ---------- Mobile (≈390 px): stack, smaller type, no fixed aspect ---------- */
+  @media (max-width: 700px) {
+    .deck { width: calc(100vw - 32px); margin: 8px 16px; }
+    .deck-bar { flex-wrap: wrap; gap: 6px; padding: 8px; }
+    .deck-title { order: 10; flex: 1 1 100%; white-space: normal; }
+    .deck-bar .spacer { display: none; }
+    .deck-btn { padding: 6px 10px; }
+    .stage { aspect-ratio: auto; min-height: 60vh; container-type: normal; }
+    .slide { position: relative; inset: auto; padding: 18px 16px 14px; font-size: 14.5px; overflow: visible; }
+    .kicker { font-size: 11px; }
+    .slide h2 { font-size: 21px; }
+    .sS.sS-hero h2 { font-size: 28px; }
+    .note { font-size: 11.5px; margin-top: 1em !important; }
+    .cols { grid-auto-flow: row; grid-template-columns: 1fr; gap: 14px; }
+    .kpis, .sS .sS-kpis { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .sS .sS-agenda, .sS .sS-grid { grid-template-columns: 1fr; gap: 8px; }
+    .sS .sS-flow { flex-direction: column; }
+    .sS .sS-arrow { transform: rotate(90deg); }
+    table.tbl { display: block; overflow-x: auto; }
+  }
+
+  /* ---------- Print / PDF: one slide per page ---------- */
+  @media print {
+    @page { size: 13.333in 7.5in; margin: 0; }
+    html, body { height: auto; background: #fff; display: block; }
+    .deck-bar, .deck-progress, .dots, .hint { display: none !important; }
+    .deck { width: 13.333in; max-width: none; margin: 0; }
+    .stage { aspect-ratio: auto; overflow: visible; border: 0; border-radius: 0; box-shadow: none; }
+    .slide, .slide.is-active { display: flex !important; position: relative; inset: auto; width: 13.333in; height: 7.5in; overflow: hidden; animation: none; break-after: page; page-break-after: always; }
+    .slide:last-child { break-after: auto; page-break-after: auto; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+  @media (prefers-reduced-motion: reduce) { .slide.is-active { animation: none; } .deck-progress > span { transition: none; } }
+</style>
+<style>
+/* Columns keep their natural height so overflow shows up in scrollHeight and fitToFrame shrinks the text
+   (a shrinking .cols let content overlap the speaker note). */
+.slide .cols { flex: 0 0 auto; }
+@media print { .slide .cols { flex: 1 1 auto; } }
+</style>
+<!-- slides_data -->
+<style>
+.sD .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.sD svg{width:100%;height:auto;display:block}
+.sD svg text{font-family:inherit;fill:var(--text,#0F172A)}
+.sD svg .sDm{fill:var(--muted,#64748B)}
+.sD .sDname{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:clamp(14px,2.2vw,24px);word-break:break-all;line-height:1.5;margin:.4em 0 .8em}
+.sD .sDname span{padding:.1em .25em;border-radius:6px;border-bottom:3px solid}
+.sD .sDn{border-color:var(--primary,#2563EB);background:rgba(37,99,235,.10)}
+.sD .sDp{border-color:var(--accent,#8B5CF6);background:rgba(139,92,246,.10)}
+.sD .sDa{border-color:var(--good,#16A34A);background:rgba(22,163,74,.10)}
+.sD .sDs{border-color:var(--warn,#F59E0B);background:rgba(245,158,11,.12)}
+.sD .sDt{border-color:var(--muted,#64748B);background:rgba(100,116,139,.10)}
+.sD .sDfields{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.85em;line-height:1.6}
+.sD .sDfields em{color:var(--muted,#64748B);font-style:normal}
+.sD .sDdot{display:inline-block;width:.7em;height:.7em;border-radius:50%;margin-right:.4em;vertical-align:middle}
+.sD .sDtag{display:inline-block;font-size:.75em;padding:.05em .45em;border-radius:999px;background:var(--alt,#F1F5F9);color:var(--muted,#64748B);margin-left:.3em}
+</style>
+<!-- slides_design -->
+<style>
+.sR .sR-chg td { background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.sR .sR-chg td:first-child { box-shadow: inset 4px 0 0 var(--warn); }
+.sR .sR-tag { display: inline-block; font-size: .72em; font-weight: 700; padding: .05em .45em; border-radius: 999px;
+  background: var(--warn); color: #fff; margin-left: .35em; vertical-align: middle; }
+.sR .sR-same { color: var(--muted); }
+.sR .sR-strip { display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 4px; margin: .6em 0 .9em; }
+.sR .sR-cell { border-radius: 6px; color: #fff; font-size: .7em; font-weight: 600; text-align: center;
+  padding: .55em .15em; line-height: 1.15; word-break: break-word; min-height: 3.4em;
+  display: flex; flex-direction: column; justify-content: center; }
+.sR .sR-cell small { display: block; font-weight: 400; opacity: .85; font-size: .9em; }
+.sR .g-claim { background: #2563EB; } .sR .g-rx { background: #0D9488; } .sR .g-mot { background: #8B5CF6; }
+.sR .g-geo { background: #D97706; } .sR .g-time { background: #475569; }
+.sR .sR-legend { list-style: none; padding: 0; margin: 0; display: grid; gap: .45em; }
+.sR .sR-legend li { display: flex; gap: .6em; align-items: baseline; }
+.sR .sR-sw { flex: 0 0 auto; width: .9em; height: .9em; border-radius: 3px; display: inline-block; transform: translateY(.1em); }
+.sR svg text { fill: var(--text); font-family: inherit; }
+.sR svg .sR-m { fill: var(--muted); }
+.sR .sR-ill { font-size: .75em; color: var(--muted); font-style: italic; }
+.sR .sR-flow { display: grid; grid-template-columns: 1fr auto 1fr; gap: .8em; align-items: stretch; }
+.sR .sR-arrow { align-self: center; font-size: 2em; color: var(--muted); }
+.sR code { font-size: .9em; }
+@media (max-width: 700px) {
+  .sR .sR-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .sR .sR-flow { grid-template-columns: 1fr; }
+  .sR .sR-arrow { transform: rotate(90deg); justify-self: center; }
+}
+</style>
+<!-- slides_findings -->
+<style>
+.sF .sF-svg{width:100%;height:auto;display:block;max-width:760px;margin:0 auto}
+.sF .sF-svg text{font-family:inherit;fill:var(--text)}
+.sF .sF-svg .t-muted{fill:var(--muted)}
+.sF .sF-svg .t-small{font-size:13px}
+.sF .sF-svg .t-lbl{font-size:15px;font-weight:600}
+.sF .sF-svg .box{fill:var(--card);stroke:var(--border);stroke-width:1.5}
+.sF .sF-svg .box-alt{fill:var(--alt);stroke:var(--border);stroke-width:1.5}
+.sF .sF-svg .road{fill:none;stroke:var(--muted);stroke-width:2;stroke-dasharray:4 4;opacity:.6}
+.sF .sF-svg .car{fill:var(--good)}
+.sF .sF-svg .link{fill:none;stroke:var(--bad);stroke-width:2}
+.sF .sF-svg .ln-dr{stroke:#0284C7;stroke-width:6;stroke-linecap:round}
+.sF .sF-svg .ln-dos{stroke:#7C3AED;stroke-width:6;stroke-linecap:round}
+.sF .sF-svg .ln-gs{stroke:#BE185D;stroke-width:6;stroke-linecap:round}
+.sF .sF-svg .ln-bn{stroke:var(--good);stroke-width:6;stroke-linecap:round}
+.sF .sF-svg .mark64{stroke:var(--text);stroke-width:1.5;stroke-dasharray:5 4}
+.sF .sF-tag{display:inline-block;font-size:.75em;color:var(--muted);border:1px solid var(--border);border-radius:999px;padding:1px 8px;margin-bottom:6px}
+.sF .sF-key{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:1.05em;background:var(--alt);border:1px solid var(--border);border-radius:6px;padding:2px 8px}
+.sF .sF-strike{text-decoration:line-through;color:var(--muted)}
+</style>
+<!-- slides_pipeline -->
+<style>
+.sP svg { width: 100%; height: auto; display: block; }
+.sP .sP-box { fill: var(--card, #FFFFFF); stroke: var(--border, #E2E8F0); stroke-width: 2; }
+.sP .sP-nb { fill: var(--alt, #F1F5F9); stroke: var(--primary, #2563EB); stroke-width: 2; }
+.sP .sP-next { fill: var(--card, #FFFFFF); stroke: var(--accent, #8B5CF6); stroke-width: 2; stroke-dasharray: 6 4; }
+.sP .sP-t { fill: var(--text, #0F172A); font-size: 15px; font-weight: 600; }
+.sP .sP-s { fill: var(--muted, #64748B); font-size: 12.5px; }
+.sP .sP-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.sP .sP-arrow { stroke: var(--muted, #64748B); stroke-width: 2; fill: none; }
+.sP .sP-ah { fill: var(--muted, #64748B); }
+.sP pre.sP-code { margin: 0; padding: 12px 14px; background: var(--alt, #F1F5F9); border: 1px solid var(--border, #E2E8F0);
+  border-radius: 8px; font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text, #0F172A);
+  white-space: pre-wrap; word-break: break-word; overflow-x: auto; }
+.sP pre.sP-code .sP-k { color: var(--primary, #2563EB); }
+.sP pre.sP-code .sP-c { color: var(--muted, #64748B); }
+.sP .sP-small { font-size: 0.85em; color: var(--muted, #64748B); }
+.sP .sP-ok { color: var(--good, #16A34A); font-weight: 700; }
+.sP .sP-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sP .sP-pad { fill: var(--alt, #F1F5F9); stroke: var(--border, #E2E8F0); stroke-width: 1.5; }
+.sP .sP-real { fill: #BE185D; opacity: 0.85; }
+.sP .sP-mask1 { fill: var(--good, #16A34A); }
+.sP .sP-mask0 { fill: var(--border, #E2E8F0); }
+.sP .sP-w { fill: #FFFFFF; font-size: 13px; font-weight: 700; }
+.sP .sP-grid { stroke: var(--border, #E2E8F0); stroke-width: 1; }
+.sP .sP-val { fill: var(--text, #0F172A); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.sP .sP-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.85em; color: var(--muted, #64748B); margin-top: 6px; }
+.sP .sP-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+</style>
+<!-- slides_cav_outliers -->
+<style>
+.cA .cA-svg{width:100%;height:auto;display:block;max-width:760px;margin:0 auto}
+.cA .cA-svg text{font-family:inherit;fill:var(--text);font-size:14px}
+.cA .cA-svg .cA-muted{fill:var(--muted)}
+.cA .cA-svg .cA-small{font-size:12px}
+.cA .cA-svg .cA-bold{font-weight:700}
+.cA .cA-svg .cA-axis{stroke:var(--muted);stroke-width:2}
+.cA .cA-svg .cA-tick{stroke:var(--muted);stroke-width:1.5}
+.cA .cA-svg .cA-zone{fill:var(--good);opacity:.18}
+.cA .cA-svg .cA-zone-edge{stroke:var(--good);stroke-width:1.5;stroke-dasharray:4 3}
+.cA .cA-svg .cA-honest{fill:var(--good)}
+.cA .cA-svg .cA-ghost{fill:#BE185D}
+.cA .cA-svg .cA-clip{stroke:var(--bad);stroke-width:2;stroke-dasharray:6 4}
+.cA .cA-svg .cA-bar-before{fill:#BE185D}
+.cA .cA-svg .cA-bar-after{fill:var(--muted)}
+.cA .cA-svg .cA-bar-honest{fill:var(--good)}
+.cA .cA-formula{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--alt);border:1px solid var(--border);border-radius:6px;padding:2px 8px;white-space:nowrap}
+.cA .cA-tag{display:inline-block;font-size:.75em;color:var(--muted);border:1px solid var(--border);border-radius:999px;padding:1px 8px;margin-bottom:6px}
+.cA .cA-num{text-align:right;white-space:nowrap}
+.cA .cA-opt{margin:0 0 .4em 0}
+</style>
+<!-- slides_cav_identity -->
+<style>
+.cB .cB-svg{width:100%;height:auto;display:block;max-width:720px;margin:0 auto}
+.cB .cB-svg text{font-family:inherit;fill:var(--text)}
+.cB .cB-svg .cB-muted{fill:var(--muted)}
+.cB .cB-svg .cB-sm{font-size:13px}
+.cB .cB-svg .cB-lbl{font-size:15px;font-weight:600}
+.cB .cB-svg .cB-box{fill:var(--card);stroke:var(--border);stroke-width:1.5}
+.cB .cB-svg .cB-alt{fill:var(--alt);stroke:var(--border);stroke-width:1.5}
+.cB .cB-svg .cB-atk{fill:#BE185D}
+.cB .cB-svg .cB-rx{fill:var(--primary)}
+.cB .cB-svg .cB-bn{fill:var(--good)}
+.cB .cB-svg .cB-ghost{fill:none;stroke:#BE185D;stroke-width:1.5;stroke-dasharray:4 3}
+.cB .cB-svg .cB-msg{fill:none;stroke:#BE185D;stroke-width:1.6;opacity:.75}
+.cB .cB-svg .cB-msgb{fill:none;stroke:var(--good);stroke-width:2}
+.cB .cB-svg .cB-gps{fill:none;stroke:var(--primary);stroke-width:2;stroke-dasharray:3 4}
+.cB .cB-svg .cB-road{fill:none;stroke:var(--muted);stroke-width:2;stroke-dasharray:6 6;opacity:.5}
+.cB .cB-svg .cB-c1{fill:#BE185D}
+.cB .cB-svg .cB-c2{fill:#EA580C}
+.cB .cB-svg .cB-c3{fill:#7C3AED}
+.cB .cB-svg .cB-wt{fill:#fff;font-size:11px;font-weight:700}
+.cB .cB-tag{display:inline-block;font-size:.75em;color:var(--muted);border:1px solid var(--border);border-radius:999px;padding:1px 8px;margin-bottom:6px}
+.cB .cB-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--alt);border:1px solid var(--border);border-radius:6px;padding:1px 6px;font-size:.92em}
+</style>
+<!-- slides_cav_stats -->
+<style>
+.cC .cC-svg{width:100%;height:auto;display:block;max-width:560px;margin:0 auto}
+.cC .cC-svg text{font-family:inherit;fill:var(--text)}
+.cC .cC-svg .t-muted{fill:var(--muted)}
+.cC .cC-svg .t-small{font-size:13px}
+.cC .cC-svg .t-lbl{font-size:15px;font-weight:600}
+.cC .cC-svg .t-big{font-size:22px;font-weight:700}
+.cC .cC-svg .t-white{fill:#FFFFFF}
+.cC .cC-svg .box{fill:var(--card);stroke:var(--border);stroke-width:1.5}
+.cC .cC-svg .box-alt{fill:var(--alt);stroke:var(--border);stroke-width:1.5}
+.cC .cC-svg .sender{fill:var(--primary)}
+.cC .cC-svg .rx{fill:var(--muted)}
+.cC .cC-svg .wave{fill:none;stroke:var(--primary);stroke-width:1.5;stroke-dasharray:4 4;opacity:.7}
+.cC .cC-svg .arrow{fill:none;stroke:var(--muted);stroke-width:1.5}
+.cC .cC-svg .win{fill:var(--alt);stroke:var(--primary);stroke-width:1.5}
+.cC .cC-svg .same{fill:var(--warn)}
+.cC .cC-svg .link{stroke:var(--good);stroke-width:8;stroke-linecap:round}
+.cC .cC-svg .cut{stroke:var(--text);stroke-width:1.5;stroke-dasharray:5 4}
+.cC .cC-svg .seg1{fill:var(--good);opacity:.85}
+.cC .cC-svg .seg2{fill:#BE185D;opacity:.9}
+.cC .cC-svg .pad{fill:var(--alt);stroke:var(--border);stroke-width:1}
+.cC .cC-tag{display:inline-block;font-size:.75em;color:var(--muted);border:1px solid var(--border);border-radius:999px;padding:1px 8px;margin-bottom:6px}
+.cC .cC-h{font-weight:600;margin:4px 0 6px}
+</style>
+<!-- slides_cav_mask -->
+<style>
+.cD .cD-svg{width:100%;height:auto;display:block;max-width:560px;margin:0 auto}
+.cD .cD-svg text{font-family:inherit;fill:var(--text)}
+.cD .cD-svg .t-muted{fill:var(--muted)}
+.cD .cD-svg .t-sm{font-size:12px}
+.cD .cD-svg .t-md{font-size:14px}
+.cD .cD-svg .t-lbl{font-size:15px;font-weight:600}
+.cD .cD-svg .real{fill:var(--primary);opacity:.18;stroke:var(--primary);stroke-width:1}
+.cD .cD-svg .pad{fill:var(--alt);stroke:var(--border);stroke-width:1;stroke-dasharray:4 3}
+.cD .cD-svg .m1{fill:var(--good)}
+.cD .cD-svg .m0{fill:var(--muted);opacity:.55}
+.cD .cD-svg .m-txt{fill:#FFFFFF;font-weight:700;font-size:14px}
+.cD .cD-svg .brace{fill:none;stroke:var(--muted);stroke-width:1.5}
+.cD .cD-svg .bar-bn{fill:var(--good)}
+.cD .cD-svg .bar-gs{fill:#BE185D}
+.cD .cD-svg .axis{stroke:var(--border);stroke-width:1.5}
+.cD .cD-tag{display:inline-block;font-size:.75em;color:var(--muted);border:1px solid var(--border);border-radius:999px;padding:1px 8px;margin-bottom:6px}
+.cD .cD-math{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.95em;line-height:1.7}
+.cD .cD-math b{color:var(--primary)}
+.cD .cD-bad{color:var(--bad)}
+.cD .cD-ok{color:var(--good);font-weight:700}
+.cD .cD-check td:first-child{white-space:nowrap}
+.cD .cD-big{font-size:1.6em;font-weight:700}
+</style>
+<style>/* explainer slides: diagrams scale with the slide text so fitToFrame can shrink them */
+.slide.cA svg, .slide.cB svg, .slide.cC svg, .slide.cD svg { max-height: 14em; width: 100%; height: auto; }
+</style>
+<!-- slides_encoder -->
+<style>
+.slide.sE svg { max-height: 14em; width: 100%; height: auto; }
+.sE .sE-svg text { font-family: inherit; fill: var(--text); }
+.sE .sE-svg .sE-t { font-size: 16px; font-weight: 700; }
+.sE .sE-svg .sE-s { font-size: 13px; fill: var(--text-2); }
+.sE .sE-svg .sE-m { font-size: 12px; fill: var(--muted); }
+.sE .sE-svg .sE-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.sE .sE-svg .sE-box { fill: var(--card); stroke: var(--border); stroke-width: 2; }
+.sE .sE-svg .sE-hl { fill: var(--fill-info); stroke: var(--primary); stroke-width: 2; }
+.sE .sE-svg .sE-out { fill: var(--fill-good); stroke: var(--good); stroke-width: 2; }
+.sE .sE-svg .sE-head { fill: var(--card); stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 4; }
+.sE .sE-svg .sE-arrow { stroke: var(--muted); stroke-width: 2; fill: none; }
+.sE .sE-svg .sE-ah { fill: var(--muted); }
+.sE .sE-svg .sE-maskline { stroke: var(--good); stroke-width: 3; fill: none; }
+.sE .sE-svg .sE-maskarrow { stroke: var(--good); stroke-width: 2; fill: none; }
+.sE .sE-svg .sE-mah { fill: var(--good); }
+.sE .sE-svg .sE-real { fill: #BE185D; opacity: .85; }
+.sE .sE-svg .sE-pad { fill: var(--alt); stroke: var(--border); stroke-width: 1; }
+.sE .sE-svg .sE-bar { fill: var(--divider); }
+.sE .sE-svg .sE-bar-top { fill: var(--primary); }
+.sE .sE-svg .sE-axis { stroke: var(--border); stroke-width: 1.5; }
+.sE .sE-svg .sE-brace { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+.sE .sE-tag { display: inline-block; font-size: .75em; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
+.sE .sE-ok { color: var(--good); font-weight: 700; }
+.sE .sE-st { display: inline-block; font-size: .78em; font-weight: 600; padding: .05em .55em; border-radius: 999px; white-space: nowrap; }
+.sE .sE-st.done { background: var(--fill-good); color: var(--fill-good-text); }
+.sE .sE-st.part { background: var(--fill-warn); color: var(--fill-warn-text); }
+.sE .sE-st.todo { background: var(--alt); color: var(--muted); border: 1px solid var(--border); }
+.sE .sE-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sE .sE-flow { display: flex; flex-direction: column; gap: .45em; }
+</style>
+</head>
+<body>
+<main class="deck" id="deck" tabindex="0" aria-roledescription="slide deck" aria-label="Stage 1 · Input representation">
+  <div class="deck-bar">
+    <button class="deck-btn" id="prev" type="button" aria-label="Previous slide">&larr; Prev</button>
+    <span class="deck-counter" id="counter" aria-live="polite">1 / 1</span>
+    <button class="deck-btn" id="next" type="button" aria-label="Next slide">Next &rarr;</button>
+    <span class="deck-title" id="slideTitle"></span>
+    <span class="spacer"></span>
+    <button class="deck-btn" id="fs" type="button" aria-label="Toggle fullscreen">Fullscreen</button>
+  </div>
+  <div class="deck-progress"><span id="bar"></span></div>
+  <div class="stage" id="stage">
+
+<!-- ===== Opening (shell) ===== -->
+<section class="slide sS sS-hero" data-title="Stage 1 · Input representation">
+  <div class="kicker">RoadFM-Lite · Stage 1</div>
+  <h2>Stage 1 · Input representation</h2>
+  <p class="sS-sub">How the raw VeReMi-Extension receive logs become the masked windows (64&nbsp;&times;&nbsp;13) the TimesNet encoder reads, and what we checked on the way.</p>
+  <div class="sS-flow" aria-label="From raw logs to encoder windows">
+    <div class="sS-node"><b>23,032</b><span>raw trace files (one per receiving car)</span></div>
+    <div class="sS-arrow" aria-hidden="true">&rarr;</div>
+    <div class="sS-node"><b>5.32 M</b><span>links (receiver &times; sender pseudonym)</span></div>
+    <div class="sS-arrow" aria-hidden="true">&rarr;</div>
+    <div class="sS-node is-out"><b>376,427</b><span>encoder windows, 64 &times; 13 + mask, 71.0% padding (benign + GridSybil)</span></div>
+  </div>
+  <p class="sS-meta">Master's thesis · Florida Polytechnic University · all numbers measured on the local data</p>
+  <div class="note">Speaker note: this deck covers only the input side of Stage 1: what goes into the encoder, why, and which leaks we closed. No model results yet: the encoder is built and checked but not trained.</div>
+</section>
+
+<section class="slide sS" data-title="What this deck covers">
+  <div class="kicker">Overview · agenda</div>
+  <h2>What this deck covers</h2>
+  <p class="lead">Five sections, from the files on disk to the windows the encoder will train on.</p>
+  <ol class="sS-agenda">
+    <li class="sS-a1"><b>The raw data</b><span>What VeReMi-Extension records: receiving cars, beacons at 1&nbsp;Hz, four Sybil attacks.</span></li>
+    <li class="sS-a2"><b>Design decisions</b><span>The 13 features, T&nbsp;=&nbsp;64 (every window padded to 64), no time of day, keeping the receiver's view.</span></li>
+    <li class="sS-a3"><b>Leakage findings</b><span>Scenarios replay the same traffic; the split now goes by vehicle.</span></li>
+    <li class="sS-a4"><b>Pipeline &amp; outputs</b><span>Three notebooks: prepared links, a window-size EDA, then cropped windows padded to 64 with a mask.</span></li>
+    <li class="sS-a5"><b>Caveats, encoder &amp; next</b><span>What to watch in training, how the TimesNet encoder reads the windows, status and next tasks.</span></li>
+  </ol>
+  <div class="note">Speaker note: the professor's original spec and what we changed are compared side by side in the design section.</div>
+</section>
+
+<!-- slides_data -->
+<section class="slide sD" data-title="Folder layout">
+  <div class="kicker">Raw data · folder layout</div>
+  <h2>How VeReMi-Extension is stored on disk</h2>
+  <p class="lead">8 scenario folders → time-window run folders → one JSON trace file per receiving car.</p>
+  <div class="kpis">
+    <div class="kpi"><b>8</b><span>scenario folders (4 attacks × 2 groups)</span></div>
+    <div class="kpi"><b>20</b><span>run folders</span></div>
+    <div class="kpi"><b>23,032</b><span>trace files</span></div>
+    <div class="kpi"><b>12.4 GB</b><span>of trace JSON</span></div>
+  </div>
+  <div class="cols">
+    <div class="col">
+      <svg viewBox="0 0 560 330" role="img" aria-labelledby="sD1t">
+        <title id="sD1t">Illustrative folder tree: VeReMi-Dataset contains 8 scenario folders, each with time-window run folders, each with one traceJSON file per receiving car</title>
+        <g font-size="15">
+          <rect x="10" y="10" width="190" height="30" rx="6" fill="var(--alt,#F1F5F9)" stroke="var(--border,#E2E8F0)"/>
+          <text x="22" y="30" font-weight="700">VeReMi-Dataset/</text>
+          <path d="M30 40 V250 M30 70 H50 M30 110 H50 M30 250 H50" stroke="var(--muted,#64748B)" fill="none"/>
+          <text x="56" y="75" font-weight="600" fill="#BE185D">GridSybil_0709/</text>
+          <path d="M70 82 V180 M70 102 H90 M70 142 H90 M70 180 H90" stroke="var(--muted,#64748B)" fill="none"/>
+          <text x="96" y="107" class="mono" font-size="13">…25200_28800/ <tspan class="sDm">(07–08 h)</tspan></text>
+          <path d="M110 112 V160 M110 125 H128 M110 160 H128" stroke="var(--border,#E2E8F0)" fill="none"/>
+          <text x="134" y="130" class="mono" font-size="12">traceJSON-…-A0-….json</text>
+          <text x="134" y="150" class="sDm" font-size="12">⋮ one per receiving car</text>
+          <text x="134" y="165" class="mono" font-size="12">traceJSON-…-A16-….json</text>
+          <text x="96" y="185" class="mono" font-size="13">…28800_32400/ <tspan class="sDm">(08–09 h)</tspan></text>
+          <text x="56" y="215" class="sDm">GridSybil_1416/, DataReplaySybil_0709/,</text>
+          <text x="56" y="235" class="sDm">DataReplaySybil_1416/, DoSRandomSybil_…,</text>
+          <text x="56" y="255" class="sDm">DoSDisruptiveSybil_…  (8 folders in all)</text>
+          <text x="10" y="300" class="sDm" font-size="13">Illustrative — real names, contents abbreviated.</text>
+          <text x="10" y="320" class="sDm" font-size="13">1416 runs: 50400_54000, 54000_57600, 57600_61200 (2 files only).</text>
+        </g>
+      </svg>
+    </div>
+    <div class="col">
+      <ul class="bullets">
+        <li><b>0709</b> = 07:00–09:00 (2 one-hour windows); <b>1416</b> = 14:00–17:00 (3 windows).</li>
+        <li>A file = everything <b>one receiving car</b> logged during that run.</li>
+        <li>Ground-truth files (1.7 GB) exist but are <b>never used</b>.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="note">Speaker note: The dataset is organised by attack and time of day, and inside each run there is one file per car that received messages — the file is the receiver's point of view, not the sender's.</div>
+</section>
+
+<section class="slide sD" data-title="One trace file">
+  <div class="kicker">Raw data · one trace file</div>
+  <h2>What one trace file holds</h2>
+  <div class="sDname" aria-label="Decoded file name">traceJSON-<span class="sDn">1005</span>-<span class="sDp">1003</span>-<span class="sDa">A0</span>-<span class="sDs">50854</span>-<span class="sDt">14</span>.json</div>
+  <div class="cols">
+    <div class="col">
+      <table class="tbl">
+        <tr><th>Part</th><th>Meaning</th></tr>
+        <tr><td class="mono">1005</td><td>node = car id of the receiver</td></tr>
+        <tr><td class="mono">1003</td><td>its own pseudonym</td></tr>
+        <tr><td class="mono">A0</td><td>its class: A0 benign · A16–A19 attacker</td></tr>
+        <tr><td class="mono">50854</td><td>start time (s; ≈ 14:07)</td></tr>
+        <tr><td class="mono">14</td><td>simulation tag</td></tr>
+      </table>
+    </div>
+    <div class="col">
+      <div class="card info"><b>type 2 — own GPS</b> <span class="sDtag">2,362,697 rows</span>
+        <div class="sDfields">rcvTime, pos, spd, acl, hed <em>+ *_noise</em><br><em>every 1.000 s</em></div></div>
+      <div class="card"><b>type 3 — a received message</b> <span class="sDtag">20,364,658 rows</span>
+        <div class="sDfields">sendTime, rcvTime, senderPseudo, messageID, sender <em>(true id)</em>, claimed pos, spd, acl, hed <em>+ *_noise</em></div></div>
+      <div class="card warn"><b>rcvTime == sendTime</b> — no propagation delay recorded. True sender id and <span class="mono">*_noise</span> fields are never model inputs.</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: Each file interleaves two record types — the receiving car's own GPS readings and the messages it heard; we only ever feed what a real receiver could know, so the true sender id and noise fields stay out.</div>
+</section>
+
+<section class="slide sD" data-title="One broadcast, many listeners">
+  <div class="kicker">Raw data · broadcast</div>
+  <h2>One broadcast, many listeners</h2>
+  <p class="lead">Every car in range logs its own copy, so the same message appears in several files — by design, not a bug.</p>
+  <div class="cols">
+    <div class="col">
+      <svg viewBox="0 0 520 300" role="img" aria-labelledby="sD3t">
+        <title id="sD3t">Illustrative: one sender broadcasts a message; four receiving cars in range each write the same messageID into their own trace file</title>
+        <circle cx="260" cy="150" r="125" fill="rgba(37,99,235,.06)" stroke="var(--primary,#2563EB)" stroke-dasharray="6 6"/>
+        <g stroke="var(--primary,#2563EB)" stroke-width="2">
+          <line x1="260" y1="150" x2="140" y2="80"/><line x1="260" y1="150" x2="380" y2="70"/>
+          <line x1="260" y1="150" x2="150" y2="230"/><line x1="260" y1="150" x2="370" y2="225"/>
+        </g>
+        <rect x="236" y="136" width="48" height="28" rx="7" fill="var(--primary,#2563EB)"/>
+        <text x="260" y="182" text-anchor="middle" font-size="14" font-weight="700">sender</text>
+        <text x="260" y="198" text-anchor="middle" font-size="12" class="sDm">messageID 42 (illustrative)</text>
+        <g fill="var(--good,#16A34A)">
+          <rect x="116" y="66" width="48" height="28" rx="7"/><rect x="356" y="56" width="48" height="28" rx="7"/>
+          <rect x="126" y="216" width="48" height="28" rx="7"/><rect x="346" y="211" width="48" height="28" rx="7"/>
+        </g>
+        <g font-size="12" class="mono">
+          <text x="140" y="55" text-anchor="middle">car A file: msg 42</text>
+          <text x="380" y="45" text-anchor="middle">car B file: msg 42</text>
+          <text x="150" y="264" text-anchor="middle">car C file: msg 42</text>
+          <text x="370" y="259" text-anchor="middle">car D file: msg 42</text>
+        </g>
+        <rect x="455" y="140" width="40" height="22" rx="6" fill="var(--muted,#64748B)" opacity=".5"/>
+        <text x="475" y="180" text-anchor="middle" font-size="11" class="sDm">out of range</text>
+        <text x="10" y="292" font-size="12" class="sDm">Illustrative layout.</text>
+      </svg>
+    </div>
+    <div class="col">
+      <div class="kpis">
+        <div class="kpi"><b>3,081,780</b><span>unique messages</span></div>
+        <div class="kpi"><b>20.4 M</b><span>received rows</span></div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><b>6</b><span>median listeners (0709)</span></div>
+        <div class="kpi"><b>3</b><span>median listeners (1416)</span></div>
+      </div>
+      <div class="card info">Same <span class="mono">messageID</span> in several files = several receivers. Each copy carries that receiver's own position and time.</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: A beacon is a broadcast, so every car in range records it; the 20 million received rows come from about 3 million unique messages, heard by a median of 6 cars in the morning runs and 3 in the afternoon.</div>
+</section>
+
+<section class="slide sD" data-title="The four Sybil attacks">
+  <div class="kicker">Raw data · attacks</div>
+  <h2>The four Sybil attacks, and how they look in the data</h2>
+  <div class="cols">
+    <div class="col">
+      <table class="tbl">
+        <tr><th>Attack</th><th>In plain words</th><th>Data signature</th></tr>
+        <tr><td><span class="sDdot" style="background:#BE185D"></span>GridSybil <span class="mono">A16</span></td><td>one attacker fakes many ghost cars</td><td>ghosts share <b>pseudonym 1</b> across hundreds of senders in every run; 15% of gaps &lt; 0.5 s</td></tr>
+        <tr><td><span class="sDdot" style="background:#0284C7"></span>DataReplay <span class="mono">A17</span></td><td>replays real cars' old messages</td><td>switches pseudonym every 1–2 messages</td></tr>
+        <tr><td><span class="sDdot" style="background:#7C3AED"></span>DoSRandom <span class="mono">A18</span></td><td>random positions, high rate</td><td>switches pseudonym every 1–2 messages</td></tr>
+        <tr><td><span class="sDdot" style="background:#EA580C"></span>DoSDisruptive <span class="mono">A19</span></td><td>disruptive data, high rate</td><td>switches pseudonym every 1–2 messages</td></tr>
+      </table>
+    </div>
+    <div class="col">
+      <table class="tbl">
+        <tr><th>Claimed → receiver distance</th><th>p50</th><th>p99</th></tr>
+        <tr><td><span class="sDdot" style="background:var(--good,#16A34A)"></span>Benign</td><td>81 m</td><td>384 m</td></tr>
+        <tr><td><span class="sDdot" style="background:#BE185D"></span>GridSybil</td><td>66 m</td><td>473 m</td></tr>
+        <tr><td><span class="sDdot" style="background:#0284C7"></span>DataReplay</td><td>87 m</td><td>864 m</td></tr>
+        <tr><td><span class="sDdot" style="background:#7C3AED"></span>DoSRandom</td><td>743 m</td><td>1,540 m</td></tr>
+      </table>
+      <div class="card warn">Only DoSRandom is far off at the median — the others hide in plain sight. Benign p99 gap is 7–9 s (missed messages).</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: GridSybil reuses one ghost pseudonym, while DataReplay and DoS rotate pseudonyms so fast that a per-pseudonym view sees only one or two messages; distance alone separates DoSRandom but not the others.</div>
+</section>
+
+<section class="slide sD" data-title="Data facts vs. the spec">
+  <div class="kicker">Raw data · corrections</div>
+  <h2>What the data actually says vs. the original spec</h2>
+  <div class="cols">
+    <div class="col">
+      <div class="card bad"><b>Spec: BSMs every 100 ms</b><br>Data: beacons at <b>1 Hz</b> (median gap 1.000 s).</div>
+      <div class="card bad"><b>Assumed: lat/lon</b><br>Data: positions are SUMO <b>metres</b>.</div>
+    </div>
+    <div class="col">
+      <div class="card warn"><b>No map</b><br>No road network ships with the data — nothing to snap positions to.</div>
+      <div class="card warn"><b>Only A0 + A16–A19 locally</b><br>Benign + the 4 Sybil attacks; no A1–A15.</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: Four facts reshape the design — the 1 Hz rate sets what T = 64 means in seconds, metres mean plain Euclidean geometry, there is no map to lean on, and only the Sybil classes exist in our copy.</div>
+</section>
+
+<!-- slides_design -->
+<section class="slide sR" data-title="Spec vs adopted">
+  <div class="kicker">Design decisions · the specification</div>
+  <h2>The professor's spec and what was adopted</h2>
+  <p class="lead">Same idea, 13 features per message; four items changed after looking at the real data.</p>
+  <table class="tbl">
+    <thead><tr><th>Item</th><th>Original spec</th><th>Adopted</th></tr></thead>
+    <tbody>
+      <tr class="sR-chg"><td>Message rate</td><td>BSMs every 100 ms</td><td><b>1 Hz</b> (median gap 1.000 s, measured)<span class="sR-tag">changed</span></td></tr>
+      <tr class="sR-chg"><td>"Receiver observed"</td><td>"receiver observed" position (2)</td><td>the receiving car's <b>own GPS fix</b> at receive time<span class="sR-tag">changed</span></td></tr>
+      <tr class="sR-chg"><td>Time features</td><td>sin/cos time of day + Δτ (3)</td><td>time of day <b>removed</b>; <b>range + bearing</b> added; log Δτ kept<span class="sR-tag">changed</span></td></tr>
+      <tr class="sR-chg"><td>Sequence length T</td><td>from the length distribution</td><td><b>T = 64</b>: links cropped to &le; 64, every window padded to 64 + mask<span class="sR-tag">changed</span></td></tr>
+      <tr><td>Sender pos / vel / acl</td><td>pos (2), vel (2), acl (2)</td><td class="sR-same">kept, as claimed by the sender</td></tr>
+      <tr><td>Receiver velocity</td><td>vel (2)</td><td class="sR-same">kept, from the own GPS fix</td></tr>
+      <tr class="sR-chg"><td>Split</td><td>—</td><td>by <b>(scenario group, physical vehicle)</b><span class="sR-tag">changed</span></td></tr>
+    </tbody>
+  </table>
+  <div class="note">Speaker note: the shape of the spec survived (13 features per received message). What changed came from measurements: beacons are 1 Hz, and time of day would give away the scenario group.</div>
+</section>
+
+<section class="slide sR" data-title="The 13 features">
+  <div class="kicker">Design decisions · features</div>
+  <h2>The 13 features of one received message</h2>
+  <p class="lead">Each row of the input is one message as one car received it.</p>
+  <div class="sR-strip" role="list" aria-label="The 13 features in order">
+    <div class="sR-cell g-claim" role="listitem">claimed<small>pos_x</small></div>
+    <div class="sR-cell g-claim" role="listitem">claimed<small>pos_y</small></div>
+    <div class="sR-cell g-rx" role="listitem">rx<small>pos_x</small></div>
+    <div class="sR-cell g-rx" role="listitem">rx<small>pos_y</small></div>
+    <div class="sR-cell g-mot" role="listitem">claimed<small>vel_x</small></div>
+    <div class="sR-cell g-mot" role="listitem">claimed<small>vel_y</small></div>
+    <div class="sR-cell g-mot" role="listitem">rx<small>vel_x</small></div>
+    <div class="sR-cell g-mot" role="listitem">rx<small>vel_y</small></div>
+    <div class="sR-cell g-mot" role="listitem">claimed<small>acl_x</small></div>
+    <div class="sR-cell g-mot" role="listitem">claimed<small>acl_y</small></div>
+    <div class="sR-cell g-geo" role="listitem">range<small>m</small></div>
+    <div class="sR-cell g-geo" role="listitem">bearing<small>rad</small></div>
+    <div class="sR-cell g-time" role="listitem">log<small>dtau</small></div>
+  </div>
+  <ul class="sR-legend">
+    <li><span class="sR-sw g-claim"></span><span><b>Sender claim</b> — where the sender says it is (may be a lie).</span></li>
+    <li><span class="sR-sw g-rx"></span><span><b>Receiver's own GPS</b> — where the receiving car really is, latest fix at receive time.</span></li>
+    <li><span class="sR-sw g-mot"></span><span><b>Motion</b> — claimed velocity and acceleration, plus the receiver's own velocity.</span></li>
+    <li><span class="sR-sw g-geo"></span><span><b>Relative geometry</b> — distance and direction from receiver to the claimed position.</span></li>
+    <li><span class="sR-sw g-time"></span><span><b>Timing</b> — log of the time since this car last heard the same pseudonym.</span></li>
+  </ul>
+  <div class="note">Speaker note: read the strip left to right — that is the exact column order in the prepared files. "claimed" is the sender's word; "rx" is the receiver's own sensor.</div>
+</section>
+
+<section class="slide sR" data-title="Range & bearing">
+  <div class="kicker">Design decisions · relative geometry</div>
+  <h2>Range and bearing: where the claim sits relative to me</h2>
+  <div class="cols">
+    <div class="col">
+      <svg viewBox="0 0 440 300" width="100%" role="img" aria-labelledby="sR-rb-t">
+        <title id="sR-rb-t">Illustrative: receiver R, claimed position C, offsets dx and dy, range and bearing angle theta</title>
+        <line x1="70" y1="240" x2="420" y2="240" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <text x="410" y="258" class="sR-m" font-size="12" text-anchor="end">map x axis</text>
+        <line x1="90" y1="230" x2="350" y2="80" stroke="var(--accent)" stroke-width="3"/>
+        <text x="200" y="138" font-size="15" font-weight="700" fill="var(--accent)" style="fill:var(--accent)" transform="rotate(-30 200 138)">range</text>
+        <line x1="90" y1="252" x2="350" y2="252" stroke="var(--primary)" stroke-width="2" marker-end="url(#sR-ah)"/>
+        <text x="220" y="272" font-size="14" font-weight="600" text-anchor="middle">dx</text>
+        <line x1="368" y1="230" x2="368" y2="84" stroke="var(--primary)" stroke-width="2" marker-end="url(#sR-ah)"/>
+        <text x="380" y="162" font-size="14" font-weight="600">dy</text>
+        <path d="M 150 230 A 60 60 0 0 0 142 200" fill="none" stroke="var(--warn)" stroke-width="3"/>
+        <text x="158" y="214" font-size="16" font-weight="700" style="fill:var(--warn)">θ</text>
+        <defs><marker id="sR-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--primary)"/></marker></defs>
+        <rect x="66" y="220" width="48" height="22" rx="6" fill="#0D9488"/>
+        <text x="90" y="236" font-size="13" font-weight="700" text-anchor="middle" style="fill:#fff">R</text>
+        <text x="90" y="212" font-size="12" text-anchor="middle" class="sR-m">receiver (own GPS)</text>
+        <rect x="326" y="58" width="48" height="22" rx="6" fill="none" stroke="#2563EB" stroke-width="2" stroke-dasharray="4 3"/>
+        <text x="350" y="74" font-size="13" font-weight="700" text-anchor="middle" style="fill:#2563EB">C</text>
+        <text x="350" y="48" font-size="12" text-anchor="middle" class="sR-m">claimed position</text>
+        <text x="10" y="20" font-size="12" class="sR-m" font-style="italic">illustrative</text>
+      </svg>
+    </div>
+    <div class="col">
+      <ul class="bullets">
+        <li>dx, dy = claimed position − receiver's own position.</li>
+        <li><b>range</b> = √(dx² + dy²) in metres; <b>bearing</b> θ = atan2(dy, dx).</li>
+        <li>Range separates DoSRandom: p50 743 m vs benign 81 m.</li>
+        <li><b>One angle</b>, wrapped to (−π, π] — not sin/cos — so the feature count stays 13.</li>
+      </ul>
+      <div class="card info">Range and bearing replace the two time-of-day columns: they carry information about the message, not about the clock.</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: a real receiver can always compute these two numbers — its own GPS plus the sender's claim. The ±π jump in the angle is the trade-off of using one angle instead of sin/cos.</div>
+</section>
+
+<section class="slide sR" data-title="Δτ and log_dtau">
+  <div class="kicker">Design decisions · timing</div>
+  <h2>Δτ: how long since I last heard this pseudonym</h2>
+  <p class="lead"><code>log_dtau = log(max(Δτ, 0.001 s))</code>, computed per receiving car and per sender pseudonym.</p>
+  <svg viewBox="0 0 640 170" width="100%" role="img" aria-labelledby="sR-dt-t">
+    <title id="sR-dt-t">Illustrative timelines: a benign sender heard every second, and a GridSybil sender with bursts of short gaps</title>
+    <text x="8" y="16" font-size="12" class="sR-m" font-style="italic">illustrative</text>
+    <text x="8" y="58" font-size="13" font-weight="600">Benign</text>
+    <line x1="110" y1="54" x2="630" y2="54" stroke="var(--border)" stroke-width="2"/>
+    <g fill="var(--good)">
+      <circle cx="130" cy="54" r="7" fill="none" stroke="var(--good)" stroke-width="2.5"/>
+      <circle cx="200" cy="54" r="7"/><circle cx="270" cy="54" r="7"/><circle cx="340" cy="54" r="7"/>
+      <circle cx="410" cy="54" r="7"/><circle cx="550" cy="54" r="7"/><circle cx="620" cy="54" r="7"/>
+    </g>
+    <text x="165" y="38" font-size="12" text-anchor="middle" class="sR-m">1 s</text>
+    <text x="480" y="38" font-size="12" text-anchor="middle" class="sR-m">missed → 2 s</text>
+    <text x="130" y="80" font-size="11" text-anchor="middle" class="sR-m">null</text>
+    <text x="8" y="128" font-size="13" font-weight="600">GridSybil</text>
+    <line x1="110" y1="124" x2="630" y2="124" stroke="var(--border)" stroke-width="2"/>
+    <g fill="#BE185D">
+      <circle cx="130" cy="124" r="7" fill="none" stroke="#BE185D" stroke-width="2.5"/>
+      <circle cx="152" cy="124" r="7"/><circle cx="172" cy="124" r="7"/><circle cx="270" cy="124" r="7"/>
+      <circle cx="290" cy="124" r="7"/><circle cx="410" cy="124" r="7"/><circle cx="428" cy="124" r="7"/>
+      <circle cx="550" cy="124" r="7"/>
+    </g>
+    <text x="152" y="108" font-size="12" text-anchor="middle" class="sR-m">&lt; 0.5 s</text>
+    <text x="130" y="150" font-size="11" text-anchor="middle" class="sR-m">null</text>
+    <text x="630" y="164" font-size="11" text-anchor="end" class="sR-m">time →  (hollow dot = first message of the link)</text>
+  </svg>
+  <div class="cols">
+    <div class="col">
+      <ul class="bullets">
+        <li><b>Benign</b>: about 1 s (log ≈ 0); p99 gap 7–9 s when messages are missed.</li>
+        <li><b>GridSybil</b>: bursts — 15% of gaps are under 0.5 s.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="card warn">The <b>first message of a link</b> has no previous one → <code>log_dtau = null</code>. The message is kept; in the encoder input it becomes 0 (the train mean).</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: the 0.001 s floor keeps the log finite when two copies arrive at the same time. Δτ is the only timing signal the model gets — the clock time itself is never an input.</div>
+</section>
+
+<section class="slide sR" data-title="Never an input">
+  <div class="kicker">Design decisions · exclusions</div>
+  <h2>What is never an input, and why</h2>
+  <div class="cols">
+    <div class="col">
+      <div class="card bad"><b>Time of day</b><br>It alone separates the groups: sin(time) ∈ [0.70, 0.97] for 0709 vs [−0.87, −0.50] for 1416. The 0709 ↔ 1416 transfer test would be meaningless.</div>
+      <div class="card bad"><b>True sender id</b><br>The simulator's real identity of the sender. A real receiver never sees it; it would reveal who the attacker is.</div>
+    </div>
+    <div class="col">
+      <div class="card bad"><b><code>*_noise</code> fields</b><br>Simulator bookkeeping of the sensor noise added — not something a car can measure.</div>
+      <div class="card bad"><b>Ground-truth positions</b><br>The ground-truth files (1.7 GB) are never read for features.</div>
+    </div>
+  </div>
+  <div class="card info">The sender id is used only <b>outside</b> the features: to split the shared ghost pseudonym 1 into links, and as the key of the vehicle split.</div>
+  <div class="note">Speaker note: the rule is "only what a real receiving car could know". Anything that is simulator truth or a clock shortcut stays out of the 13 columns.</div>
+</section>
+
+<section class="slide sR" data-title="How it evolved">
+  <div class="kicker">Design decisions · representation</div>
+  <h2>How the representation evolved</h2>
+  <div class="sR-flow">
+    <div class="card bad">
+      <b>First attempt: network-wide, de-duplicated</b><br>
+      One sequence per pseudonym across the whole network, copies removed.
+      <div class="kpis">
+        <div class="kpi"><b>15,904</b><span>samples</span></div>
+        <div class="kpi"><b>1</b><span>DataReplay</span></div>
+        <div class="kpi"><b>0</b><span>DoS</span></div>
+      </div>
+      Attackers switch pseudonym every 1–2 messages → their sequences never reach 64.
+    </div>
+    <div class="sR-arrow" aria-hidden="true">→</div>
+    <div class="card good">
+      <b>D1′: keep the receiver's view</b><br>
+      Every received copy kept, one prepared file per raw file, same folder tree as VeReMi.
+      <div class="kpis">
+        <div class="kpi"><b>20,364,658</b><span>messages kept</span></div>
+        <div class="kpi"><b>5,321,657</b><span>links</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="cols">
+    <div class="col">
+      <svg viewBox="0 0 420 170" width="100%" role="img" aria-labelledby="sR-ln-t">
+        <title id="sR-ln-t">Illustrative: one receiving car hears three senders; each (pseudonym, sender) pair is one link</title>
+        <text x="6" y="14" font-size="12" class="sR-m" font-style="italic">illustrative</text>
+        <rect x="300" y="68" width="110" height="34" rx="8" fill="#0D9488"/>
+        <text x="355" y="90" font-size="13" font-weight="700" text-anchor="middle" style="fill:#fff">receiver R</text>
+        <rect x="10" y="26" width="140" height="28" rx="6" fill="var(--alt)" stroke="var(--good)" stroke-width="2"/>
+        <text x="80" y="45" font-size="12" text-anchor="middle">pseudo 17 · car 405</text>
+        <rect x="10" y="71" width="140" height="28" rx="6" fill="var(--alt)" stroke="#BE185D" stroke-width="2"/>
+        <text x="80" y="90" font-size="12" text-anchor="middle">pseudo 1 · car 805</text>
+        <rect x="10" y="116" width="140" height="28" rx="6" fill="var(--alt)" stroke="#BE185D" stroke-width="2"/>
+        <text x="80" y="135" font-size="12" text-anchor="middle">pseudo 1 · car 912</text>
+        <g stroke="var(--muted)" stroke-width="2" fill="none">
+          <path d="M150 40 C 230 40, 240 76, 300 80"/><path d="M150 85 L 300 85"/><path d="M150 130 C 230 130, 240 94, 300 90"/>
+        </g>
+        <text x="225" y="34" font-size="11" text-anchor="middle" class="sR-m">link A</text>
+        <text x="225" y="80" font-size="11" text-anchor="middle" class="sR-m">link B</text>
+        <text x="225" y="152" font-size="11" text-anchor="middle" class="sR-m">link C</text>
+      </svg>
+    </div>
+    <div class="col">
+      <ul class="bullets">
+        <li>A <b>link</b> = everything one receiving car heard from one sender pseudonym, in time order.</li>
+        <li>Paired with the sender id, so the shared ghost pseudonym 1 splits per ghost-sending car (links B, C).</li>
+      </ul>
+    </div>
+  </div>
+  <div class="note">Speaker note: the first design looked clean but silently deleted two of the four attacks. Keeping VeReMi's own receiver view loses nothing; DataReplay and DoS links are still only 1–2 messages long, which is an open question for the encoder input.</div>
+</section>
+
+<!-- slides_findings -->
+<section class="slide sF" data-title="F1: same traffic, four times">
+  <div class="kicker">Leakage · F1</div>
+  <h2>The four scenarios replay the same traffic</h2>
+  <p class="lead">Within a scenario group, the same cars drive the same routes in all four attack folders, so a random split puts near-copies in train and test.</p>
+  <div class="cols">
+    <div class="col">
+      <span class="sF-tag">illustrative</span>
+      <svg class="sF-svg" viewBox="0 0 520 300" role="img" aria-labelledby="sF-t1">
+        <title id="sF-t1">Illustrative: one car with the same trajectory appears in all four scenario folders of a group; one copy lands in train, another in test</title>
+        <!-- four scenario folders -->
+        <g>
+          <rect class="box-alt" x="10" y="10" width="240" height="64" rx="8"/>
+          <text class="t-lbl" x="22" y="32">DataReplaySybil_0709</text>
+          <path class="road" d="M30 58 C 90 40, 150 70, 230 50"/>
+          <circle class="car" cx="150" cy="58" r="7"/>
+        </g>
+        <g>
+          <rect class="box-alt" x="270" y="10" width="240" height="64" rx="8"/>
+          <text class="t-lbl" x="282" y="32">DoSDisruptiveSybil_0709</text>
+          <path class="road" d="M290 58 C 350 40, 410 70, 490 50"/>
+          <circle class="car" cx="410" cy="58" r="7"/>
+        </g>
+        <g>
+          <rect class="box-alt" x="10" y="86" width="240" height="64" rx="8"/>
+          <text class="t-lbl" x="22" y="108">DoSRandomSybil_0709</text>
+          <path class="road" d="M30 134 C 90 116, 150 146, 230 126"/>
+          <circle class="car" cx="150" cy="134" r="7"/>
+        </g>
+        <g>
+          <rect class="box-alt" x="270" y="86" width="240" height="64" rx="8"/>
+          <text class="t-lbl" x="282" y="108">GridSybil_0709</text>
+          <path class="road" d="M290 134 C 350 116, 410 146, 490 126"/>
+          <circle class="car" cx="410" cy="134" r="7"/>
+        </g>
+        <text class="t-small t-muted" x="260" y="172" text-anchor="middle">same benign car, same route, four folders</text>
+        <!-- old split -->
+        <rect class="box" x="40" y="200" width="180" height="70" rx="8"/>
+        <text class="t-lbl" x="130" y="228" text-anchor="middle">train (old split)</text>
+        <text class="t-small t-muted" x="130" y="250" text-anchor="middle">copy from folder A</text>
+        <rect class="box" x="300" y="200" width="180" height="70" rx="8"/>
+        <text class="t-lbl" x="390" y="228" text-anchor="middle">test (old split)</text>
+        <text class="t-small t-muted" x="390" y="250" text-anchor="middle">copy from folder B</text>
+        <path class="link" d="M220 235 L 300 235"/>
+        <text class="t-small" x="260" y="226" text-anchor="middle" style="fill:var(--bad)">≈ 0.21 m</text>
+      </svg>
+    </div>
+    <div class="col">
+      <div class="kpis">
+        <div class="kpi"><b>89.7%</b><span>benign test identities with a near-copy in train</span></div>
+        <div class="kpi"><b>2,283 / 2,546</b><span>benign test identities affected</span></div>
+        <div class="kpi"><b>0.21 m</b><span>median distance to the copy</span></div>
+      </div>
+      <div class="card bad">All classes: 3,291 / 3,670 test identities had a near-copy in train. The model could memorise routes instead of learning what an attack looks like.</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: The four attack folders in one group are the same traffic simulation with different attackers added, so the benign cars repeat almost exactly. Under the old split, nine in ten benign test identities had a twin in train only about 20 cm away, so the test score measured memory, not detection.</div>
+</section>
+
+<section class="slide sF" data-title="The fix: split by vehicle">
+  <div class="kicker">Leakage · the fix</div>
+  <h2>Split by scenario group and physical vehicle</h2>
+  <p class="lead">Every copy of a car, in all four folders of its group, goes to the same split.</p>
+  <div class="cols">
+    <div class="col">
+      <p>Split key: <span class="sF-key">(scenario group, vehicle)</span></p>
+      <ul class="bullets">
+        <li>Group = 0709 or 1416, so a car is shared across its four attack folders.</li>
+        <li>Time window is <b>not</b> in the key: a car can drive across a window boundary (e.g. 25200_28800 → 28800_32400).</li>
+        <li>Split over sender vehicles; normalisation stats come from train only.</li>
+      </ul>
+      <div class="card good"><b>0</b> vehicles shared between splits after the fix (independent audit).</div>
+    </div>
+    <div class="col">
+      <table class="tbl">
+        <thead><tr><th>Split</th><th>Vehicles</th></tr></thead>
+        <tbody>
+          <tr><td>train</td><td>4,730</td></tr>
+          <tr><td>pretrain-val</td><td>526</td></tr>
+          <tr><td>val</td><td>1,126</td></tr>
+          <tr><td>test</td><td>1,126</td></tr>
+        </tbody>
+      </table>
+      <div class="card warn"><b>Old v1 pilot results are invalid as evidence:</b> they used the leaking split (F1), and their TCP objective had a training bug (all labels zero). History only; never quoted.</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: The unit of independence is the physical car within a scenario group, not the file or the time window, because one car can span two windows. With that key, no vehicle sits in two splits, which is also why we discard every number from the earlier pilot.</div>
+</section>
+
+<section class="slide sF" data-title="Shortcuts we checked">
+  <div class="kicker">Leakage · shortcuts</div>
+  <h2>Shortcuts we checked</h2>
+  <p class="lead">A feature that predicts the label or the scenario by itself would let the model cheat.</p>
+  <div class="cols">
+    <div class="col">
+      <div class="card bad">
+        <b>Time of day — removed</b><br>
+        sin(time) is in [0.70, 0.97] for 0709 and [−0.87, −0.50] for 1416: perfect separation. It would break the 0709 ↔ 1416 transfer test, so it is never an input.
+      </div>
+    </div>
+    <div class="col">
+      <div class="card warn">
+        <b>Window length — possible shortcut</b><br>
+        Windows of 1–3 messages: <b>13.9%</b> of benign (18,509) vs <b>20.2%</b> of GridSybil (49,242). Short windows lean GridSybil, and the mask reveals the length. Option: a floor (<code>min_messages</code>, e.g. 4).
+      </div>
+    </div>
+    <div class="col">
+      <div class="card warn">
+        <b>Sequence length — weak, not an input</b><br>
+        On the first (network-wide pseudonym) sample set, length alone gave AUC 0.551, just outside the ±0.05 band. Length is never a feature, but the mask carries it.
+      </div>
+    </div>
+  </div>
+  <div class="note">Speaker note: For each suspicious feature we trained a one-feature probe and looked at its AUC; 0.5 means it carries no label information. Time of day was a perfect separator of the two scenario groups, so it was replaced by range and bearing. Length is not a feature, but through the mask the encoder can see how many real messages a window has, and very short windows are more often GridSybil; a length probe on the new windows, or a minimum of 4 messages, would settle it.</div>
+</section>
+
+<section class="slide sF" data-title="Pseudonyms and ghost pseudonym 1">
+  <div class="kicker">Leakage · pseudonyms</div>
+  <h2>Pseudonym switching and ghost pseudonym 1</h2>
+  <p class="lead">How attackers use pseudonyms decides which attacks can even reach a 64-message encoder window.</p>
+  <div class="cols">
+    <div class="col">
+      <span class="sF-tag">illustrative lengths</span>
+      <svg class="sF-svg" viewBox="0 0 460 230" role="img" aria-labelledby="sF-t4">
+        <title id="sF-t4">Illustrative: DataReplay and DoS links are 1 to 2 messages long and never reach 64, while benign and GridSybil links often do</title>
+        <line class="mark64" x1="330" y1="20" x2="330" y2="200"/>
+        <text class="t-small" x="330" y="216" text-anchor="middle">64 messages</text>
+        <text class="t-small" x="10" y="44">DataReplay</text>
+        <line class="ln-dr" x1="120" y1="40" x2="126" y2="40"/><line class="ln-dr" x1="134" y1="40" x2="140" y2="40"/><line class="ln-dr" x1="148" y1="40" x2="152" y2="40"/>
+        <text class="t-small" x="10" y="84">DoS</text>
+        <line class="ln-dos" x1="120" y1="80" x2="124" y2="80"/><line class="ln-dos" x1="132" y1="80" x2="138" y2="80"/><line class="ln-dos" x1="146" y1="80" x2="150" y2="80"/>
+        <text class="t-small" x="10" y="124">Benign</text>
+        <line class="ln-bn" x1="120" y1="120" x2="400" y2="120"/>
+        <text class="t-small" x="10" y="164">GridSybil</text>
+        <line class="ln-gs" x1="120" y1="160" x2="440" y2="160"/>
+        <text class="t-small t-muted" x="160" y="58">1–2 msgs, new pseudonym each time</text>
+      </svg>
+      <ul class="bullets">
+        <li>DataReplay / DoS switch pseudonym every 1–2 messages: <b>0</b> DoS links reach 64; DataReplay 0–1.</li>
+        <li>GridSybil ghosts all use pseudonym <b>1</b>: 42,864 links come from it.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="card warn"><b>Consequence 1:</b> DataReplay and DoS are absent from the encoder input (benign + GridSybil only). How to include them is open.</div>
+      <div class="card warn"><b>Consequence 2 (F13, open):</b> pseudonym 1 is split per ghost using the true sender id, privileged information. Part of the GridSybil windows come from it.</div>
+      <div class="card info">Classes in the encoder input: ≈ 65% GridSybil / 35% benign, so use class weights and macro metrics.</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: A link is everything one car heard from one pseudonym, so attackers that change pseudonym every message never build a 64-message history, and they drop out of Stage 1 entirely. The opposite problem is GridSybil: all ghosts share pseudonym 1, and we separate them using the true sender id, which a real receiver would not know, so those windows need a decision.</div>
+</section>
+
+<!-- slides_pipeline -->
+<section class="slide sP" data-title="Three data notebooks">
+  <div class="kicker">Pipeline · overview</div>
+  <h2>Three notebooks turn raw logs into encoder input</h2>
+  <p class="lead">Raw VeReMi is mirrored file by file, a read-only EDA picks the window sizes, then every link is cropped into masked windows of at most 64 messages.</p>
+  <svg viewBox="0 0 1000 300" role="img" aria-labelledby="sP-flow-t">
+    <title id="sP-flow-t">Data flow: raw VeReMi (13 GB) to src/pipeline/input_representation.ipynb to src/data/prepared_data (2.9 GB mirror); prepared_data is read by src/eda/eda_window_size.ipynb (read-only EDA, informs T) and by src/pipeline/benign_gridsybil/encoder_input_T64.ipynb, which writes src/data/encoder_input/benign_gridsybil/T64 (1.8 GB) for the TimesNet encoder in src/model/benign_gridsybil (built, not trained)</title>
+    <defs>
+      <marker id="sP-ah1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" class="sP-ah"/>
+      </marker>
+    </defs>
+    <!-- row 1 -->
+    <rect x="10" y="30" width="270" height="90" rx="10" class="sP-box"/>
+    <text x="145" y="68" text-anchor="middle" class="sP-t">Raw VeReMi-Extension</text>
+    <text x="145" y="92" text-anchor="middle" class="sP-s">8 scenario folders · 13 GB</text>
+
+    <rect x="365" y="30" width="270" height="90" rx="10" class="sP-nb"/>
+    <text x="500" y="68" text-anchor="middle" class="sP-t sP-mono">input_representation.ipynb</text>
+    <text x="500" y="92" text-anchor="middle" class="sP-s">src/pipeline/ · one prepared file per raw file</text>
+
+    <rect x="720" y="30" width="270" height="90" rx="10" class="sP-box"/>
+    <text x="855" y="68" text-anchor="middle" class="sP-t sP-mono">prepared_data/</text>
+    <text x="855" y="92" text-anchor="middle" class="sP-s">src/data/ · mirror of the raw tree · 2.9 GB</text>
+
+    <path d="M282,75 H361" class="sP-arrow" marker-end="url(#sP-ah1)"/>
+    <path d="M637,75 H716" class="sP-arrow" marker-end="url(#sP-ah1)"/>
+    <path d="M855,122 V150 H122 V176" class="sP-arrow" marker-end="url(#sP-ah1)"/>
+    <path d="M372,150 V176" class="sP-arrow" marker-end="url(#sP-ah1)"/>
+
+    <!-- row 2 -->
+    <rect x="10" y="180" width="225" height="90" rx="10" class="sP-nb" stroke-dasharray="6 4"/>
+    <text x="122" y="218" text-anchor="middle" class="sP-t sP-mono">eda_window_size.ipynb</text>
+    <text x="122" y="242" text-anchor="middle" class="sP-s">src/eda/ · read-only · picks T</text>
+
+    <rect x="260" y="180" width="225" height="90" rx="10" class="sP-nb"/>
+    <text x="372" y="218" text-anchor="middle" class="sP-t sP-mono">encoder_input_T64.ipynb</text>
+    <text x="372" y="242" text-anchor="middle" class="sP-s">pipeline/benign_gridsybil/</text>
+    <text x="372" y="260" text-anchor="middle" class="sP-s">crop · pad to 64 · mask</text>
+
+    <rect x="510" y="180" width="225" height="90" rx="10" class="sP-box"/>
+    <text x="622" y="218" text-anchor="middle" class="sP-t sP-mono">encoder_input/</text>
+    <text x="622" y="242" text-anchor="middle" class="sP-s">benign_gridsybil/T64/</text>
+    <text x="622" y="260" text-anchor="middle" class="sP-s">39 JSON shards · 1.8 GB</text>
+
+    <rect x="765" y="180" width="225" height="90" rx="10" class="sP-next"/>
+    <text x="877" y="218" text-anchor="middle" class="sP-t">TimesNet encoder</text>
+    <text x="877" y="242" text-anchor="middle" class="sP-s">model/benign_gridsybil/</text>
+    <text x="877" y="260" text-anchor="middle" class="sP-s">built (S1.2), not trained</text>
+
+    <path d="M237,225 H256" class="sP-arrow" marker-end="url(#sP-ah1)" stroke-dasharray="4 3"/>
+    <path d="M487,225 H506" class="sP-arrow" marker-end="url(#sP-ah1)"/>
+    <path d="M737,225 H761" class="sP-arrow" marker-end="url(#sP-ah1)" stroke-dasharray="6 4"/>
+  </svg>
+  <div class="cols">
+    <div class="col"><div class="card info"><b>input_representation</b> keeps the receiver's view exactly as recorded: every received copy, same folder tree (2.9 GB).</div></div>
+    <div class="col"><div class="card info"><b>eda_window_size</b> reads only: link lengths, a no-padding T sweep and class balance per T. Writes nothing.</div></div>
+    <div class="col"><div class="card info"><b>encoder_input_T64</b> builds what the encoder reads: every message in a window padded to 64 rows, with a mask (1.8 GB).</div></div>
+  </div>
+  <div class="note">Speaker note: The first notebook mirrors the raw data without throwing anything away. The EDA notebook only reads; it showed that a fixed T without padding loses most links. The third notebook crops every link into windows of at most 64 messages, pads each to 64 rows and stores a mask, so every message reaches the encoder in one fixed shape. All code lives in notebooks under <code>src/</code> (pipeline/, eda/, model/); <code>src/README.md</code> explains the layout. Benign + GridSybil is the first trial of the whole pipeline; the other attacks follow.</div>
+</section>
+
+<section class="slide sP" data-title="Prepared file">
+  <div class="kicker">Pipeline · prepared data</div>
+  <h2>Inside a prepared file</h2>
+  <p class="lead">One JSON per receiving car: what it heard, grouped into links (one sender pseudonym each).</p>
+  <div class="kpis">
+    <div class="kpi"><b>23,032</b><span>prepared files</span></div>
+    <div class="kpi"><b>20,364,658</b><span>messages kept (all)</span></div>
+    <div class="kpi"><b>5,321,657</b><span>links</span></div>
+    <div class="kpi"><b>66 s</b><span>runtime, 10 workers</span></div>
+  </div>
+  <div class="cols">
+    <div class="col">
+<pre class="sP-code"><span class="sP-c">// one prepared file (shape)</span>
+{
+  <span class="sP-k">"receiver"</span>: …, <span class="sP-k">"receiver_pseudo"</span>: …,
+  <span class="sP-k">"receiver_attack_code"</span>: …, <span class="sP-k">"run"</span>: …,
+  <span class="sP-k">"features"</span>: [13 names],
+  <span class="sP-k">"links"</span>: [
+    { <span class="sP-k">"sender_pseudo"</span>: …, <span class="sP-k">"sender"</span>: …,
+      <span class="sP-k">"message_id"</span>: […], <span class="sP-k">"rcv_time"</span>: […],
+      <span class="sP-k">"x"</span>: [[13 features], …] }  <span class="sP-c">// time order</span>
+  ]
+}</pre>
+    </div>
+    <div class="col">
+<pre class="sP-code">prepared_data/
+├── GridSybil_0709/
+│   └── &lt;run folder&gt;/
+│       └── traceJSON-…json   <span class="sP-c">// 1 per raw file</span>
+├── … 8 scenario folders
+└── <span class="sP-k">index.json</span></pre>
+      <ul class="bullets">
+        <li><b>index.json:</b> labels from file names, vehicle split, train-only normalisation, counts, provenance</li>
+        <li>Split over sender vehicles: train 4,730 · pretrain-val 526 · val 1,126 · test 1,126</li>
+      </ul>
+    </div>
+  </div>
+  <div class="note">Speaker note: A link is everything one car heard from one sender pseudonym, in time order. The ghost pseudonym 1 is split per true sending car (42,864 links), and the first message of a link has no time gap, so its log_dtau is null.</div>
+</section>
+
+<section class="slide sP" data-title="Data per attack">
+  <div class="kicker">Pipeline · class balance</div>
+  <h2>How much data each attack leaves</h2>
+  <p class="lead">All attacks send plenty of messages, but only GridSybil keeps a pseudonym long enough for a 64-message link.</p>
+  <div class="cols">
+    <div class="col">
+      <svg viewBox="0 0 760 380" role="img" aria-labelledby="sP-bar-t">
+        <title id="sP-bar-t">Messages heard per scenario, 0709 and 1416: GridSybil 3,390,580 and 973,833; DoSRandom 1,741,441 and 477,450; DoSDisruptive 1,741,441 and 477,450; DataReplay 873,068 and 239,440; benign about 2.08 million and 0.53 million per folder</title>
+        <!-- scale: 570 px = 3,400,000 messages, bars start at x=150 -->
+        <line x1="150" y1="10" x2="150" y2="350" class="sP-grid"/>
+        <line x1="317.6" y1="10" x2="317.6" y2="350" class="sP-grid" stroke-dasharray="3 4"/>
+        <line x1="485.3" y1="10" x2="485.3" y2="350" class="sP-grid" stroke-dasharray="3 4"/>
+        <line x1="652.9" y1="10" x2="652.9" y2="350" class="sP-grid" stroke-dasharray="3 4"/>
+        <text x="150" y="370" text-anchor="middle" class="sP-s">0</text>
+        <text x="317.6" y="370" text-anchor="middle" class="sP-s">1 M</text>
+        <text x="485.3" y="370" text-anchor="middle" class="sP-s">2 M</text>
+        <text x="652.9" y="370" text-anchor="middle" class="sP-s">3 M</text>
+
+        <!-- GridSybil -->
+        <text x="140" y="44" text-anchor="end" class="sP-t">GridSybil</text>
+        <rect x="150" y="18" width="568.4" height="22" rx="3" fill="#BE185D"/>
+        <text x="710" y="34" text-anchor="end" class="sP-w">3,390,580</text>
+        <rect x="150" y="42" width="163.3" height="22" rx="3" fill="#BE185D" opacity="0.5"/>
+        <text x="319" y="58" class="sP-val">973,833</text>
+
+        <!-- DoSRandom -->
+        <text x="140" y="110" text-anchor="end" class="sP-t">DoSRandom</text>
+        <rect x="150" y="84" width="291.9" height="22" rx="3" fill="#7C3AED"/>
+        <text x="448" y="100" class="sP-val">1,741,441</text>
+        <rect x="150" y="108" width="80.0" height="22" rx="3" fill="#7C3AED" opacity="0.5"/>
+        <text x="236" y="124" class="sP-val">477,450</text>
+
+        <!-- DoSDisruptive -->
+        <text x="140" y="176" text-anchor="end" class="sP-t">DoSDisruptive</text>
+        <rect x="150" y="150" width="291.9" height="22" rx="3" fill="#EA580C"/>
+        <text x="448" y="166" class="sP-val">1,741,441</text>
+        <rect x="150" y="174" width="80.0" height="22" rx="3" fill="#EA580C" opacity="0.5"/>
+        <text x="236" y="190" class="sP-val">477,450</text>
+
+        <!-- DataReplay -->
+        <text x="140" y="242" text-anchor="end" class="sP-t">DataReplay</text>
+        <rect x="150" y="216" width="146.4" height="22" rx="3" fill="#0284C7"/>
+        <text x="302" y="232" class="sP-val">873,068</text>
+        <rect x="150" y="240" width="40.1" height="22" rx="3" fill="#0284C7" opacity="0.5"/>
+        <text x="196" y="256" class="sP-val">239,440</text>
+
+        <!-- Benign -->
+        <text x="140" y="300" text-anchor="end" class="sP-t">Benign</text>
+        <text x="140" y="316" text-anchor="end" class="sP-s">per folder</text>
+        <rect x="150" y="282" width="348.7" height="22" rx="3" fill="#16A34A"/>
+        <text x="505" y="298" class="sP-val">≈ 2.08 M</text>
+        <rect x="150" y="306" width="88.8" height="22" rx="3" fill="#16A34A" opacity="0.5"/>
+        <text x="245" y="322" class="sP-val">≈ 0.53 M</text>
+      </svg>
+      <div class="sP-legend"><span><i style="background:var(--muted,#64748B)"></i>solid = 0709</span><span><i style="background:var(--muted,#64748B);opacity:.5"></i>light = 1416</span></div>
+    </div>
+    <div class="col">
+      <table class="tbl">
+        <thead><tr><th>Links reaching 64 messages</th><th class="sP-num">0709</th><th class="sP-num">1416</th></tr></thead>
+        <tbody>
+          <tr><td>GridSybil</td><td class="sP-num">8,510</td><td class="sP-num">3,482</td></tr>
+          <tr><td>Benign (per folder)</td><td class="sP-num">≈ 4,800</td><td class="sP-num">≈ 1,850</td></tr>
+          <tr><td>DataReplay</td><td class="sP-num" colspan="2">0–1</td></tr>
+          <tr><td>DoSRandom / DoSDisruptive</td><td class="sP-num" colspan="2">0</td></tr>
+        </tbody>
+      </table>
+      <div class="card warn">DataReplay and DoS attackers switch pseudonym every 1–2 messages, so their links are 1–2 messages long. How to include them is still open.</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: The message counts are not the problem: DoS attackers are heard over 1.7 million times in 0709. The problem is that their links are only 1–2 messages long, so a per-link window of 64 sees almost nothing from them.</div>
+</section>
+
+<section class="slide sP" data-title="Cutting windows">
+  <div class="kicker">Pipeline · windowing</div>
+  <h2>Crop, pad to 64, mask: every message in a window</h2>
+  <p class="lead">Each link is cut into consecutive pieces of at most 64 messages; each piece is padded at the end to 64 rows, and a mask marks the real rows. The encoder always sees 64 &times; 13.</p>
+  <svg viewBox="0 0 1000 330" role="img" aria-labelledby="sP-win-t">
+    <title id="sP-win-t">Illustrative: a 150-message link is cut into 64 + 64 + 22 messages; the two 64-message pieces fill a 64-row window each, the 22-message piece is padded with 42 rows to 64; a separate 5-message link is padded with 59 rows to 64; a mask row marks real rows with 1 and padding with 0</title>
+    <defs>
+      <marker id="sP-ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" class="sP-ah"/>
+      </marker>
+    </defs>
+    <text x="20" y="22" class="sP-s">Illustrative · link A: 150 messages (time →), 4.4 px per message</text>
+    <text x="730" y="22" class="sP-s">link B: 5 messages</text>
+    <!-- link A: 150 msgs x 4.4 px = 660 px -->
+    <rect x="20" y="34" width="281.6" height="34" class="sP-real"/>
+    <rect x="301.6" y="34" width="281.6" height="34" class="sP-real" opacity="0.7"/>
+    <rect x="583.2" y="34" width="96.8" height="34" class="sP-real" opacity="0.5"/>
+    <line x1="301.6" y1="30" x2="301.6" y2="72" stroke="#FFFFFF" stroke-width="3"/>
+    <line x1="583.2" y1="30" x2="583.2" y2="72" stroke="#FFFFFF" stroke-width="3"/>
+    <text x="160.8" y="56" text-anchor="middle" class="sP-w">messages 1–64</text>
+    <text x="442.4" y="56" text-anchor="middle" class="sP-w">65–128</text>
+    <text x="631.6" y="56" text-anchor="middle" class="sP-w">129–150</text>
+    <!-- link B: 5 msgs -->
+    <rect x="730" y="34" width="22" height="34" class="sP-real" opacity="0.85"/>
+
+    <path d="M160.8,74 L122.4,118" class="sP-arrow" marker-end="url(#sP-ah2)"/>
+    <path d="M442.4,74 L347.4,118" class="sP-arrow" marker-end="url(#sP-ah2)"/>
+    <path d="M631.6,74 L521.2,118" class="sP-arrow" marker-end="url(#sP-ah2)"/>
+    <path d="M741,74 L742.8,118" class="sP-arrow" marker-end="url(#sP-ah2)"/>
+
+    <!-- windows: 3.2 px per row -->
+    <text x="20" y="136" class="sP-t">window · 64 rows</text>
+    <rect x="20" y="144" width="204.8" height="36" class="sP-real"/>
+    <text x="122.4" y="167" text-anchor="middle" class="sP-w">64 real</text>
+    <rect x="20" y="184" width="204.8" height="9" class="sP-mask1"/>
+    <text x="122.4" y="212" text-anchor="middle" class="sP-s">mask: 64 × 1</text>
+
+    <text x="245" y="136" class="sP-t">window · 64 rows</text>
+    <rect x="245" y="144" width="204.8" height="36" class="sP-real" opacity="0.7"/>
+    <text x="347.4" y="167" text-anchor="middle" class="sP-w">64 real</text>
+    <rect x="245" y="184" width="204.8" height="9" class="sP-mask1"/>
+    <text x="347.4" y="212" text-anchor="middle" class="sP-s">mask: 64 × 1</text>
+
+    <text x="470" y="136" class="sP-t">window · 64 rows</text>
+    <rect x="470" y="144" width="70.4" height="36" class="sP-real" opacity="0.5"/>
+    <rect x="540.4" y="144" width="134.4" height="36" class="sP-pad"/>
+    <rect x="470" y="184" width="70.4" height="9" class="sP-mask1"/>
+    <rect x="540.4" y="184" width="134.4" height="9" class="sP-mask0"/>
+    <text x="572.4" y="212" text-anchor="middle" class="sP-s">22 real + 42 padding</text>
+
+    <text x="730" y="136" class="sP-t">window · 64 rows</text>
+    <rect x="730" y="144" width="16" height="36" class="sP-real" opacity="0.85"/>
+    <rect x="746" y="144" width="188.8" height="36" class="sP-pad"/>
+    <rect x="730" y="184" width="16" height="9" class="sP-mask1"/>
+    <rect x="746" y="184" width="188.8" height="9" class="sP-mask0"/>
+    <text x="832.4" y="212" text-anchor="middle" class="sP-s">5 real + 59 padding</text>
+
+    <text x="20" y="254" class="sP-t">Each window = x (64 × 13) + mask (64): 1 = real message, 0 = padding row (all zeros).</text>
+    <text x="20" y="280" class="sP-s">Every message lands in exactly one window; padding is only at the end, up to 64 rows.</text>
+    <text x="20" y="304" class="sP-s">6,980,356 messages → 376,427 windows; 71.0% of rows are padding (26.3% with length buckets 8/16/32/64).</text>
+  </svg>
+  <div class="sP-legend"><span><i style="background:#BE185D"></i>real messages</span><span><i style="background:var(--alt,#F1F5F9);border:1px solid var(--border,#E2E8F0)"></i>padding</span><span><i style="background:var(--good,#16A34A)"></i>mask = 1</span><span><i style="background:var(--border,#E2E8F0)"></i>mask = 0</span></div>
+  <div class="note">Speaker note: Nothing is thrown away: the 150-message link gives two full windows and one 22-message window padded to 64, and a 5-message link still gives a 64-row window with 59 padding rows. Every window has the same shape, so batches are standard and the mask tells the encoder which rows are real.</div>
+</section>
+
+<section class="slide sP" data-title="Why crop, pad to 64 and a mask">
+  <div class="kicker">Pipeline · design choice</div>
+  <h2>Why crop, pad to 64 and a mask</h2>
+  <p class="lead">Links are mostly short (benign median 14, GridSybil 11 messages), so any single fixed length either loses data or fills the input with padding. We accept the padding for one fixed shape.</p>
+  <div class="cols">
+    <div class="col">
+      <table class="tbl">
+        <thead><tr><th>Option</th><th>Effect on the data</th></tr></thead>
+        <tbody>
+          <tr><td>Fixed T = 64, no padding</td><td>keeps 5% of links / 21% of messages</td></tr>
+          <tr><td>Fixed T = 24, no padding</td><td>largest T keeping &ge; 50% of messages</td></tr>
+          <tr><td>Crop at T = 24 (kept as an ablation)</td><td>cuts 24.6% of links (T = 64: 5.1%); 63% of messages sit in cut links (T = 64: 26%)</td></tr>
+          <tr><td>Crop + length buckets {8, 16, 32, 64} + mask (alternative)</td><td>every message used; 26.3% padding; four shapes</td></tr>
+          <tr><td><b>Crop + pad every window to 64 + mask (in use)</b></td><td><b>every message used; 71.0% padding; one shape</b></td></tr>
+        </tbody>
+      </table>
+      <div class="kpis">
+        <div class="kpi"><b>71.0%</b><span>padding rows, fixed 64</span></div>
+        <div class="kpi"><b>26.3%</b><span>padding rows, buckets</span></div>
+        <div class="kpi"><b>&asymp; 2.7&times;</b><span>rows spent on padding vs buckets</span></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card good"><b>Why fixed 64 now</b>One input shape (64 &times; 13), one model config, standard batches; the extra compute is accepted. Length buckets stay one setting away: <code>buckets = (8, 16, 32, 64)</code> in <code>pipeline/benign_gridsybil/encoder_input_T64.ipynb</code> instead of <code>(64,)</code>.</div>
+      <div class="card good"><b>The mask makes padding invisible</b>z = masked mean of H; reconstruction, physics and contrastive losses on real rows only; TimesBlock padding from T = 64.</div>
+      <div class="card bad"><b>Rejected</b>Resampling / interpolation invents motion and breaks Δτ; backfill looks like a frozen-position attack; packing several links in one row lets TimesNet mix them.</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: Padding every window to 64 is the simplest setup: every batch has the same shape and the model needs one configuration. The price is that about 71% of rows are zeros, roughly 2.7 times the padding of the bucketed variant, which we accept. Bucketing (Khomenko et al. 2016, arXiv 1708.05604) remains the documented alternative. Cropping bounds the length, and random crops of long links can also serve as contrastive views (TS2Vec, AAAI 2022); masked pooling as in MOMENT, TimesFM, Chronos.</div>
+</section>
+
+<section class="slide sP" data-title="Encoder input">
+  <div class="kicker">Pipeline · encoder input</div>
+  <h2>The encoder input in numbers</h2>
+  <p class="lead">376,427 masked windows of 64 &times; 13 from the two GridSybil folders, split by sender vehicle; every kept message is in exactly one window.</p>
+  <table class="tbl">
+        <thead><tr><th>Split</th><th class="sP-num">Benign</th><th class="sP-num">GridSybil</th><th class="sP-num">Total</th><th class="sP-num">Padding (benign / GridSybil)</th></tr></thead>
+        <tbody>
+          <tr><td>train</td><td class="sP-num">84,282</td><td class="sP-num">152,150</td><td class="sP-num">236,432</td><td class="sP-num">69.2% / 72.1%</td></tr>
+          <tr><td>pretrain_val</td><td class="sP-num">8,517</td><td class="sP-num">19,889</td><td class="sP-num">28,406</td><td class="sP-num">68.3% / 72.6%</td></tr>
+          <tr><td>val</td><td class="sP-num">19,970</td><td class="sP-num">37,651</td><td class="sP-num">57,621</td><td class="sP-num">70.1% / 71.0%</td></tr>
+          <tr><td>test</td><td class="sP-num">20,045</td><td class="sP-num">33,923</td><td class="sP-num">53,968</td><td class="sP-num">69.0% / 72.3%</td></tr>
+          <tr><td><b>all</b></td><td class="sP-num"></td><td class="sP-num"></td><td class="sP-num"><b>376,427</b></td><td class="sP-num"><b>71.0%</b></td></tr>
+        </tbody>
+      </table>
+  <div class="cols">
+    <div class="col">
+      <div class="kpis">
+        <div class="kpi"><b>376,427</b><span>windows, 64 &times; 13</span></div>
+        <div class="kpi"><b>6,980,356</b><span>messages, all used</span></div>
+        <div class="kpi"><b>71.0%</b><span>padding rows (26.3% with buckets)</span></div>
+        <div class="kpi"><b>1.8 GB</b><span>39 shards</span></div>
+      </div>
+
+    </div>
+    <div class="col">
+      <div class="card info"><b>Files: <code>src/data/encoder_input/benign_gridsybil/T64/</code></b>One folder per split, <code>&lt;split&gt;/b64/</code>. Shards <code>part-XXXXX.json</code> hold <code>seq_len = max_seq_len = 64</code> and windows <code>{id, x [64 &times; 13], mask [64]}</code>; labels sit in separate <code>_info.json</code> files, plus <code>metadata.json</code>.</div>
+      <p class="sP-small">From 5,752 prepared files (one per receiving car): 354,197 links / 6,980,356 messages kept (271 unknown-label links, 4,123 messages, dropped). 5,752 sender vehicles, none in two splits. Benign share 35.3% → class weights, macro metrics.</p>
+
+    </div>
+  </div>
+  <div class="note">Speaker note: Short links dominate, so most windows are mostly padding: over all rows about 71% are zeros, slightly more for GridSybil than for benign. Normalisation uses train real rows only; padding rows and the missing first log_dtau are 0. Keeping labels in separate _info files means the pretraining code physically cannot read them.</div>
+</section>
+
+<section class="slide sP" data-title="Quality checks">
+  <div class="kicker">Pipeline · audit</div>
+  <h2>Quality checks passed</h2>
+  <p class="lead">The checks on the encoder input found no defects (re-verified on all 376,427 windows).</p>
+  <div class="cols">
+    <div class="col">
+      <table class="tbl">
+        <thead><tr><th>Check</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>Shapes: x is 64 × 13, mask is 64</td><td><span class="sP-ok">✓</span> every shard</td></tr>
+          <tr><td>Mask = prefix of ones, sum = n_messages</td><td><span class="sP-ok">✓</span> yes</td></tr>
+          <tr><td>Padding rows exactly 0</td><td><span class="sP-ok">✓</span> yes</td></tr>
+          <tr><td>NaN values</td><td><span class="sP-ok">✓</span> 0</td></tr>
+          <tr><td>Train real rows after normalisation</td><td><span class="sP-ok">✓</span> mean &asymp; 0, std 0.97&ndash;1.0</td></tr>
+          <tr><td>Window ids</td><td><span class="sP-ok">✓</span> unique</td></tr>
+          <tr><td>Sender vehicles in two splits</td><td><span class="sP-ok">✓</span> 0</td></tr>
+          <tr><td>Totals: windows / mask sum</td><td><span class="sP-ok">✓</span> 376,427 / 6,980,356</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="col">
+      <div class="card warn"><b>Still to handle in training</b>
+        <ul class="bullets">
+          <li>Outliers up to z = 26 (mostly ghost positions) → clip ±10 or log(range)</li>
+          <li>Some GridSybil windows come from pseudonym 1 grouped by true sender (F13)</li>
+          <li>One broadcast appears in several receivers' windows → correlated samples</li>
+          <li>1–3-message windows lean GridSybil → possible length shortcut</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="note">Speaker note: The mask sum equals the number of kept messages, so every message is in exactly one window. Normalisation stats come from train real rows only; the missing first log_dtau of each link is set to 0 after normalisation, so there are no NaNs. The caveats on the right are known and will be handled in training.</div>
+</section>
+
+<!-- ===== Closing (shell) ===== -->
+<section class="slide sS" data-title="Caveats before training">
+  <div class="kicker">Caveats &amp; next · before training</div>
+  <h2>Caveats before training</h2>
+  <p class="lead">The windows pass the checks, but six properties need handling in the encoder, in training or in the write-up. The next slides explain each one.</p>
+  <div class="sS-grid">
+    <div class="card warn"><b>Outliers</b>z up to 26.5 (claimed_pos_y), 20.2 (claimed_pos_x), 36.5 (range), 8.5 (log_dtau) &mdash; mostly ghost positions, i.e. attack evidence. Prefer log(range) or robust scaling; compare before clipping.</div>
+    <div class="card warn"><b>Ghost pseudonym 1 (F13)</b>49,930 of 243,613 GridSybil windows (20.5%) come from pseudonym-1 links grouped by the true sender &mdash; a privileged grouping. Report results with and without them.</div>
+    <div class="card info"><b>Receivers repeat</b>5,415 of 5,421 test receivers also receive in train. The split is by sender, so no label leak, but rx tracks repeat.</div>
+    <div class="card info"><b>Correlated samples &amp; class balance</b>One broadcast appears in several receivers' windows, and long links give several windows, so windows are not independent: evaluate per sender vehicle (group bootstrap). &asymp; 35% benign / 65% GridSybil: class weights, macro metrics.</div>
+    <div class="card bad"><b>The encoder must use the mask</b>Masked pooling (z = masked mean of H); reconstruction, physics and contrastive losses on real rows only; TimesBlock padding computed from T = 64; FFT periods from real rows only. All four are now built into the encoder notebook.</div>
+    <div class="card warn"><b>Length shortcut</b>1&ndash;3-message windows: 13.9% of benign vs 20.2% of GridSybil. Never feed <code>n_messages</code> or the mask as a feature; keep a length-only baseline; option: <code>min_messages</code> = 4.</div>
+  </div>
+  <div class="note">Speaker note: none of these blocks training; each one is a setting in the training code (clipping, weights, metrics) or a line in the limitations section. Padding rows are zeros that TimesNet would read as data unless the mask is applied in pooling and every loss; that is the one hard requirement on the encoder code.</div>
+</section>
+
+<!-- slides_cav_outliers -->
+<section class="slide cA" data-title="Z-scores and outliers">
+  <div class="kicker">Caveats · Outliers</div>
+  <h2>What a z-score is and what an outlier looks like</h2>
+  <p class="lead">We rescale every feature to "how many standard deviations from the training average": <span class="cA-formula">z = (value − train mean) / train std</span>. Most real values land between −3 and +3.</p>
+  <div class="cols">
+    <div class="col">
+      <span class="cA-tag">illustrative · claimed_pos_y (mean 645 m, std 387 m)</span>
+      <svg class="cA-svg" viewBox="0 0 720 200" role="img" aria-labelledby="cA-t1">
+        <title id="cA-t1">Illustrative number line of z-scores: a shaded normal zone from minus 3 to plus 3, an honest claim at z about 0.5, and a ghost claim far to the right at z 26.5, about 10.9 km</title>
+        <!-- normal zone -3..+3 : x = 40 + (z+3)*22 -->
+        <rect class="cA-zone" x="40" y="70" width="132" height="50" rx="4"/>
+        <line class="cA-zone-edge" x1="40" y1="64" x2="40" y2="126"/>
+        <line class="cA-zone-edge" x1="172" y1="64" x2="172" y2="126"/>
+        <text x="106" y="56" text-anchor="middle" class="cA-small cA-bold">normal zone</text>
+        <!-- axis -->
+        <line class="cA-axis" x1="30" y1="120" x2="705" y2="120"/>
+        <g class="cA-small">
+          <line class="cA-tick" x1="40" y1="114" x2="40" y2="126"/><text x="40" y="144" text-anchor="middle">−3</text>
+          <line class="cA-tick" x1="106" y1="114" x2="106" y2="126"/><text x="106" y="144" text-anchor="middle">0</text>
+          <line class="cA-tick" x1="172" y1="114" x2="172" y2="126"/><text x="172" y="144" text-anchor="middle">+3</text>
+          <line class="cA-tick" x1="304" y1="114" x2="304" y2="126"/><text x="304" y="144" text-anchor="middle">9</text>
+          <line class="cA-tick" x1="436" y1="114" x2="436" y2="126"/><text x="436" y="144" text-anchor="middle">15</text>
+          <line class="cA-tick" x1="568" y1="114" x2="568" y2="126"/><text x="568" y="144" text-anchor="middle">21</text>
+          <line class="cA-tick" x1="700" y1="114" x2="700" y2="126"/><text x="700" y="144" text-anchor="middle">27</text>
+        </g>
+        <text x="372" y="172" text-anchor="middle" class="cA-small cA-muted">z (standard deviations from the train mean)</text>
+        <!-- honest claim z=0.5 -> x=117 -->
+        <circle class="cA-honest" cx="117" cy="100" r="8"/>
+        <text x="117" y="30" text-anchor="middle" class="cA-small">honest car, z ≈ 0.5</text>
+        <text x="117" y="44" text-anchor="middle" class="cA-small cA-muted">≈ 840 m</text>
+        <!-- ghost claim z=26.5 -> x=689 -->
+        <circle class="cA-ghost" cx="689" cy="100" r="9"/>
+        <text x="689" y="30" text-anchor="end" class="cA-small cA-bold">GridSybil ghost, z = 26.5</text>
+        <text x="689" y="44" text-anchor="end" class="cA-small cA-muted">≈ 645 + 26.5 × 387 ≈ 10.9 km</text>
+        <line class="cA-tick" x1="689" y1="52" x2="689" y2="88"/>
+      </svg>
+    </div>
+    <div class="col">
+      <table class="tbl">
+        <thead><tr><th>Feature</th><th class="cA-num">Largest |z|</th><th>In real units</th></tr></thead>
+        <tbody>
+          <tr><td>claimed_pos_y</td><td class="cA-num">26.5</td><td>≈ 10.9 km</td></tr>
+          <tr><td>claimed_pos_x</td><td class="cA-num">20.2</td><td>≈ 9.8 km</td></tr>
+          <tr><td>range</td><td class="cA-num">36.5</td><td>claim ≈ 12.8 km from the receiver (honest: median 81 m, p99 384 m)</td></tr>
+          <tr><td>log_dtau</td><td class="cA-num">8.5</td><td>gap ≈ 190 s since the pseudonym was last heard</td></tr>
+        </tbody>
+      </table>
+      <div class="card info"><span>An <strong>outlier</strong> is a value far outside the normal zone. Ours are mostly <strong>GridSybil ghost cars</strong> claiming far-away positions.</span></div>
+    </div>
+  </div>
+  <div class="note">Speaker note: a z-score just says "how unusual is this value compared with training data". An honest car sits near zero; a ghost claiming a position 10.9 km out sits at z = 26.5 — nine times past the usual edge of ±3.</div>
+</section>
+
+<section class="slide cA" data-title="Clip outliers?">
+  <div class="kicker">Caveats · Outliers</div>
+  <h2>Should we clip outliers?</h2>
+  <p class="lead">Clipping caps every z at a limit (e.g. ±10). Here the extreme values are the attack itself, so blind clipping throws away evidence.</p>
+  <div class="cols">
+    <div class="col">
+      <span class="cA-tag">illustrative · claimed_pos_y, clip at z = 10</span>
+      <svg class="cA-svg" viewBox="0 0 520 230" role="img" aria-labelledby="cA-t2">
+        <title id="cA-t2">Illustrative before and after clipping at z equals 10: an honest car at z 0.5 is unchanged, a ghost at z 26.5 (10.9 km) is cut to 10 (about 4.5 km equivalent)</title>
+        <!-- scale: 1 z = 13 px, origin x=150 -->
+        <text x="10" y="34" class="cA-small">honest, before</text>
+        <rect class="cA-bar-honest" x="150" y="22" width="6.5" height="18" rx="2"/>
+        <text x="164" y="36" class="cA-small">z 0.5</text>
+        <text x="10" y="64" class="cA-small">honest, after</text>
+        <rect class="cA-bar-honest" x="150" y="52" width="6.5" height="18" rx="2"/>
+        <text x="164" y="66" class="cA-small">z 0.5 (unchanged)</text>
+
+        <text x="10" y="114" class="cA-small cA-bold">ghost, before</text>
+        <rect class="cA-bar-before" x="150" y="102" width="345" height="18" rx="2"/>
+        <text x="156" y="96" class="cA-small">z 26.5 ≈ 10.9 km</text>
+        <text x="10" y="154" class="cA-small cA-bold">ghost, after</text>
+        <rect class="cA-bar-after" x="150" y="142" width="130" height="18" rx="2"/>
+        <text x="286" y="156" class="cA-small">z 10 ≈ 4.5 km-equivalent</text>
+
+        <line class="cA-clip" x1="280" y1="14" x2="280" y2="176"/>
+        <text x="280" y="196" text-anchor="middle" class="cA-small" style="fill:var(--bad)">clip limit z = 10</text>
+        <line class="cA-tick" x1="150" y1="14" x2="150" y2="176"/>
+        <text x="150" y="196" text-anchor="middle" class="cA-small cA-muted">z = 0</text>
+        <text x="10" y="222" class="cA-small cA-muted">Every ghost beyond z = 10 ends up looking the same.</text>
+      </svg>
+      <div class="card warn"><b>log_dtau 8.5</b> = a ≈ 190 s gap before the same pseudonym was heard again. It is already on a log scale and is a real gap, not a bug — keep it.</div>
+    </div>
+    <div class="col">
+      <p class="cA-opt"><b>Three options</b> (none chosen yet):</p>
+      <ul class="bullets">
+        <li><b>log(range)</b> — squeezes huge distances but keeps their order (far stays farther).</li>
+        <li><b>Robust scaling</b> — use median / IQR instead of mean / std, so extremes do not stretch the scale.</li>
+        <li><b>Compare</b> — train with and without clipping and report both.</li>
+      </ul>
+      <div class="card good"><b>Recommendation (proposal):</b> do not clip by default. Use log(range), and run the with/without-clipping comparison so the choice is backed by results, not assumed.</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: clipping is a common reflex to stop huge values destabilising training, but here a ghost at 10.9 km would be squashed to look like one at 4.5 km — we would be hiding the very signal the detector needs. log(range) tames the scale without erasing the order, and the comparison run tells us whether clipping helps or hurts.</div>
+</section>
+
+<!-- slides_cav_identity -->
+<section class="slide cB" data-title="Ghost pseudonym 1">
+  <div class="kicker">Caveats · ghost pseudonym 1</div>
+  <h2>Ghost pseudonym 1: why it is a privileged grouping</h2>
+  <p class="lead">Many GridSybil attackers send their ghosts under the same name, "pseudonym 1". We separated them using the true sender id, which a real car cannot see.</p>
+  <div class="cols">
+    <div class="col">
+      <span class="cB-tag">illustrative</span>
+      <svg class="cB-svg" viewBox="0 0 560 330" role="img" aria-labelledby="cB-t1">
+        <title id="cB-t1">Illustrative: three attacker cars each broadcast ghost messages labelled pseudonym 1 to one receiver. The receiver sees one mixed stream; our preparation split it into three links using the true sender id.</title>
+        <!-- attackers -->
+        <text class="cB-sm cB-muted" x="12" y="18">Attacker cars (true sender id)</text>
+        <rect class="cB-c1" x="16" y="34" width="44" height="24" rx="6"/><text class="cB-wt" x="24" y="50">id 17</text>
+        <rect class="cB-c2" x="16" y="104" width="44" height="24" rx="6"/><text class="cB-wt" x="24" y="120">id 42</text>
+        <rect class="cB-c3" x="16" y="174" width="44" height="24" rx="6"/><text class="cB-wt" x="24" y="190">id 88</text>
+        <!-- ghost labels -->
+        <rect class="cB-ghost" x="78" y="34" width="70" height="24" rx="6"/><text class="cB-sm" x="84" y="51">pseudo 1</text>
+        <rect class="cB-ghost" x="78" y="104" width="70" height="24" rx="6"/><text class="cB-sm" x="84" y="121">pseudo 1</text>
+        <rect class="cB-ghost" x="78" y="174" width="70" height="24" rx="6"/><text class="cB-sm" x="84" y="191">pseudo 1</text>
+        <!-- messages to receiver -->
+        <path class="cB-msg" d="M150 46 C 200 50, 210 100, 238 112"/>
+        <path class="cB-msg" d="M150 116 L 238 116"/>
+        <path class="cB-msg" d="M150 186 C 200 182, 210 132, 238 120"/>
+        <!-- receiver -->
+        <rect class="cB-rx" x="240" y="102" width="56" height="28" rx="7"/><text class="cB-wt" x="246" y="120">receiver</text>
+
+        <!-- what a real receiver sees -->
+        <rect class="cB-alt" x="316" y="14" width="236" height="120" rx="10"/>
+        <text class="cB-lbl" x="328" y="36">What a real receiver sees</text>
+        <text class="cB-sm cB-muted" x="328" y="56">one stream: "pseudonym 1"</text>
+        <g>
+          <circle class="cB-c1" cx="338" cy="84" r="7"/><circle class="cB-c3" cx="358" cy="84" r="7"/>
+          <circle class="cB-c2" cx="378" cy="84" r="7"/><circle class="cB-c1" cx="398" cy="84" r="7"/>
+          <circle class="cB-c2" cx="418" cy="84" r="7"/><circle class="cB-c3" cx="438" cy="84" r="7"/>
+          <circle class="cB-c1" cx="458" cy="84" r="7"/><circle class="cB-c2" cx="478" cy="84" r="7"/>
+          <circle class="cB-c3" cx="498" cy="84" r="7"/><circle class="cB-c1" cx="518" cy="84" r="7"/>
+        </g>
+        <text class="cB-sm cB-muted" x="328" y="116">colours are hidden from the car: all look alike</text>
+
+        <!-- what we did -->
+        <rect class="cB-box" x="316" y="150" width="236" height="160" rx="10"/>
+        <text class="cB-lbl" x="328" y="172">What we did</text>
+        <text class="cB-sm cB-muted" x="328" y="192">split by true sender id (simulator only)</text>
+        <text class="cB-sm" x="328" y="222">id 17</text>
+        <circle class="cB-c1" cx="380" cy="218" r="7"/><circle class="cB-c1" cx="400" cy="218" r="7"/><circle class="cB-c1" cx="420" cy="218" r="7"/><circle class="cB-c1" cx="440" cy="218" r="7"/>
+        <text class="cB-sm" x="328" y="252">id 42</text>
+        <circle class="cB-c2" cx="380" cy="248" r="7"/><circle class="cB-c2" cx="400" cy="248" r="7"/><circle class="cB-c2" cx="420" cy="248" r="7"/>
+        <text class="cB-sm" x="328" y="282">id 88</text>
+        <circle class="cB-c3" cx="380" cy="278" r="7"/><circle class="cB-c3" cx="400" cy="278" r="7"/><circle class="cB-c3" cx="420" cy="278" r="7"/>
+        <text class="cB-sm cB-muted" x="462" y="252">3 clean links</text>
+
+        <text class="cB-sm cB-muted" x="12" y="240">Each ghost link looks tidier</text>
+        <text class="cB-sm cB-muted" x="12" y="258">than anything a real car</text>
+        <text class="cB-sm cB-muted" x="12" y="276">could assemble on its own.</text>
+      </svg>
+    </div>
+    <div class="col">
+      <div class="kpis">
+        <div class="kpi"><b>49,930</b><span>of 243,613 GridSybil windows from pseudonym-1 links</span></div>
+        <div class="kpi"><b>20.5%</b><span>of GridSybil windows use the privileged grouping</span></div>
+      </div>
+      <ul class="bullets">
+        <li><b>Privileged</b> = uses information the deployed detector will never have.</li>
+        <li>The true sender id is only in the simulator logs, never an input feature.</li>
+        <li>But it decided <i>which messages share a window</i>, so it shapes these samples.</li>
+      </ul>
+      <div class="card warn"><b>What to do:</b> report every result twice, with and without the pseudonym-1 windows. If the numbers differ a lot, the grouping is helping.</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: the true sender id never enters the model, but we used it to cut one mixed "pseudonym 1" stream into tidy per-attacker links. About one GridSybil window in five depends on that, so we show results both with and without those windows.</div>
+</section>
+
+<section class="slide cB" data-title="Receivers repeat across splits">
+  <div class="kicker">Caveats · receivers across splits</div>
+  <h2>Receivers repeat across splits — is that a leak?</h2>
+  <p class="lead">Every message has two cars: the sender (who is benign or attacker) and the receiver (who just listens). We split by sender, so receivers can appear in train and test.</p>
+  <div class="cols">
+    <div class="col">
+      <span class="cB-tag">illustrative</span>
+      <svg class="cB-svg" viewBox="0 0 560 250" role="img" aria-labelledby="cB-t2">
+        <title id="cB-t2">Illustrative: a sender car broadcasts a message with its claimed position; a receiver car records it together with its own GPS position. The label belongs to the sender; the receiver's own GPS track can recur in train and test.</title>
+        <path class="cB-road" d="M10 150 L 550 150"/>
+        <!-- sender -->
+        <rect class="cB-atk" x="60" y="130" width="70" height="36" rx="8"/>
+        <text class="cB-wt" x="74" y="152">SENDER</text>
+        <text class="cB-sm" x="40" y="190">claims pos / vel / acl</text>
+        <text class="cB-sm cB-lbl" x="40" y="212">label lives here</text>
+        <text class="cB-sm cB-muted" x="40" y="230">(benign or GridSybil)</text>
+        <!-- message -->
+        <path class="cB-msg" d="M134 140 C 220 90, 320 90, 396 136"/>
+        <text class="cB-sm cB-muted" x="226" y="82">broadcast message</text>
+        <!-- receiver -->
+        <rect class="cB-rx" x="400" y="130" width="80" height="36" rx="8"/>
+        <text class="cB-wt" x="410" y="152">RECEIVER</text>
+        <path class="cB-gps" d="M400 40 C 430 70, 450 100, 440 128"/>
+        <circle class="cB-rx" cx="400" cy="40" r="4"/><circle class="cB-rx" cx="425" cy="66" r="4"/><circle class="cB-rx" cx="443" cy="98" r="4"/>
+        <text class="cB-sm" x="456" y="60">own GPS track</text>
+        <text class="cB-sm cB-muted" x="456" y="78">(rx_pos, rx_vel)</text>
+        <text class="cB-sm" x="380" y="190">listens; no label</text>
+        <text class="cB-sm cB-muted" x="380" y="212">same car hears senders</text>
+        <text class="cB-sm cB-muted" x="380" y="230">in train and in test</text>
+      </svg>
+      <ul class="bullets">
+        <li>The question is "is this <b>sender</b> lying?", so the split keeps each sender in one split only.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="kpis">
+        <div class="kpi"><b>5,415</b><span>of 5,421 test receivers also receive in train</span></div>
+      </div>
+      <div class="card good"><b>No label leak.</b> No sender vehicle is in two splits, so the model never sees a test sender's label during training.</div>
+      <div class="card warn"><b>But mild optimism.</b> The receiver's own GPS track (rx_pos, rx_vel) appears in both train and test, so the model has seen those receiver paths before.</div>
+      <div class="card info"><b>What to do (optional):</b> a receiver-held-out check: test only on receivers never seen in train, and compare with the main score.</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: the label belongs to the sender, so splitting by sender is the right choice and nothing about the answer leaks. What does repeat is the listening car's own movement, which can make test scores slightly optimistic; a receiver-held-out check would measure how much.</div>
+</section>
+
+<!-- slides_cav_stats -->
+<section class="slide cC" data-title="Correlated samples">
+  <div class="kicker">Caveats · correlated samples</div>
+  <h2>Correlated samples: why 376,427 windows are not 376,427 independent examples</h2>
+  <p class="lead">Many windows repeat the same information, so the data holds less evidence than the window count suggests.</p>
+  <div class="cols">
+    <div class="col">
+      <p class="cC-h">One broadcast, several listeners</p>
+      <span class="cC-tag">illustrative</span>
+      <svg class="cC-svg" viewBox="0 0 520 250" role="img" aria-labelledby="cC-t1">
+        <title id="cC-t1">Illustrative: one sender broadcasts a message; three receiving cars hear it, so the same claimed position appears in three different windows</title>
+        <circle class="wave" cx="90" cy="125" r="45"/>
+        <circle class="wave" cx="90" cy="125" r="75"/>
+        <circle class="sender" cx="90" cy="125" r="14"/>
+        <text class="t-small" x="90" y="168" text-anchor="middle">sender</text>
+        <text class="t-small t-muted" x="90" y="184" text-anchor="middle">claims x = 512 m</text>
+        <!-- receivers -->
+        <circle class="rx" cx="210" cy="45" r="10"/>
+        <circle class="rx" cx="225" cy="125" r="10"/>
+        <circle class="rx" cx="210" cy="205" r="10"/>
+        <path class="arrow" d="M224 45 H300"/>
+        <path class="arrow" d="M239 125 H300"/>
+        <path class="arrow" d="M224 205 H300"/>
+        <!-- windows -->
+        <g>
+          <rect class="win" x="305" y="22" width="200" height="46" rx="6"/>
+          <text class="t-small" x="315" y="50">window of car A</text>
+          <rect class="same" x="455" y="32" width="38" height="26" rx="4"/>
+          <text class="t-small" x="474" y="50" text-anchor="middle">512</text>
+        </g>
+        <g>
+          <rect class="win" x="305" y="102" width="200" height="46" rx="6"/>
+          <text class="t-small" x="315" y="130">window of car B</text>
+          <rect class="same" x="455" y="112" width="38" height="26" rx="4"/>
+          <text class="t-small" x="474" y="130" text-anchor="middle">512</text>
+        </g>
+        <g>
+          <rect class="win" x="305" y="182" width="200" height="46" rx="6"/>
+          <text class="t-small" x="315" y="210">window of car C</text>
+          <rect class="same" x="455" y="192" width="38" height="26" rx="4"/>
+          <text class="t-small" x="474" y="210" text-anchor="middle">512</text>
+        </g>
+        <text class="t-small t-muted" x="10" y="20">median 3 (1416) / 6 (0709) listeners</text>
+      </svg>
+    </div>
+    <div class="col">
+      <p class="cC-h">One long link, several windows</p>
+      <span class="cC-tag">illustrative</span>
+      <svg class="cC-svg" viewBox="0 0 520 250" role="img" aria-labelledby="cC-t2">
+        <title id="cC-t2">Illustrative: a link of 150 messages is cut into three consecutive 64-message windows from the same sender</title>
+        <text class="t-small t-muted" x="10" y="30">one link = one car hearing one sender, 150 messages</text>
+        <line class="link" x1="20" y1="70" x2="500" y2="70"/>
+        <line class="cut" x1="225" y1="48" x2="225" y2="92"/>
+        <line class="cut" x1="430" y1="48" x2="430" y2="92"/>
+        <text class="t-small" x="122" y="112" text-anchor="middle">64 msgs</text>
+        <text class="t-small" x="327" y="112" text-anchor="middle">64 msgs</text>
+        <text class="t-small" x="465" y="112" text-anchor="middle">22</text>
+        <path class="arrow" d="M122 122 V150"/>
+        <path class="arrow" d="M327 122 V150"/>
+        <path class="arrow" d="M465 122 V150"/>
+        <rect class="win" x="40" y="155" width="164" height="40" rx="6"/>
+        <text class="t-small" x="122" y="180" text-anchor="middle">window 1</text>
+        <rect class="win" x="245" y="155" width="164" height="40" rx="6"/>
+        <text class="t-small" x="327" y="180" text-anchor="middle">window 2</text>
+        <rect class="win" x="430" y="155" width="76" height="40" rx="6"/>
+        <text class="t-small" x="468" y="180" text-anchor="middle">win 3</text>
+        <text class="t-small" x="260" y="230" text-anchor="middle">same sender, same label, same driving → 3 windows, 1 story</text>
+      </svg>
+      <div class="kpis">
+        <div class="kpi"><b>354,197</b><span>links</span></div>
+        <div class="kpi"><b>376,427</b><span>windows</span></div>
+        <div class="kpi"><b>22,230</b><span>extra windows from links &gt; 64</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="cols">
+    <div class="col">
+      <div class="card warn"><b>Why it matters:</b> near-duplicate windows count as separate evidence, so metrics and their error bars look more certain than they really are.</div>
+    </div>
+    <div class="col">
+      <div class="card good"><b>What we do:</b> evaluate grouped by sender vehicle. <b>Group bootstrap</b> = build confidence intervals by resampling whole vehicles, not single windows.</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: the window count overstates how much independent evidence we have, because one broadcast lands in several cars' windows and a long link is split into several windows. So when we report numbers, the unit of uncertainty is the sender vehicle: we resample vehicles in the bootstrap, which gives honest, wider confidence intervals.</div>
+</section>
+
+<section class="slide cC" data-title="Class balance">
+  <div class="kicker">Caveats · class balance</div>
+  <h2>Class balance: 35% benign, 65% GridSybil</h2>
+  <p class="lead">With uneven classes, plain accuracy can reward a model that learned nothing.</p>
+  <div class="cols">
+    <div class="col">
+      <svg class="cC-svg" viewBox="0 0 520 170" role="img" aria-labelledby="cC-t3">
+        <title id="cC-t3">Stacked bar of the 376,427 encoder-input windows: 35.3% benign, 64.7% GridSybil</title>
+        <text class="t-small t-muted" x="10" y="22">all 376,427 windows (benign + GridSybil)</text>
+        <rect class="seg1" x="10" y="40" width="176" height="60" rx="4"/>
+        <rect class="seg2" x="186" y="40" width="324" height="60" rx="4"/>
+        <text class="t-big t-white" x="98" y="78" text-anchor="middle">35.3%</text>
+        <text class="t-big t-white" x="348" y="78" text-anchor="middle">64.7%</text>
+        <text class="t-lbl" x="98" y="128" text-anchor="middle">Benign</text>
+        <text class="t-lbl" x="348" y="128" text-anchor="middle">GridSybil</text>
+        <text class="t-small t-muted" x="98" y="148" text-anchor="middle">class weight ≈ 1.4</text>
+        <text class="t-small t-muted" x="348" y="148" text-anchor="middle">class weight ≈ 0.77</text>
+      </svg>
+      <div class="card bad"><b>The trap:</b> a "model" that always answers "GridSybil" scores <b>65% accuracy</b> while catching zero benign cars.</div>
+    </div>
+    <div class="col">
+      <table class="tbl">
+        <thead><tr><th>Fix</th><th>In one line</th></tr></thead>
+        <tbody>
+          <tr><td><b>Class weights</b></td><td>Each class's loss is scaled by its inverse frequency, so a benign mistake costs ≈ 1.4 and a GridSybil mistake ≈ 0.77 (illustrative rounding).</td></tr>
+          <tr><td><b>Macro-averaged metrics</b></td><td>Compute the score per class, then take the plain average, so the smaller class counts as much as the larger one.</td></tr>
+        </tbody>
+      </table>
+      <div class="card info">Always-GridSybil gets 65% accuracy but its macro-averaged recall is only 50% (100% on GridSybil, 0% on benign), which exposes the trick.</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: two-thirds of the windows are GridSybil, so accuracy alone is misleading; the constant "always GridSybil" answer already gets 65%. We weight the loss so both classes matter equally during training and report macro-averaged metrics so both classes matter equally in the results.</div>
+</section>
+
+<!-- slides_cav_mask -->
+<section class="slide cD" data-title="Using the mask">
+  <div class="kicker">Caveats · Mask and padding</div>
+  <h2>How the encoder must use the mask</h2>
+  <p class="lead">Every window is filled up to 64 rows with zeros (71.0% of all rows). The mask says which rows are real, and every step of the model has to respect it.</p>
+  <div class="cols">
+    <div class="col">
+      <span class="cD-tag">illustrative</span>
+      <svg class="cD-svg" viewBox="0 0 420 300" role="img" aria-labelledby="cD-t1">
+        <title id="cD-t1">Illustrative: one window of 64 rows, 5 real messages with mask 1 and 59 zero padding rows (rows 6 to 64) with mask 0</title>
+        <text class="t-lbl" x="10" y="20">One window (64 rows)</text>
+        <text class="t-sm t-muted" x="300" y="20">mask</text>
+        <!-- 5 real rows -->
+        <g>
+          <rect class="real" x="10" y="32" width="270" height="26" rx="4"/><text class="t-md" x="20" y="50">message 1 · 13 features</text>
+          <rect class="real" x="10" y="62" width="270" height="26" rx="4"/><text class="t-md" x="20" y="80">message 2 · 13 features</text>
+          <rect class="real" x="10" y="92" width="270" height="26" rx="4"/><text class="t-md" x="20" y="110">message 3 · 13 features</text>
+          <rect class="real" x="10" y="122" width="270" height="26" rx="4"/><text class="t-md" x="20" y="140">message 4 · 13 features</text>
+          <rect class="real" x="10" y="152" width="270" height="26" rx="4"/><text class="t-md" x="20" y="170">message 5 · 13 features</text>
+        </g>
+        <!-- 3 padding rows -->
+        <g>
+          <rect class="pad" x="10" y="182" width="270" height="26" rx="4"/><text class="t-md t-muted" x="20" y="200">row 6 · padding · all zeros</text>
+          <rect class="pad" x="10" y="212" width="270" height="26" rx="4"/><text class="t-md t-muted" x="20" y="230">rows 7–63 · 57 padding rows</text>
+          <rect class="pad" x="10" y="242" width="270" height="26" rx="4"/><text class="t-md t-muted" x="20" y="260">row 64 · padding · all zeros</text>
+        </g>
+        <!-- mask column -->
+        <g>
+          <rect class="m1" x="296" y="32" width="30" height="26" rx="4"/><text class="m-txt" x="306" y="50">1</text>
+          <rect class="m1" x="296" y="62" width="30" height="26" rx="4"/><text class="m-txt" x="306" y="80">1</text>
+          <rect class="m1" x="296" y="92" width="30" height="26" rx="4"/><text class="m-txt" x="306" y="110">1</text>
+          <rect class="m1" x="296" y="122" width="30" height="26" rx="4"/><text class="m-txt" x="306" y="140">1</text>
+          <rect class="m1" x="296" y="152" width="30" height="26" rx="4"/><text class="m-txt" x="306" y="170">1</text>
+          <rect class="m0" x="296" y="182" width="30" height="26" rx="4"/><text class="m-txt" x="306" y="200">0</text>
+          <rect class="m0" x="296" y="212" width="30" height="26" rx="4"/><text class="m-txt" x="306" y="230">0</text>
+          <rect class="m0" x="296" y="242" width="30" height="26" rx="4"/><text class="m-txt" x="306" y="260">0</text>
+        </g>
+        <path class="brace" d="M338 34 q8 0 8 10 v54 q0 8 8 8 q-8 0 -8 8 v54 q0 10 -8 10"/>
+        <text class="t-sm" x="360" y="110">real</text>
+        <path class="brace" d="M338 184 q8 0 8 10 v26 q0 8 8 8 q-8 0 -8 8 v26 q0 10 -8 10"/>
+        <text class="t-sm t-muted" x="360" y="232">59 rows</text>
+        <text class="t-sm t-muted" x="10" y="290">Real rows always come first; padding fills the rest up to 64.</text>
+      </svg>
+      <div class="card info">
+        <div class="cD-math">
+          real [2, 4, 6] + padding [0, 0]<br>
+          plain mean = 12 ÷ 5 = <span class="cD-bad">2.4</span> (wrong)<br>
+          masked mean = 12 ÷ 3 = <strong>4.0</strong> (right)
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <table class="tbl cD-check">
+        <thead><tr><th>Rule</th><th>Without it</th></tr></thead>
+        <tbody>
+          <tr><td><span class="cD-ok">✓</span> Masked pooling: z = sum of real rows ÷ number of real rows</td><td>z is dragged towards zero; short windows look alike</td></tr>
+          <tr><td><span class="cD-ok">✓</span> Losses on real rows only</td><td>the model earns easy credit for "predicting" zeros</td></tr>
+          <tr><td><span class="cD-ok">✓</span> TimesBlock padding computed from T = 64</td><td>the period reshape no longer lines up with the input</td></tr>
+          <tr><td><span class="cD-ok">✓</span> FFT periods from real rows only (built)</td><td>the jump to zeros looks like a rhythm, so periods are fake</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="note">Speaker note: padding is just filler so every window has the same 64-row shape; here 59 of 64 rows are zeros; the mask tells the model which rows to ignore. The mean example is the whole story in miniature: averaging in zeros moves the answer from 4.0 to 2.4, and the same distortion happens in pooling, losses and the FFT unless each step uses the mask.</div>
+</section>
+
+<section class="slide cD" data-title="Length shortcut">
+  <div class="kicker">Caveats · Length shortcut</div>
+  <h2>The length shortcut</h2>
+  <p class="lead">A shortcut is an easy clue that predicts the label but has nothing to do with the real signal. Here the clue is how many messages a window holds.</p>
+  <div class="cols">
+    <div class="col">
+      <div class="card info">Everyday version: telling wolves from huskies by spotting snow in the photo. It is often right, for the wrong reason, and fails on a wolf on grass.</div>
+      <svg class="cD-svg" viewBox="0 0 420 170" role="img" aria-labelledby="cD-t2">
+        <title id="cD-t2">Share of windows with only 1 to 3 messages: 13.9% of benign windows versus 20.2% of GridSybil windows</title>
+        <text class="t-lbl" x="10" y="20">Windows with only 1–3 messages</text>
+        <line class="axis" x1="110" y1="34" x2="110" y2="138"/>
+        <text class="t-md" x="10" y="64">Benign</text>
+        <rect class="bar-bn" x="110" y="44" width="174" height="30" rx="3"/>
+        <text class="t-lbl" x="292" y="65">13.9%</text>
+        <text class="t-md" x="10" y="114">GridSybil</text>
+        <rect class="bar-gs" x="110" y="94" width="253" height="30" rx="3"/>
+        <text class="t-lbl" x="371" y="115">20.2%</text>
+        <text class="t-sm t-muted" x="110" y="160">share of each class's windows (to scale)</text>
+      </svg>
+      <ul class="bullets">
+        <li>The mask sum (= n_messages) gives away the length.</li>
+        <li>A classifier that sees only the number of real messages: AUC <b>0.531</b> (0.5 = chance). Weak, but real.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="kpis"><div class="kpi"><b>0.531</b><span>length-only AUC (val)</span></div><div class="kpi"><b>0.5</b><span>coin flip</span></div></div>
+      <div class="card good">
+        <b>What we do</b>
+        <ul class="bullets">
+          <li>Never feed n_messages or the mask as an input feature.</li>
+          <li>Keep a length-only baseline in every results table: the encoder must beat it.</li>
+          <li>Optional floor: <code>min_messages = 4</code> drops the 1–3-message windows.</li>
+          <li>Windows with fewer than 4 real messages get period 1 in TimesNet anyway: too short for a rhythm.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="note">Speaker note: GridSybil links are a bit shorter, so "short window" leans attack; a model could learn that instead of physics. At AUC 0.531 the clue is weak, so we do not hide the data; we refuse to hand length over as a feature and we always show the length-only score next to ours.</div>
+</section>
+
+<!-- slides_encoder -->
+<section class="slide sE" data-title="From window to vector: the encoder">
+  <div class="kicker">Encoder · overview</div>
+  <h2>From window to vector: the encoder</h2>
+  <p class="lead">A mask-aware TimesNet turns one 64 &times; 13 window into a vector per message (H) and one vector per window (z). Built in <code>src/model/benign_gridsybil/timesnet_encoder_T64.ipynb</code>; not trained yet.</p>
+  <svg class="sE-svg" viewBox="0 0 1000 300" role="img" aria-labelledby="sE-t1">
+    <title id="sE-t1">Encoder pipeline: window x of 64 by 13 plus mask goes into an embedding (Conv1d with zero padding plus sinusoidal position, no time of day), then 4 TimesBlocks (periods from an FFT over real rows, fold into a 2D grid, Inception convolutions, output times mask), giving H of 64 by 128 (one vector per message, zero at padding) and z of 128 (masked mean of H). Untrained heads read H (reconstruction, physics P1 to P3) and z (projection for contrastive).</title>
+    <defs>
+      <marker id="sE-ah1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="sE-ah"/></marker>
+    </defs>
+    <rect x="10" y="20" width="172" height="130" rx="10" class="sE-box"/>
+    <text x="96" y="52" text-anchor="middle" class="sE-t">Window</text>
+    <text x="96" y="80" text-anchor="middle" class="sE-s sE-mono">x: 64 &#215; 13</text>
+    <text x="96" y="102" text-anchor="middle" class="sE-s sE-mono">mask: 64</text>
+    <text x="96" y="126" text-anchor="middle" class="sE-m">1 = real, 0 = padding</text>
+
+    <rect x="212" y="20" width="172" height="130" rx="10" class="sE-box"/>
+    <text x="298" y="52" text-anchor="middle" class="sE-t">Embedding</text>
+    <text x="298" y="80" text-anchor="middle" class="sE-s">Conv1d, zero padding</text>
+    <text x="298" y="102" text-anchor="middle" class="sE-s">+ sinusoidal position</text>
+    <text x="298" y="126" text-anchor="middle" class="sE-m">no time of day</text>
+
+    <rect x="414" y="20" width="172" height="130" rx="10" class="sE-hl"/>
+    <text x="500" y="52" text-anchor="middle" class="sE-t">4 &#215; TimesBlock</text>
+    <text x="500" y="80" text-anchor="middle" class="sE-s">top-3 periods (FFT)</text>
+    <text x="500" y="102" text-anchor="middle" class="sE-s">fold &#8594; Inception 2D</text>
+    <text x="500" y="126" text-anchor="middle" class="sE-m">output &#215; mask</text>
+
+    <rect x="616" y="20" width="172" height="130" rx="10" class="sE-out"/>
+    <text x="702" y="52" text-anchor="middle" class="sE-t">H</text>
+    <text x="702" y="80" text-anchor="middle" class="sE-s sE-mono">64 &#215; 128</text>
+    <text x="702" y="102" text-anchor="middle" class="sE-s">one vector per message</text>
+    <text x="702" y="126" text-anchor="middle" class="sE-m">padding rows = 0</text>
+
+    <rect x="818" y="20" width="172" height="130" rx="10" class="sE-out"/>
+    <text x="904" y="52" text-anchor="middle" class="sE-t">z</text>
+    <text x="904" y="80" text-anchor="middle" class="sE-s sE-mono">128</text>
+    <text x="904" y="102" text-anchor="middle" class="sE-s">masked mean of H</text>
+    <text x="904" y="126" text-anchor="middle" class="sE-m">one vector per window</text>
+
+    <path d="M184,85 H208" class="sE-arrow" marker-end="url(#sE-ah1)"/>
+    <path d="M386,85 H410" class="sE-arrow" marker-end="url(#sE-ah1)"/>
+    <path d="M588,85 H612" class="sE-arrow" marker-end="url(#sE-ah1)"/>
+    <path d="M790,85 H814" class="sE-arrow" marker-end="url(#sE-ah1)"/>
+    <path d="M702,152 V196" class="sE-arrow" marker-end="url(#sE-ah1)"/>
+    <path d="M904,152 V196" class="sE-arrow" marker-end="url(#sE-ah1)"/>
+
+    <rect x="414" y="200" width="576" height="80" rx="10" class="sE-head"/>
+    <text x="702" y="228" text-anchor="middle" class="sE-s"><tspan font-weight="700">Untrained heads (S1.3 preview)</tspan></text>
+    <text x="702" y="252" text-anchor="middle" class="sE-s">H &#8594; reconstruction (MLP) and physics P1&#8211;P3 · z &#8594; projection (128, L2-normalised)</text>
+    <text x="702" y="272" text-anchor="middle" class="sE-m">loss definitions only; no training</text>
+    <text x="10" y="230" class="sE-m">Shapes per window;</text>
+    <text x="10" y="248" class="sE-m">a batch adds B in front:</text>
+    <text x="10" y="266" class="sE-m sE-mono">H (B, 64, 128), z (B, 128)</text>
+  </svg>
+  <div class="kpis">
+    <div class="kpi"><b>2,301,312</b><span>encoder parameters (WBS F9: 2.30 M, +0.06%)</span></div>
+    <div class="kpi"><b>4 · 128 · 64</b><span>TimesBlocks · d · d_ff (3 Inception kernels)</span></div>
+    <div class="kpi"><b>top-3</b><span>periods per window, from its real rows</span></div>
+    <div class="kpi"><b>2,377,488</b><span>parameters with the untrained heads</span></div>
+  </div>
+  <div class="note">Speaker note: the embedding turns the 13 features of each message into 128 numbers; four TimesBlocks then mix each message with its neighbours and with messages one rhythm earlier. H keeps one vector per message for the reconstruction and physics heads; z averages the real rows into one vector for the window, which the contrastive head and later the probes use.</div>
+</section>
+
+<section class="slide sE" data-title="How TimesNet finds rhythms">
+  <div class="kicker">Encoder · periods</div>
+  <h2>How TimesNet finds rhythms (real rows only)</h2>
+  <p class="lead">Each TimesBlock runs an FFT over a window's real rows only, keeps the 3 strongest frequencies f and turns each into a period: real rows &divide; f, rounded down.</p>
+  <svg class="sE-svg" viewBox="0 0 1000 270" role="img" aria-labelledby="sE-t2">
+    <title id="sE-t2">Illustrative: a window of 64 rows with 28 real rows and 36 padding rows. The FFT runs over the 28 real rows only. The strongest frequencies 2, 4 and 5 give periods 14, 7 and 5. Padding rows never enter the spectrum.</title>
+    <text x="10" y="18" class="sE-s"><tspan font-weight="700">One window, 64 rows</tspan> <tspan class="sE-m">(illustrative)</tspan></text>
+    <g>
+      <rect x="10" y="30" width="392" height="34" class="sE-real"/>
+      <rect x="402" y="30" width="504" height="34" class="sE-pad"/>
+      <text x="206" y="52" text-anchor="middle" fill="#FFFFFF" font-size="13" font-weight="700">28 real rows</text>
+      <text x="654" y="52" text-anchor="middle" class="sE-m">36 padding rows (never enter the FFT)</text>
+    </g>
+    <path class="sE-brace" d="M10 72 q0 8 10 8 h176 q10 0 10 8 q0 -8 10 -8 h176 q10 0 10 -8"/>
+    <text x="206" y="104" text-anchor="middle" class="sE-m">FFT over these 28 rows only</text>
+    <!-- spectrum f = 2..14 -->
+    <line x1="40" y1="240" x2="560" y2="240" class="sE-axis"/>
+    <text x="40" y="128" class="sE-s"><tspan font-weight="700">Strength of each frequency f</tspan> <tspan class="sE-m">(f = 0, 1 are skipped)</tspan></text>
+    <rect x="50"  y="150" width="26" height="90" class="sE-bar-top"/>
+    <rect x="90"  y="215" width="26" height="25" class="sE-bar"/>
+    <rect x="130" y="170" width="26" height="70" class="sE-bar-top"/>
+    <rect x="170" y="185" width="26" height="55" class="sE-bar-top"/>
+    <rect x="210" y="222" width="26" height="18" class="sE-bar"/>
+    <rect x="250" y="226" width="26" height="14" class="sE-bar"/>
+    <rect x="290" y="220" width="26" height="20" class="sE-bar"/>
+    <rect x="330" y="228" width="26" height="12" class="sE-bar"/>
+    <rect x="370" y="230" width="26" height="10" class="sE-bar"/>
+    <rect x="410" y="225" width="26" height="15" class="sE-bar"/>
+    <rect x="450" y="231" width="26" height="9" class="sE-bar"/>
+    <rect x="490" y="229" width="26" height="11" class="sE-bar"/>
+    <rect x="530" y="232" width="26" height="8" class="sE-bar"/>
+    <g class="sE-m" text-anchor="middle">
+      <text x="63" y="258">2</text><text x="103" y="258">3</text><text x="143" y="258">4</text><text x="183" y="258">5</text>
+      <text x="223" y="258">6</text><text x="263" y="258">7</text><text x="303" y="258">8</text><text x="343" y="258">9</text>
+      <text x="383" y="258">10</text><text x="423" y="258">11</text><text x="463" y="258">12</text><text x="503" y="258">13</text><text x="543" y="258">14</text>
+    </g>
+    <!-- periods -->
+    <text x="620" y="128" class="sE-s"><tspan font-weight="700">Top-3 &#8594; periods</tspan></text>
+    <text x="620" y="164" class="sE-s sE-mono">f = 2 &#8594; 28 &#247; 2 = 14</text>
+    <text x="620" y="194" class="sE-s sE-mono">f = 4 &#8594; 28 &#247; 4 = 7</text>
+    <text x="620" y="224" class="sE-s sE-mono">f = 5 &#8594; 28 &#247; 5 = 5</text>
+    <text x="620" y="254" class="sE-m">(rounded down)</text>
+  </svg>
+  <div class="cols">
+    <div class="col"><div class="card info"><b>What a period does</b>Period 7 folds the rows into lines of 7, so 2D convolutions see neighbours and the same moment one cycle earlier.</div></div>
+    <div class="col"><div class="card warn"><b>Short windows get period 1</b>Under 4 real rows there is no usable frequency, so period 1 (24% of period choices).</div></div>
+    <div class="col"><div class="card good"><b>Why real rows only</b>Zeros look like a rhythm. Synthetic test: true period found 10/10 (real rows) vs 9/10 (zero-padded FFT).</div></div>
+  </div>
+  <div class="note">Speaker note: the bar heights are made up for the picture; the arithmetic is the real rule in the code (period = real rows divided by f, rounded down; f = 0 is the mean and f = 1 the whole window, so both are skipped). Each window gets its own three periods, and every block computes them again from its own input.</div>
+</section>
+
+<section class="slide sE" data-title="The mask inside the model">
+  <div class="kicker">Encoder · mask</div>
+  <h2>The mask inside the model</h2>
+  <p class="lead">71% of all rows are padding. The mask enters at four places, so padding never changes H, z or a loss.</p>
+  <svg class="sE-svg" viewBox="0 0 1000 230" role="img" aria-labelledby="sE-t3">
+    <title id="sE-t3">The mask (1 for real rows, 0 for padding) feeds four places: the embedding (padding rows set to 0), every TimesBlock (FFT periods from real rows, output times mask), the pooling (z is the mean over real rows) and the losses (only real rows count).</title>
+    <defs>
+      <marker id="sE-ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="sE-ah"/></marker>
+      <marker id="sE-mh3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="sE-mah"/></marker>
+    </defs>
+    <rect x="10"  y="14" width="220" height="70" rx="10" class="sE-box"/>
+    <text x="120" y="56" text-anchor="middle" class="sE-t">Embedding</text>
+    <rect x="270" y="14" width="220" height="70" rx="10" class="sE-hl"/>
+    <text x="380" y="56" text-anchor="middle" class="sE-t">every TimesBlock (&#215; 4)</text>
+    <rect x="530" y="14" width="220" height="70" rx="10" class="sE-out"/>
+    <text x="640" y="56" text-anchor="middle" class="sE-t">Pooling &#8594; z</text>
+    <rect x="790" y="14" width="200" height="70" rx="10" class="sE-head"/>
+    <text x="890" y="56" text-anchor="middle" class="sE-t">Losses (S1.3)</text>
+    <path d="M232,49 H266" class="sE-arrow" marker-end="url(#sE-ah3)"/>
+    <path d="M492,49 H526" class="sE-arrow" marker-end="url(#sE-ah3)"/>
+    <path d="M752,49 H786" class="sE-arrow" marker-end="url(#sE-ah3)"/>
+    <text x="120" y="110" text-anchor="middle" class="sE-s">padding rows set to 0</text>
+    <text x="120" y="130" text-anchor="middle" class="sE-m">before and after the Conv1d</text>
+    <text x="380" y="110" text-anchor="middle" class="sE-s">FFT on real rows; output &#215; mask</text>
+    <text x="380" y="130" text-anchor="middle" class="sE-m">padding stays exactly 0</text>
+    <text x="640" y="110" text-anchor="middle" class="sE-s">z = mean over real rows</text>
+    <text x="640" y="130" text-anchor="middle" class="sE-m">not over all 64</text>
+    <text x="890" y="110" text-anchor="middle" class="sE-s">only real rows count</text>
+    <text x="890" y="130" text-anchor="middle" class="sE-m">25% of real rows hidden</text>
+    <path d="M10,200 H990" class="sE-maskline"/>
+    <path d="M120,198 V142" class="sE-maskarrow" marker-end="url(#sE-mh3)"/>
+    <path d="M380,198 V142" class="sE-maskarrow" marker-end="url(#sE-mh3)"/>
+    <path d="M640,198 V142" class="sE-maskarrow" marker-end="url(#sE-mh3)"/>
+    <path d="M890,198 V142" class="sE-maskarrow" marker-end="url(#sE-mh3)"/>
+    <text x="500" y="222" text-anchor="middle" class="sE-s" fill="var(--good)"><tspan font-weight="700" fill="var(--good)">mask</tspan> (64 per window): 1 = real, 0 = padding</text>
+  </svg>
+  <div class="cols">
+    <div class="col">
+      <table class="tbl">
+        <thead><tr><th>Where</th><th>Without the mask</th></tr></thead>
+        <tbody>
+          <tr><td>Embedding</td><td>Conv1d smears real rows into padding</td></tr>
+          <tr><td>TimesBlocks</td><td>fake periods; padding fills with numbers</td></tr>
+          <tr><td>Pooling</td><td>z pulled to 0 for short windows</td></tr>
+          <tr><td>Losses</td><td>easy credit for &ldquo;predicting&rdquo; zeros</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="col">
+      <div class="card good"><b>Test: garbage in the padding</b>Random numbers in the padding rows change H and z by exactly 0.</div>
+      <div class="card info"><b>Losses (defined, not trained)</b>Reconstruction scores the 25% of real rows it hides; P1&ndash;P3 use real rows; contrastive uses z.</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: the EDA showed why this matters: an unmasked mean already leaks length (log_dtau AUC 0.492 &rarr; 0.442). With the mask at these four places the model can only learn from the messages that were actually received.</div>
+</section>
+
+<section class="slide sE" data-title="Checks before training">
+  <div class="kicker">Encoder · checks</div>
+  <h2>Checks before training</h2>
+  <p class="lead">Before any training, the encoder notebook tests that the model is correct, repeatable and fast enough. All checks pass.</p>
+  <div class="cols">
+    <div class="col">
+      <table class="tbl">
+        <thead><tr><th>Check</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>Garbage in padding rows</td><td><span class="sE-ok">✓</span> output changes by 0</td></tr>
+          <tr><td>Same window alone vs inside a batch</td><td><span class="sE-ok">✓</span> |&Delta;z| 7e-7</td></tr>
+          <tr><td>NaN / Inf in H, z</td><td><span class="sE-ok">✓</span> none</td></tr>
+          <tr><td>Same seed twice</td><td><span class="sE-ok">✓</span> same output</td></tr>
+          <tr><td>CPU vs Apple MPS</td><td><span class="sE-ok">✓</span> |&Delta;z| 1.7e-6</td></tr>
+          <tr><td>Forward pass, 256 windows</td><td><span class="sE-ok">✓</span> CPU ~1.4 s · MPS ~0.3 s</td></tr>
+          <tr><td>Parameter count vs WBS F9 (2.30 M)</td><td><span class="sE-ok">✓</span> 2,301,312 (+0.06%)</td></tr>
+          <tr><td>Periods from real rows (synthetic)</td><td><span class="sE-ok">✓</span> 10/10 (zero-padded FFT: 9/10)</td></tr>
+          <tr><td>Untrained &Vert;z&Vert; vs window length</td><td>Spearman &minus;0.24 (a probe must beat length-only AUC 0.531)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="col">
+      <div class="card good"><b>Data checks, re-run on all windows</b>Mask is a prefix of ones and sums to n_messages; padding rows exactly 0; no NaN; train real rows mean &asymp; 0, std 0.97&ndash;1.0.</div>
+      <div class="card info"><b>Training environment (S1.0.4)</b><code>.venv-train</code>: Python 3.14.5, torch 2.14.1, Apple MPS; pinned in <code>requirements-train.txt</code>; Jupyter kernel <code>roadfm-train</code>.</div>
+      <div class="card warn"><b>Still missing</b>The checks live in the notebook; there is no separate <code>tests/</code> file yet (S1.2.4 partly done).</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: the length check is a warning sign to watch, not a failure: an untrained encoder already has a weak link between the size of z and window length, so every later probe is reported next to the length-only baseline (AUC 0.531).</div>
+</section>
+
+<section class="slide sE" data-title="Status and what's next">
+  <div class="kicker">Encoder · status</div>
+  <h2>Status and what's next</h2>
+  <p class="lead">The input and the encoder are built and checked. Nothing is trained, so there are still no model results.</p>
+  <div class="cols">
+    <div class="col">
+      <table class="tbl">
+        <thead><tr><th>Task</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>S1.0.4 pinned training environment</td><td><span class="sE-st done">done</span></td></tr>
+          <tr><td>S1.1.2&ndash;S1.1.5 input representation</td><td><span class="sE-st done">done</span></td></tr>
+          <tr><td>S1.1.6 shortcut probes</td><td><span class="sE-st part">partly</span> length probe only</td></tr>
+          <tr><td>S1.2.1&ndash;S1.2.3 TimesNet encoder</td><td><span class="sE-st done">built</span></td></tr>
+          <tr><td>S1.2.4 encoder tests</td><td><span class="sE-st part">partly</span> in the notebook</td></tr>
+          <tr><td>S1.2.6 forward pass on real data</td><td><span class="sE-st part">partly</span> one batch, untrained</td></tr>
+          <tr><td>S1.2.5 Transformer ablation</td><td><span class="sE-st todo">not started</span></td></tr>
+          <tr><td>S1.3 objectives, injectors, augmentations, joint loss, training loop</td><td><span class="sE-st todo">not started</span></td></tr>
+          <tr><td>S1.4 frozen-encoder evaluation</td><td><span class="sE-st todo">not started</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="col sE-flow">
+      <div class="card info"><b>Now</b>The student reads the encoder notebook. No training until the student says so.</div>
+      <div class="card info"><b>Then: S1.3</b>Violation injectors for P1 speed jump, P2 speed scaled, P3 sharp turn; augmentations; NT-Xent (&tau; = 0.1); joint loss and training loop.</div>
+      <div class="card info"><b>Then: S1.4</b>Frozen-encoder evaluation, always next to the length-only baseline.</div>
+      <div class="card warn"><b>Later: all attack types</b>DataReplay and DoS links are 1&ndash;2 messages, so they need a different window (per receiver time window).</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: benign + GridSybil is the first trial of the whole pipeline, from raw files to a trained encoder; once it works end to end, the same path is repeated for all attack types. The untrained losses printed in the notebook are a demo of the code path only and mean nothing.</div>
+</section>
+
+<section class="slide sS" data-title="Open decisions & next steps">
+  <div class="kicker">Caveats &amp; next · decisions</div>
+  <h2>Open decisions &amp; next steps</h2>
+  <div class="cols">
+    <div class="col">
+      <div class="card bad"><b>DataReplay and DoS are not in the encoder input</b>Benign + GridSybil is the first trial of the whole pipeline. Their attackers switch pseudonym every 1&ndash;2 messages, so their links are 1&ndash;2 messages long. How to include them (e.g. a receiver-time window over all senders) is open.</div>
+      <div class="card warn"><b>Ghost pseudonym 1 (F13)</b>Keep grouping by the true sender, or drop those links: open.</div>
+      <div class="card warn"><b>Minimum window length</b>Keep 1&ndash;3-message windows, or set a floor (<code>min_messages</code>, e.g. 4) against the length shortcut: open.</div>
+    </div>
+    <div class="col">
+      <div class="card good"><b>Done: S1.2 TimesNet encoder (built, not trained)</b>Mask-aware, 2,301,312 parameters, all checks pass; torch environment pinned (<code>requirements-train.txt</code>).</div>
+      <div class="card info"><b>Next: Stage 1 pretraining objectives (S1.3)</b>Masked reconstruction, physics heads P1&ndash;P3 on injected violations, contrastive, joint loss and training loop, on these windows. Training starts only when the student says so.</div>
+    </div>
+  </div>
+  <div class="note">Speaker note: the two open questions are decisions for the professor and student; training can start before they are settled.</div>
+</section>
+
+<section class="slide sS" data-title="Summary in one slide">
+  <div class="kicker">Summary</div>
+  <h2>Summary in one slide</h2>
+  <p class="lead">Every received message is kept, the split is by vehicle, and benign + GridSybil are ready as cropped windows padded to 64 &times; 13 with a mask.</p>
+  <div class="kpis sS-kpis">
+    <div class="kpi"><b>23,032</b><span>raw trace files</span></div>
+    <div class="kpi"><b>20.4 M</b><span>received messages kept</span></div>
+    <div class="kpi"><b>5.32 M</b><span>links</span></div>
+    <div class="kpi"><b>376,427</b><span>encoder windows (64 &times; 13 + mask, 71.0% padding)</span></div>
+    <div class="kpi sS-zero"><b>0</b><span>vehicles shared across splits</span></div>
+  </div>
+  <div class="cols">
+    <div class="col"><div class="card good"><b>Done</b>Receiver-view prepared data; vehicle-grouped split; audited masked windows, every message used; pinned torch env; mask-aware TimesNet encoder built and checked (not trained).</div></div>
+    <div class="col"><div class="card warn"><b>Open</b>DataReplay / DoS input; ghost pseudonym 1 (F13); minimum window length.</div></div>
+    <div class="col"><div class="card info"><b>Next</b>Read the encoder notebook, then S1.3 objectives + training loop, then S1.4 frozen-encoder evaluation, then all attack types.</div></div>
+  </div>
+  <div class="note">Speaker note: old v1 pilot numbers stay out of every slide; they are invalid as evidence (split leak + a TCP training bug).</div>
+</section>
+
+  </div>
+</main>
+<nav class="dots" id="dots" aria-label="Slides"></nav>
+<p class="hint">&larr; / &rarr; to move · Home / End · F for fullscreen</p>
+
+<script>
+(function () {
+  'use strict';
+  var KEY = 'stage1-input-slides:index';
+  var deck = document.getElementById('deck');
+  var slides = Array.prototype.slice.call(document.querySelectorAll('#stage > .slide'));
+  var prev = document.getElementById('prev');
+  var next = document.getElementById('next');
+  var counter = document.getElementById('counter');
+  var titleEl = document.getElementById('slideTitle');
+  var bar = document.getElementById('bar');
+  var dotsEl = document.getElementById('dots');
+  var fsBtn = document.getElementById('fs');
+  var n = slides.length;
+  var cur = 0;
+
+  function load() {
+    try { var v = parseInt(localStorage.getItem(KEY), 10); return isNaN(v) ? 0 : v; } catch (e) { return 0; }
+  }
+  function save(i) {
+    try { localStorage.setItem(KEY, String(i)); } catch (e) { /* storage unavailable */ }
+  }
+
+  var dots = slides.map(function (s, i) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'dot';
+    var t = s.getAttribute('data-title') || ('Slide ' + (i + 1));
+    b.title = (i + 1) + '. ' + t;
+    b.setAttribute('aria-label', 'Go to slide ' + (i + 1) + ': ' + t);
+    b.addEventListener('click', function () { go(i); });
+    dotsEl.appendChild(b);
+    return b;
+  });
+
+  // Shrinks a slide's text a little at a time until its content fits the 16:9 frame (no content is cut).
+  function fitToFrame(slide) {
+    slide.style.fontSize = '';
+    var size = parseFloat(getComputedStyle(slide).fontSize);
+    for (var tries = 0; tries < 12 && slide.scrollHeight > slide.clientHeight + 2; tries++) {
+      size *= 0.94;
+      slide.style.fontSize = size + 'px';
+    }
+  }
+  window.addEventListener('resize', function () { if (n) fitToFrame(slides[cur]); });
+
+  function go(i) {
+    if (!n) return;
+    cur = Math.max(0, Math.min(n - 1, i));
+    slides.forEach(function (s, k) {
+      var on = k === cur;
+      s.classList.toggle('is-active', on);
+      s.setAttribute('aria-hidden', on ? 'false' : 'true');
+    });
+    dots.forEach(function (d, k) {
+      d.classList.toggle('is-active', k === cur);
+      if (k === cur) d.setAttribute('aria-current', 'step'); else d.removeAttribute('aria-current');
+    });
+    counter.textContent = (cur + 1) + ' / ' + n;
+    titleEl.textContent = slides[cur].getAttribute('data-title') || '';
+    fitToFrame(slides[cur]);
+    bar.style.width = (n > 1 ? (cur / (n - 1)) * 100 : 100) + '%';
+    prev.disabled = cur === 0;
+    next.disabled = cur === n - 1;
+    slides[cur].scrollTop = 0;
+    save(cur);
+  }
+
+  prev.addEventListener('click', function () { go(cur - 1); });
+  next.addEventListener('click', function () { go(cur + 1); });
+
+  function toggleFs() {
+    try {
+      if (document.fullscreenElement) { document.exitFullscreen(); }
+      else if (deck.requestFullscreen) { deck.requestFullscreen().catch(function () {}); }
+    } catch (e) { /* fullscreen unavailable */ }
+  }
+  fsBtn.addEventListener('click', toggleFs);
+  document.addEventListener('fullscreenchange', function () {
+    fsBtn.textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen';
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    var tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    switch (e.key) {
+      case 'ArrowRight': case 'PageDown': go(cur + 1); break;
+      case 'ArrowLeft': case 'PageUp': go(cur - 1); break;
+      case ' ': if (tag === 'BUTTON') return; go(e.shiftKey ? cur - 1 : cur + 1); break;
+      case 'Home': go(0); break;
+      case 'End': go(n - 1); break;
+      case 'f': case 'F': toggleFs(); break;
+      default: return;
+    }
+    e.preventDefault();
+  });
+
+  go(load());
+})();
+</script>
+</body>
+</html>

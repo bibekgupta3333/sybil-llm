@@ -17,7 +17,7 @@ done < <(find . -maxdepth 4 -name '.DS_Store' \
   -not -path './.git/*' -not -path './data/*' -not -path './.venv/*' -print0 2>/dev/null)
 
 # 2. Known root files that belong at the top level — never move these.
-KEEP_AT_ROOT=(README.md CLAUDE.md tracker.html requirements.txt .gitignore)
+KEEP_AT_ROOT=(README.md CLAUDE.md agent.md tracker.html stage1-plan.html requirements.txt requirements-train.txt stage1-input-slides.html encoder-shapes.html .gitignore)
 is_kept() {
   local name="$1"
   for k in "${KEEP_AT_ROOT[@]}"; do [[ "$name" == "$k" ]] && return 0; done

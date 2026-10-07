@@ -12,3 +12,5 @@ simulation/dist/
 simulation/.cache/
 /notebooks/data/
 /simulation/public/
+/src/data/
+.venv-train/

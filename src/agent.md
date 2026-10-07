@@ -41,149 +41,117 @@ readability first. OOP is preferred for readability and for managing a growing r
 | Stage 2 (deferred) | train **A16** GridSybil, **A18** DoSRandom, **A19** DoSDisruptive + benign; **A17** DataReplay held out (zero-shot); **n ∈ {10, 20, 30, 50}**, ≥ 5 support sets per n; LR = S1 LR / 10; **K ∈ {5, 10, 20}**, θ on val |
 | Splits | grouped by `(time window, physical vehicle)` pooled over the 4 scenarios; pretrain-val = 10% of train identities |
 
-**The 13 adopted features** (whitelist, in this order unless `src/configs/` says otherwise):
+**The 13 adopted features** (whitelist, in this order — `settings.FEATURE_NAMES`):
 `claimed_pos_x, claimed_pos_y, rx_pos_x, rx_pos_y, claimed_vel_x, claimed_vel_y, rx_vel_x, rx_vel_y,
 claimed_acl_x, claimed_acl_y, range, bearing, log_dtau` — "rx" = the receiver's own type-2 fix at rcvTime (D2).
 **Bearing = one value** (decided 2026-10-06): `atan2(dy, dx)` in radians, wrapped to (−π, π] via
-`helpers/math_utils.wrap_angle`; never split into sin/cos — the input stays **13 features**.
+`tools.wrap_angle`; never split into sin/cos — the input stays **13 features**.
 
 ---
 
-## 2. Folder layout and architecture
+## 2. Folder layout (flat — one file per topic)
 
-**Keep it small.** One file per topic, flat folders, no sub-packages. **13 code modules + 1 test file each** is
-the whole Stage 1 + 2 codebase. Run everything from the repo root with `src` as the import root
-(`from src.model.encoders import TimesNetEncoder`; `python -m src.scripts.pretrain ...`). Each package folder has
-an `__init__.py`. Checkpoints and result JSONs live in `models/` and `models/results/` (RULE 4), not in `src/`.
+**Simple on purpose.** `src/` is one flat folder: one file per topic, named after what it does, read top to bottom.
+No sub-packages. Run everything from the repo root (`python -m src.prepare ...`; `from src.split import ...`).
 
 ```
 src/
-├── agent.md                 # this file
-├── model/                   # all research code (the 90% OOP)
-│   ├── data.py              # ReceiverLogReader, ReceiverSequenceBuilder, FeatureExtractor, Manifest
-│   ├── splits.py            # CrossScenarioLeakAudit, GroupSplitter, SplitIndex, SequenceDataset, IdentitySampler
-│   ├── encoders.py          # EncoderOutput, Encoder (ABC), TokenEmbedding, InceptionBlock, TimesBlock,
-│   │                        #   TimesNetEncoder, TransformerEncoder (ablation)
-│   ├── pretext.py           # MaskingStrategy (Random/Block/Mixed), ViolationInjector (P1–P3),
-│   │                        #   Augmentation (CommonShift/TimeStretch/SubsampleCrop), GridCellNegativeMiner
-│   ├── objectives.py        # heads (ReconstructionDecoder, PhysicsHead, ProjectionHead),
-│   │                        #   PretrainObjective (MaskedReconstruction/PhysicsHeads/ContrastiveInfoNCE), JointLoss
-│   ├── training.py          # Stage1Pretrainer, CheckpointSelector (label-free)
-│   ├── evaluation.py        # ProbeEvaluator, TransferMatrix, KnnAnomalyScorer, InterpolationBaseline,
-│   │                        #   SensitivityProbe, PeriodDiagnostic, PhysicsRuleAudit
-│   └── stage2.py            # deferred: FewShotSampler, SupConFineTuner, MemoryBank, ThresholdSelector
-├── helpers/                 # shared utilities; never imports from model/
-│   ├── config.py            # all frozen config dataclasses + ConfigLoader
-│   ├── runtime.py           # SeedController, RunRecorder, ArtifactWriter
-│   ├── guards.py            # LabelFreeGuard, SplitGuard
-│   └── math_utils.py        # the 10%: pure functions (range_bearing, wrap_angle, effective_rank, …)
-├── configs/                 # stage1.json (input + encoder + pretrain sections), stage1_sweep.json, stage2.json
-├── scripts/                 # thin CLIs with subcommands, no logic:
-│                            #   prepare.py (audit | build | split), pretrain.py, evaluate.py, stage2.py
-├── tests/                   # conftest.py (shared synthetic fixtures) + one test_<module>.py per module above
-├── notebook/                # s1_checks.ipynb (leakage probes, periods), s1_results.ipynb — plots only
-└── prepared_data/           # small text only (see rule below)
+├── agent.md          # this file
+├── config.json       # all settings ("input" and "split" sections)
+├── settings.py       # InputConfig, SplitConfig (.from_file), FEATURE_NAMES (13), ATTACK_NAMES
+├── tools.py          # small shared tools: range_bearing / wrap_angle / safe_log, leak checks
+│                     #   (assert_label_free, assert_disjoint_groups), SafeWriter, Provenance
+├── raw_logs.py       # read VeReMi trace files: RunFinder, TraceReader -> RunLogs
+├── sequences.py      # messages -> pseudonym sequences -> 13 features -> exact-T windows;
+│                     #         SequenceBuilder, FeatureMaker, Samples, DatasetWriter, Manifest
+├── split.py          # VehicleSplitter / VehicleSplit (vehicle-grouped split), LeakAudit (F1)
+├── checks.py         # ShortcutProbe (length / time of day at chance?), RetentionReport
+├── prepare.py        # THE command: build -> split -> manifest -> probe (DataPreparation)
+├── tests/            # conftest.py (synthetic raw data) + one test_<file>.py per file above
+├── notebook/         # s1_checks.ipynb — plots only, imports from src
+└── data/             # prepared S1.1 data (gitignored): X_T64, meta, labels, idx_*_rx, config.json
 ```
+
+**Status (2026-10-06):** input representation lives in **one notebook, `src/pipeline/input_representation.ipynb`**
+(user's choice). It writes JSON only: a mirror of `data/VeReMi-Dataset` under `src/data/prepared_data/` (one
+prepared file per raw trace file, every received copy kept) plus `index.json`. Don't invent other layouts. The `.py` layout below is the plan
+for later code (encoder, pretraining); it is not in use for input representation.
+
+**Current layout (2026-10-07, user choice — code stays inside the notebooks):**
+
+```
+src/
+  agent.md
+  pipeline/
+    input_representation.ipynb        all scenarios: raw -> prepared_data
+    benign_gridsybil/
+      encoder_input_T64.ipynb         first trial: benign + GridSybil links -> 64 x 13 windows + mask
+  eda/
+    eda_window_size.ipynb             all scenarios: link lengths, choice of T (read-only)
+    benign_gridsybil/
+      eda_encoder_input_T64.ipynb     first trial: EDA of its encoder input (read-only)
+  data/                               gitignored
+    prepared_data/                    all scenarios
+    encoder_input/benign_gridsybil/T64/
+```
+
+Scope: benign + GridSybil is the first trial of the whole pipeline; the all-attack version gets sibling folders
+(e.g. `pipeline/all_attacks/`, `data/encoder_input/all_attacks/`) once it works.
+
+Notebooks find the repo root by walking up to `CLAUDE.md`, so they run from any folder.
+
+**Files still to come** (add them flat, same style): `encoders.py` (S1.2 TimesNet + Transformer ablation),
+`pretext.py` (masking, P1–P3 injectors, augmentations), `objectives.py` (losses, heads), `training.py`
+(pretrainer, label-free checkpoint selection), `evaluation.py` (S1.4 probes), `stage2.py` (deferred).
 
 **File discipline**
-- **Add to an existing module before creating a file.** A new file is allowed only when a module passes
-  ~500 lines or a new stage starts; say why in the reply. No new folders, no sub-packages.
-- One topic per module; several small related classes per module is the norm (e.g. all P1–P3 injectors in
-  `pretext.py`). A single class past ~300 lines is split into classes, not into files.
-- One test file per module (`model/pretext.py` → `tests/test_pretext.py`); shared fixtures only in
+- Add to the file for that step before creating a new one. A new file only for a new step or when a file passes
+  ~600 lines; say why. Never add folders inside `src/`.
+- One test file per source file (`sequences.py` → `tests/test_sequences.py`); shared fixtures only in
   `tests/conftest.py`.
-- Configs: three JSON files, one section per component; ablations are extra keys, not extra files (a sweep
-  file lists its variants).
-- Scripts: four CLIs; a new step becomes a subcommand of the closest script, not a new script.
-- Notebooks: two; plots only, all logic imported from `src`.
-- **`src/prepared_data/` is tracked by git.** Write nothing large there. Heavy arrays go to
-  `data/prepared_receiver/` (RULE 2, ask first). Until the user agrees to add `/src/prepared_data/` to
-  `.gitignore` (never edit it silently), only small text files (< 100 KB, e.g. length histograms as CSV).
+- Settings go in `config.json` (one section per component); a new knob = a new dataclass field with a default.
+- Large outputs only in `src/data/` (gitignored) or `data/` (RULE 2, ask first) — never elsewhere in `src/`.
 
-### WBS task → src file → main class(es)
+### WBS task → file → class
 
-The WBS's older deliverable paths (`models/roadfm/…`, `scripts/…`, `tests/…`) are superseded by this table.
-
-| WBS | src file | Main class(es) |
+| WBS | File | Class / entry point |
 |---|---|---|
-| S1.0.4 | `requirements-train.txt` (repo root) + `helpers/runtime.py` | `RunRecorder.capture_env()` |
-| S1.1.1 | `model/splits.py`, `scripts/prepare.py audit` | `CrossScenarioLeakAudit` |
-| S1.1.2 | `model/data.py`, `scripts/prepare.py build` | `ReceiverLogReader`, `ReceiverSequenceBuilder` |
-| S1.1.3 | `model/data.py` | `FeatureExtractor` |
-| S1.1.4 | `model/data.py`, `configs/stage1.json` (input section) | `ReceiverSequenceBuilder.cut()` |
-| S1.1.5 | `model/splits.py`, `scripts/prepare.py split` | `GroupSplitter`, `SplitIndex` |
-| S1.1.6 | `model/evaluation.py`, `notebook/s1_checks.ipynb` | `ProbeEvaluator` |
-| S1.1.7 | `model/data.py` | `Manifest` |
-| S1.2.1–3 | `model/encoders.py` | `TokenEmbedding`, `InceptionBlock`, `TimesBlock`, `TimesNetEncoder` |
-| S1.2.4 | `tests/test_encoders.py` | — |
-| S1.2.5 | `model/encoders.py` | `TransformerEncoder` |
-| S1.2.6 | `model/evaluation.py`, `notebook/s1_checks.ipynb` | `PeriodDiagnostic` |
-| S1.3.A1 | `model/pretext.py` | `RandomMasking`, `BlockMasking`, `MixedMasking` |
-| S1.3.A2 | `model/encoders.py` | `Encoder.apply_mask_token()` |
-| S1.3.A3 | `model/objectives.py` | `ReconstructionDecoder`, `MaskedReconstruction` |
-| S1.3.A4 | `model/evaluation.py` | `InterpolationBaseline` |
-| S1.3.P1 | `model/pretext.py` | `SpeedSpikeInjector`, `PositionJumpInjector`, `SpeedMismatchInjector`, `SharpTurnInjector` |
-| S1.3.P2 | `model/evaluation.py` (+ note in `docs/research-notes/`) | `PhysicsRuleAudit` |
-| S1.3.P3 | optional — no code until the download is approved | — |
-| S1.3.P4 | `model/objectives.py` | `PhysicsHead`, `PhysicsHeads` |
-| S1.3.C1 | `model/pretext.py` | `CommonShift`, `TimeStretch`, `SubsampleCrop` |
-| S1.3.C3 | `model/splits.py` | `IdentitySampler` |
-| S1.3.C4 | `model/objectives.py`, `model/pretext.py` | `ContrastiveInfoNCE`, `ProjectionHead`, `GridCellNegativeMiner` |
-| S1.3.C5 | `model/evaluation.py` | `SensitivityProbe` |
-| S1.3.J1 | `model/objectives.py`, `model/training.py`, `scripts/pretrain.py` | `JointLoss`, `Stage1Pretrainer` |
-| S1.3.J2 | `model/training.py` | `CheckpointSelector` |
-| S1.3.J3 | `configs/stage1_sweep.json`, `scripts/pretrain.py --sweep` → `models/results/s1_sweep/` | `RunRecorder` |
-| S1.4.1–6 | `model/evaluation.py`, `scripts/evaluate.py` → `models/results/s1_probe.json` | `ProbeEvaluator`, `TransferMatrix`, `KnnAnomalyScorer` |
-| S2.0–S2.3 | `model/stage2.py`, `configs/stage2.json`, `scripts/stage2.py` | `FewShotSampler`, `SupConFineTuner`, `MemoryBank`, `ThresholdSelector` |
+| S1.1.1 | `split.py`, `prepare.py audit` | `LeakAudit` |
+| S1.1.2 | `raw_logs.py`, `prepare.py build` | `RunFinder`, `TraceReader` |
+| S1.1.3 | `sequences.py` | `FeatureMaker` |
+| S1.1.4 | `sequences.py`, `config.json` | `SequenceBuilder` (`cut()`) |
+| S1.1.5 | `split.py`, `prepare.py split` | `VehicleSplitter`, `VehicleSplit` |
+| S1.1.6 | `checks.py`, `prepare.py probe`, `notebook/s1_checks.ipynb` | `ShortcutProbe`, `RetentionReport` |
+| S1.1.7 | `sequences.py`, `prepare.py manifest` | `Manifest` |
+| S1.0.4 | `requirements-train.txt` (repo root), `tools.py` | `Provenance` |
+| S1.2.x | `encoders.py` (to write) | `TimesNetEncoder`, `TransformerEncoder` → `(H, z)` |
+| S1.3.x | `pretext.py`, `objectives.py`, `training.py` (to write) | masking, P1–P3 injectors, augmentations, losses, `Stage1Pretrainer` |
+| S1.4.x | `evaluation.py` (to write) | frozen-encoder probes, transfer, anomaly score |
+| S2.x | `stage2.py` (to write, deferred) | few-shot fine-tuning, memory bank |
 
-### Core classes and interfaces
+Shapes: x `(B, T, 13)`, T = 64; H `(B, T, d)`; z `(B, d)` = average of H over T.
 
-Shapes: x `(B, T, 13)`, T = 64 (128 sensitivity); H `(B, T, d)`; z `(B, d)` = average of H over all T steps;
-mask `(B, T)` bool.
-
-| Class (file) | Responsibility | Main signatures |
-|---|---|---|
-| `Encoder` (ABC, `nn.Module`; encoders) | shared API + learned mask token | `forward(x, mask=None) -> EncoderOutput`; `apply_mask_token(x, mask)` |
-| `EncoderOutput` (frozen dataclass; encoders) | per-step and pooled representations | fields `H`, `z` |
-| `TimesNetEncoder` / `TransformerEncoder` (encoders) | 4 TimesBlocks, d_ff = 64 / ablation ≈ 1.19M | `__init__(cfg: EncoderConfig)` |
-| `MaskingStrategy` (ABC; pretext) | choose masked steps, seeded | `sample(batch, T, rng) -> np.ndarray` |
-| `ViolationInjector` (ABC; pretext) | inject one P-violation, touch only its fields | `inject(x, rng) -> tuple[Tensor, Tensor]` |
-| `Augmentation` (ABC; pretext) | physically consistent view | `__call__(x, rng) -> Tensor` |
-| `PretrainObjective` (ABC; objectives) | one loss term + logged parts | `compute(batch, out: EncoderOutput) -> LossTerm` |
-| `JointLoss` (objectives) | λ-weighted, normalised sum | `__call__(batch, out) -> LossTerm` |
-| `ReceiverSequenceBuilder` / `FeatureExtractor` (data) | raw logs → T-long sequences → 13 features | `build(runs) -> SequenceSet`; `transform(seqs) -> np.ndarray` |
-| `GroupSplitter` / `IdentitySampler` (splits) | vehicle-grouped split; one pseudonym per batch slot | `split(meta) -> SplitIndex`; `__iter__()` |
-| `Stage1Pretrainer` / `CheckpointSelector` (training) | training loop + head-free export; label-free ranking | `run() -> RunResult`; `select(paths) -> Path` |
-| `ProbeEvaluator` (evaluation) | linear / kNN probes on frozen z (labels for evaluation only) | `evaluate(z_tr, y_tr, z_ev, y_ev) -> ProbeReport` |
-| `RunRecorder`, `SeedController`, `ArtifactWriter` (helpers/runtime) | config + seed + pip freeze + metrics; seeds; guarded writes | `record(name, metrics) -> Path` |
-
-Dependency direction (never import backwards; `helpers/` imports nothing from `model/`):
+### How the pieces connect
 
 ```
-data.py → splits.py → pretext.py → encoders.py → objectives.py → training.py → evaluation.py → stage2.py
-helpers/ (config, runtime, guards, math_utils) ← used by every module
+raw_logs.py -> sequences.py -> split.py -> checks.py          (prepare.py runs them in this order)
+                     |
+                     +-> data (X, meta, labels, idx_*) -> encoders.py -> pretext.py / objectives.py -> training.py
+settings.py, tools.py <- used by every file (and import nothing from the step files)
 ```
 
-### Rules of composition
-
-- **Constructor injection:** collaborators come in through `__init__`
-  (`Stage1Pretrainer(encoder, loss: JointLoss, sampler, recorder, cfg)`); classes never build their own
-  dependencies or read globals.
-- **Configs are frozen dataclasses** loaded from `src/configs/*.json` by `ConfigLoader`; pass the config object,
-  not loose kwargs; no magic numbers inside classes.
-- **No module-level state:** RNGs are passed in (`np.random.Generator` / `torch.Generator`), seeded by
-  `SeedController`.
-- **Inheritance ≤ 2 levels** (ABC → concrete); vary behaviour by composition (`InjectionPipeline([...])`) and
-  config flags, not subclass chains.
-- **Scripts** only parse args → load config → build objects → call `.run()`.
+- Collaborators are passed into `__init__`; settings objects are passed whole (no loose kwargs, no globals).
+- Randomness only through a seeded `np.random.Generator` (or torch generator) created from the settings' seed.
+- Inheritance at most one level below a base class; vary behaviour with settings, not subclasses.
+- `prepare.py` (and future CLIs) only parse arguments, build objects and call them.
 
 ---
 
 ## 3. Coding standards (OOP 90% / functions 10%)
 
 User's rule, verbatim intent: *"OOP 90% and functions 10%, such that it is readable."* Google Python
-Style Guide. Readability over cleverness. House-style reference: `scripts/prepare_data.py`
-(`PipelineConfig`, `ScenarioIndex`, `WindowBuilder`) and `scripts/export_simulation_sample.py`
+Style Guide. Readability over cleverness. House-style reference: the S1.1 files in `src/` (`sequences.py`, `split.py`)
+and, for older idioms, `scripts/prepare_data.py` / `scripts/export_simulation_sample.py`
 (`WindowStore`, `IdentityStitcher`, `StitchError`, `Exporter`) — match their idioms.
 
 ### 3.1 When a class is required vs when a function is allowed
@@ -196,12 +164,12 @@ Style Guide. Readability over cleverness. House-style reference: `scripts/prepar
 
 **Module-level function — allowed only if ALL hold:** pure (no I/O, no globals, no RNG unless the
 generator is passed in), stateless, ≤ ~20 lines, a math/geometry/conversion/formatting helper
-(`range_bearing(dx, dy)`, `kmh_to_mps(v)`, `format_pct(x)`). These live in `src/helpers/`, are fully
+(`range_bearing(dx, dy)`, `kmh_to_mps(v)`, `format_pct(x)`). These live in `src/tools.py`, are fully
 typed, docstringed, and unit-tested. Private one-liners inside a module (`_steps_within(...)`) are fine
 if they meet the same bar. No CLI `main()` logic beyond parse-args → build objects → `run()`.
 
 ```python
-# GOOD — pure helper in src/helpers/math_utils.py
+# GOOD — pure helper in src/tools.py
 def range_bearing(dx: np.ndarray, dy: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Returns (range_m, bearing_rad) for planar offsets of any shape."""
     return np.hypot(dx, dy), np.arctan2(dy, dx)
@@ -252,6 +220,8 @@ def mask(w): ...
 - **No god classes:** a class past ~300 lines or ~7 public methods → split it.
 
 ### 3.3 Google style essentials (enforced)
+- **No step numbering in code:** never write "Step 1", "step 2", "(1) … (2) …" or similar in docstrings,
+  comments, names or log messages. Describe what the code does instead (user preference, 2026-10-06).
 - **Module docstring** first: one-line purpose, then the plan task it implements
   (`"Implements WBS S1.3.A1 (…)."`), what it reads/writes, and a `Usage:` line for runnable modules.
 - **Docstrings:** Google style on every public module/class/method/function, with `Args:`, `Returns:`,
@@ -261,8 +231,8 @@ def mask(w): ...
   (incl. `-> None`); `collections.abc` for `Sequence`/`Mapping`/`Iterator`; `X | None`, not `Optional`.
 - **Naming:** `CapWords` classes, `snake_case` functions/vars/modules, `UPPER_SNAKE` constants,
   `_leading_underscore` private. No single-letter names except loop indices and math (`B, T, F`).
-- **Imports:** three groups separated by a blank line — stdlib / third-party / local (`from src.helpers
-  import math_utils`); import modules, not `*`; no `sys.path` hacks inside `src/` (tests use the package).
+- **Imports:** three groups separated by a blank line — stdlib / third-party / local (`from src import tools`,
+  `from src.split import VehicleSplitter`); import modules, not `*`; no `sys.path` hacks inside `src/` (tests use the package).
 - **Logging:** `_LOG = logging.getLogger(__name__)`; `%`-style lazy args (`_LOG.info("wrote %d", n)`);
   never `print` outside notebooks. Configure handlers only in the entry-point `main()`.
 - **Errors:** explicit exception types with messages naming the bad value/path; never bare `except:` or
@@ -273,10 +243,10 @@ def mask(w): ...
   explicit `seed` config field; never `np.random.seed`/global torch seeding inside library code.
 
 ### 3.4 Testing
-- `pytest`, under `src/tests/`, **one file per module**: `src/model/encoders.py` →
-  `src/tests/test_encoders.py`, `src/helpers/*` → `src/tests/test_helpers.py`. Inside a file, one
+- `pytest`, under `src/tests/`, **one file per module**: `src/encoders.py` →
+  `src/tests/test_encoders.py`, `src/settings.py` + `src/tools.py` → `src/tests/test_tools.py`. Inside a file, one
   `Test<ClassName>` class per production class. Shared synthetic fixtures live only in `src/tests/conftest.py`.
-- **Synthetic fixtures only** — build tiny arrays in `tmp_path` (see `scripts/tests/_make_store`).
+- **Synthetic fixtures only** — build tiny arrays in `tmp_path` (see `src/tests/conftest.py`).
   Unit tests never read `data/`, `models/*.pt`, or the network.
 - Test what the WBS acceptance criteria state: output **shapes** (`(B, T, 13)` in → expected out),
   **determinism** (same seed → identical arrays/tensors; different seed → different), **invariants**
@@ -289,7 +259,7 @@ def mask(w): ...
   `@pytest.mark.slow`.
 
 ### 3.5 Pre-finish readability checklist (run before reporting done)
-1. Every new stateful thing is a class; every free function is pure, ≤ ~20 lines, in `src/helpers/`
+1. Every new stateful thing is a class; every free function is pure, ≤ ~20 lines, in `src/tools.py`
    (or `_private`), typed and tested.
 2. Module docstring names the WBS task id; every public API has Args/Returns/Raises and tensor shapes.
 3. Configs are frozen dataclasses with `__post_init__` validation and are persisted with results + seed.
@@ -307,14 +277,13 @@ def mask(w): ...
 ### Data access (RULE 2)
 - Open everything under `data/` read-only. Never write, move or delete there without the user's explicit OK
   for that exact path (approved so far: none; `data/prepared_receiver/` is pending S1.1.2).
-- Route every persistent array/table write through one writer class (e.g. `src/helpers/runtime.py::ArtifactWriter`)
+- Route every persistent array/table write through one writer class (`src/tools.py::SafeWriter`)
   that raises if the output exists unless `overwrite=True`, and refuses paths outside an allow-list.
-- `src/prepared_data/` is **not** gitignored. Write nothing large there until the user has approved adding
-  `/src/prepared_data/` to `.gitignore`; never edit `.gitignore` silently.
+- Large outputs go only to `src/data/` (gitignored) or an approved `data/` folder; never elsewhere in `src/`.
 
 ### Label-free Stage 1 (advisor constraint)
 - Stage 1 classes (parser, features, encoder, masking, injectors, augment, sampler, losses, selector) take no
-  label argument. Gate their data entry with `src/helpers/guards.py::LabelFreeGuard` that raises on `y_*` arrays, attack codes
+  label argument. Gate their data entry with `src/tools.py::assert_label_free`, which raises on `y_*` arrays, attack codes
   (`attackType`, A16–A19), `idx_val`, `idx_test` (or their `_rx` successors).
 - Pretext tasks read train-split identities only (pretrain-val is a slice of train). In transfer runs, read
   only the source group's train identities.
@@ -346,7 +315,7 @@ def mask(w): ...
 - Every run writes a run directory with `config.json` (all hyperparameters, T, d, feature list, split manifest
   hash), `seed`, git commit hash (+ dirty flag), `pip_freeze.txt`, torch version + device, and `metrics.json`
   — the `models/roadfm_lite_config.json` + `results_summary.json` pattern, one directory per run.
-- Seed `random`, `numpy`, `torch` (and MPS/CUDA) from one `src/helpers/runtime.py::SeedController`; enable deterministic algorithms where
+- Seed `random`, `numpy`, `torch` (and MPS/CUDA) from the settings' seed (one seeded generator per component); enable deterministic algorithms where
   the backend supports them; log any op that is not.
 - The torch env is unpinned until S1.0.4 lands `requirements-train.txt`. Flag this in every training reply; no
   run is citable before it.
@@ -379,7 +348,7 @@ def mask(w): ...
    OOP-first (~90% classes, ~10% small pure functions). Show it in the reply before large implementations.
 4. **Write tests** in `src/tests/` that encode the acceptance criterion (shapes, exact ratios, determinism,
    guard raises on labels, zero split overlap) plus a tiny synthetic fixture. No real-data reads in unit tests.
-5. **Implement** to the interface. Configs live in `src/configs/`, entry points in `src/scripts/`.
+5. **Implement** to the interface. Settings live in `src/config.json`; entry points are flat files like `src/prepare.py`.
 6. **Run the tests** (`python -m pytest src/tests -q` from the repo root) and any acceptance script. Fix until
    green; never weaken a test to pass.
 7. **Record evidence**: test output, measured numbers, run directory path. Numbers come from the run, not the

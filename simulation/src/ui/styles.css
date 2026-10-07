@@ -19,6 +19,13 @@ button, select, input { font: inherit; color: inherit; }
 .topbar h1 { margin: 0; font-size: 18px; letter-spacing: -0.02em; background: linear-gradient(135deg, var(--blue), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .topbar .sub { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
 .status { font-size: 12px; color: var(--muted); }
+.tabbar { display: flex; gap: 4px; padding: 3px; background: var(--card); border: 1px solid var(--border); border-radius: 9px; flex-shrink: 0; }
+.tab { background: transparent; border: 0; border-radius: 6px; padding: 6px 12px; cursor: pointer; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.tab:hover { color: var(--strong); }
+.tab.on { background: var(--panel); color: var(--blue); box-shadow: 0 1px 2px rgba(15,23,42,.12); }
+.encoder-view { min-height: 0; }
+/* The legacy app toggles its own panels after async load; the tab state wins. */
+body[data-tab="encoder"] .workspace, body[data-tab="encoder"] .transport, body[data-tab="encoder"] #status { display: none !important; }
 .status.error { color: var(--red); }
 
 .workspace { display: grid; grid-template-columns: var(--sidebar-w) 6px 1fr; min-height: 0; }

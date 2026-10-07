@@ -171,3 +171,26 @@ src/ui/        controls (scenario + 5 modes) · transport · consistency_panel �
                window_compare_panel · theme · styles.css
 src/main.ts    App: dataset → playback clock → renderers/UI
 ```
+
+## Encoder input tab (T = 64, benign + GridSybil trial)
+
+A second tab, **"Encoder input (T = 64)"**, shows exactly what the TimesNet encoder reads: 64 × 13 windows + mask
+from `src/data/encoder_input/benign_gridsybil/T64/`. Code lives in `src/encoder/` (core logic + tests in
+`src/encoder/core/`, UI in `ui/` and `render/`), loaded on first open; the legacy tab is unchanged.
+
+- **Data:** `python scripts/export_encoder_sample.py` (read-only on `src/data/`) writes a 7.7 MB sample to
+  `public/data/encoder/` (`manifest.json`, `x.f32` = normalised real rows only, `predictions/index.json`).
+  `public/` is gitignored, so run the exporter once after cloning. Sample rule (seed 0): per split × scenario ×
+  class, whole sender vehicles with all their windows (4,549 windows), plus rule-picked presenter windows badged
+  "illustrative".
+- **Select:** split (train / pretrain_val / val / test), scenario group, run, class; **Single window** or **Group**
+  (a link's crops, a sender vehicle — privileged for pseudonym-1 ghosts, a receiver, a seeded batch of 32).
+- **Panels:** caveats banner; 64 × 13 tensor heatmap with padding hatched and the mask column; mask & length (with
+  the length-only AUC 0.531 note); spatial view (claimed vs receiver positions + range, metres); feature strips (real
+  rows only); provenance (ids → raw VeReMi trace, split integrity over the full dataset); detection (empty until a
+  model writes `predictions/`); full-dataset per-split table (from metadata, not the sample).
+- **Toggles:** normalised (what the model sees) / raw units; labels on/off (labels are evaluation only).
+- **Links:** the URL hash (`#encoder?split=test&win=<id>…`) reopens the same view — use "copy link" for slides.
+- **Predictions (later):** add `public/data/encoder/predictions/<model>.json` (`{window_id: {score, pred}}`) and list
+  it in `predictions/index.json` with checkpoint hash, seed, training splits and the val threshold; the detection
+  panel then shows scores and warns on windows from the model's training split.

@@ -50,7 +50,7 @@
 | `encoder-shapes.html` | **live** | one-page matrix math of the encoder (input → embedding → TimesBlock → H, z → heads) with every size and parameter count |
 | `stage1-plan.html` | **live** | per-task tracker for Stage 1/2 + plan review, diagrams, slides |
 | `tracker.html` | **live** | whole-thesis tracker (phases, alignment table, critical path) |
-| `simulation/` | live tool | TypeScript window simulator (data understanding); see `simulation/README.md` |
+| `simulation/` | live tool | TypeScript simulator: legacy v1 window replay + **"Encoder input (T = 64)" tab** (`simulation/src/encoder/`, sample from `scripts/export_encoder_sample.py`, 7.7 MB, gitignored `public/`); see `simulation/README.md` |
 | `notebooks/eda_veremi.ipynb`, `benign_vs_attack_maps.ipynb` | live (data understanding) | EDA, raw-data maps |
 | `notebooks/refresher_*.ipynb` | study notes | numpy / pandas / pytorch / DL refreshers |
 | `docs/research-notes/` | reference | literature + Phase 1 data notes (`data_understanding/`) |
@@ -126,6 +126,7 @@ Follow `src/agent.md` §5 (per-task workflow) for every task.
 
 ## Changelog
 
+- **2026-10-07** — simulator gained the "Encoder input (T = 64)" tab: split / scenario / run / class selection, single or group (link, sender, receiver, batch of 32), heatmap + mask, spatial view, provenance with full-dataset split integrity (0 senders in > 1 split), presenter shortcuts chosen by explicit rules, empty predictions slot for later detection. Design dilemmas ruled by a judge agent. tsc clean, 60 vitest + 7 pytest pass, build OK.
 - **2026-10-07** — `encoder-shapes.html`: simple one-page matrix-size walkthrough of the encoder (one 28-row window); added to the root keep-list.
 - **2026-10-07** — `docs/plan/stage1-encoder-notes.md`: written study notes on the encoder (≈ 5.3k words, numbers from the notebook).
 - **2026-10-07** — torch env pinned (`.venv-train`, torch 2.14.1, MPS; S1.0.4). Encoder notebook `src/model/benign_gridsybil/timesnet_encoder_T64.ipynb` (no training): masked TimesNet, 2,301,312 params; periods from an FFT over real rows only; heads + losses defined; all checks pass.

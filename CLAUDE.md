@@ -23,30 +23,44 @@ numbers until leakage and idempotency are ruled out.
 
 ## Project map
 
+Stable top-level map; the file-level status (live / legacy, sizes, what each notebook does) is in `agent.md` §2, and
+every doc and page has a one-line entry in `docs/README.md`.
+
 | Path | Contents |
 |---|---|
-| `docs/plan/research-plan.md` | The research plan — phases, tasks, status. Keep current. |
-| `tracker.html` | Standalone progress tracker (open in a browser; localStorage state). |
-| `agent.md` | **Start here** — current state, live vs. legacy files, decisions, pending approvals, changelog |
-| `src/` · `src/agent.md` | All new code for the adopted TimesNet plan (flat layout, OOP 90/10) · its coding rules and workflow |
+| `agent.md` | **Start here** — current state, live vs. legacy files, decisions, pending approvals, newest changelog |
+| `README.md` · `index.html` | Front door (method, repo map, quick start) · landing page linking the explainer / tracker pages |
+| `docs/plan/research-plan.md` | The research plan — phases, tasks, status, decision digest + RULE 3 split record. Keep current. |
 | `docs/plan/clarification.md` | The adopted plan (professor's format) + what changed and why + Q&A |
-| `docs/plan/stage1-ssl-wbs.md` · `stage1-plan.html` | Task list (pretraining S1.x, fine-tuning S2.x) for the advisor's TimesNet SSL plan (findings, decisions D1–D9, tasks S1.0–S1.4) · its interactive page (localStorage ticks) |
-| `docs/proposal/` · `docs/planning/` | Intro guide · WBS, formatting manual |
+| `docs/plan/stage1-ssl-wbs.md` · `stage1-plan.html` | Task list (pretraining S1.x, fine-tuning S2.x): findings, decisions D1–D14 (full text), tasks · its interactive page (localStorage ticks) |
+| `docs/plan/stage1-*.md` | Encoder study notes · preprocessing + feature-engineering description |
+| `docs/README.md` · `docs/changelog.md` · `docs/ec2-training.md` | Index of all docs · changelog entries older than `agent.md`'s newest 10 · Docker / EC2 / Hugging Face runbook |
+| `tracker.html` | Whole-thesis progress tracker (open in a browser; localStorage state) |
+| `encoder-shapes.html` · `pretraining-explained.html` · `stage1-input-slides.html` | Explainer pages: encoder matrix shapes · the pretraining run · input-representation slides for the professor |
+| `src/` · `src/agent.md` · `src/README.md` | All new code for the adopted TimesNet plan (`pipeline/`, `eda/`, `model/`, gitignored `data/` + `runs/`, `tests/`) · its coding rules and workflow · layout + run order |
+| `scripts/` | Tooling: `setup.sh` (one-command Docker setup), `hf_hub.py` (private HF repos), `run_notebook.py`, `export_encoder_sample.py` / `export_simulation_sample.py` (simulator data), `organize_repo.sh` (hook); legacy v1 `prepare_data.py`, `audit_splits.py`; tests in `scripts/tests/` |
+| `package.json` | npm task shortcuts (`setup`, `pipeline:*`, `train:*`, `hf:*` / `data:*` / `model:*`, `docker:*`, `format`, `test`, `check`, `sim*`) |
+| `docker/` · `docker-compose.yml` | Ubuntu 24.04 training image (services `gpu` / `cpu`, repo bind-mounted at `/workspace`) |
+| `requirements.txt` · `requirements-train.txt` · `requirements/linux.txt` · `pyproject.toml` | EDA venv `.venv` · PyTorch venv `.venv-train` (pinned) · Docker / Linux pins · black (120) + pytest config |
+| `docs/proposal/` · `docs/planning/` | Proposal-era: intro guide · proposal WBS, formatting manual |
 | `docs/research-notes/` | Proposal-stage notes: gap/novelty/related-papers analyses, research idea |
-| `docs/research-notes/data_understanding/` | Phase 1 notes: dataset structure, attack taxonomy, field reference, class balance, split protocol, data-quality checks, the GridSybil_0709 windowing defect |
+| `docs/research-notes/data_understanding/` | Phase 1 notes: dataset structure, attack taxonomy, field reference, class balance, split protocol, data-quality checks, cross-scenario leak (F1), the GridSybil_0709 windowing defect |
 | `proposal/` | Thesis proposal: `main.tex` (background — its method is superseded by the adopted plan, D9), `proposal-draft.md`, `references.bib`, `Figures/`, slides HTML |
-| `notebooks/` | `eda_veremi.ipynb` (EDA + data prep), `refresher_deep_learning.ipynb` (concept study notes), `refresher_numpy.ipynb` / `refresher_pandas.ipynb` / `refresher_pytorch.ipynb` (zero-to-hero library refreshers), `benign_vs_attack_maps.ipynb` (benign vs. fabricated-broadcast maps from raw VeReMi) |
+| `notebooks/` | `eda_veremi.ipynb` (EDA + v1 data prep), `benign_vs_attack_maps.ipynb` (benign vs. fabricated-broadcast maps from raw VeReMi), `refresher_*.ipynb` (deep learning / numpy / pandas / pytorch study notes) |
 | `models/` | **Legacy v1 pilot (invalid as evidence: F1 leak, F2 TCP no-op)** — `transformer_model.ipynb` (pretrain + fine-tune + eval), `roadfm_lite_{pretrained,final}.pt`, `roadfm_lite_config.json`, `results/` |
-| `results/figures/eda/` | Version-controlled EDA figures |
-| `simulation/` | TypeScript + Vite window simulator (`npm run dev`); committed 6.4 MB sample in `public/data/` produced by `scripts/export_simulation_sample.py` (read-only on `data/`). See `simulation/README.md` |
-| `data/` | **gitignored, 13GB** — raw `VeReMi-Dataset/` + `prepared_data/` |
+| `results/figures/eda/` | Version-controlled EDA figures (v1) |
+| `simulation/` | TypeScript + Vite window simulator (`npm run sim`); its sample data in `public/data/` is gitignored and generated by the exporters (`npm run sim:data` for the encoder tab; `scripts/export_simulation_sample.py` for the v1 tab; read-only on the data). See `simulation/README.md` |
+| `data/` | **gitignored, 13GB** — raw `VeReMi-Dataset/` + v1 `prepared_data/` (protected, RULE 2) |
 
 ### Data facts
 
 - Raw: 4 Sybil attack scenarios (`DataReplaySybil`, `DoSDisruptiveSybil`,
   `DoSRandomSybil`, `GridSybil`) × 2 time windows (`_0709`, `_1416`).
-- Prepared (**v1**, used only by the legacy pilot; the adopted plan builds a new
-  receiver-centric prep in `data/prepared_receiver/`, not yet created): `X_windows.npy` (285,926 windows × 20 timesteps × 13 kinematic
+- Prepared, adopted plan (gitignored, built by the `src/pipeline/` notebooks):
+  `src/data/prepared_data/` (receiver view, one JSON per raw trace file + `index.json` with labels, vehicle split,
+  normalisation) and `src/data/encoder_input/` (`benign_gridsybil/T64/`: 376,427 windows of 64 × 13 + mask, 90 / 10
+  train / test by sender vehicle; `all/T24/`: not for training until F14 is decided).
+- Prepared (**v1**, used only by the legacy pilot): `data/prepared_data/` — `X_windows.npy` (285,926 windows × 20 timesteps × 13 kinematic
   features; stride 10), `y_binary.npy`, `y_multiclass.npy` (5 classes: Benign
   + the 4 attacks), split indices `idx_{train,val,test}.npy`, group indices
   `idx_group_{0709,1416}.npy`, normalization stats, and `config.json` — the

@@ -1,58 +1,89 @@
 # RoadFM-Lite
 
-**A Self-Supervised Foundation Model for Road-Network-Grounded Trajectory Representation, applied to Sybil Attack Detection in VANETs**
+**Self-supervised trajectory representations for Sybil attack detection in VANETs** — master's thesis,
+Florida Polytechnic University.
 
-Master's thesis project — Florida Polytechnic University.
+## What it is
 
-## Overview
+A Sybil attacker in a vehicular network broadcasts beacons for several fake identities. RoadFM-Lite learns what
+physically plausible, network-heard motion looks like **without attack labels**, then detects Sybil identities with
+very few labels. Data: the local [VeReMi-Extension](https://github.com/josephkamel/VeReMi-Dataset) logs
+(4 Sybil attacks — GridSybil, DataReplay, DoSRandom, DoSDisruptive — × 2 scenario groups, 0709 / 1416).
 
-Vehicular crowdsensing (VCS) systems reward drivers for reporting traffic and environmental data, which makes them a target for **Sybil attacks**: a single adversary forges multiple fake vehicle identities to claim unearned rewards and inject corrupted data. This project develops **RoadFM-Lite**, a self-supervised trajectory foundation model that pretrains on unlabeled vehicular trajectory data — using masked trajectory reconstruction and trajectory-consistency prediction (replay, shuffle, speed-scale, and positional-offset corruptions) — to learn road-network-grounded representations, then fine-tunes on the [VeReMi](https://github.com/josephkamel/VeReMi-Dataset) dataset for Sybil detection under few-shot, zero-shot, and cross-scenario evaluation settings.
+**Method (adopted plan, 2026-10-05):**
 
-Central hypothesis: representations grounded in road-network structure and physically-plausible motion transfer more effectively to Sybil detection — especially with scarce labels — than trajectory-only encoders trained from scratch.
+- **Input:** what a receiving car heard from one sender pseudonym (1 Hz beacons), 13 features per message, windows of
+  T = 64 messages padded + masked. Split by sender vehicle, never by window.
+- **Self-supervised pretraining:** a TimesNet encoder (4 TimesBlocks, d = 128, d_ff = 64, 2.3 M parameters) trained
+  with masked reconstruction, physics heads P1–P3 that detect violations we inject, and SimCLR / InfoNCE contrastive
+  learning. No attack labels are read.
+- **Few-shot fine-tuning (deferred):** supervised contrastive fine-tuning on n ∈ {10, 20, 30, 50} labels per class,
+  DataReplay held out for zero-shot, memory-bank kNN anomaly score; compared with TimesNet trained from scratch.
 
-## Repository structure
+**Status:** the input pipeline is built for benign + GridSybil (first trial); the pretraining package passes its
+checks; no real training run yet. The current state, decisions and open questions are in [`agent.md`](agent.md).
+The earlier Transformer + MTR/TCP pilot in `models/` is legacy and its numbers are invalid (split leak, TCP no-op).
+
+## Where to start
+
+| Read | For |
+|---|---|
+| [`agent.md`](agent.md) | current state, live vs. legacy files, decisions D1–D14, what waits on the user |
+| [`docs/README.md`](docs/README.md) | index of every document and page |
+| [`index.html`](index.html) | landing page for the explainer pages (open in a browser) |
+| [`docs/plan/clarification.md`](docs/plan/clarification.md) · [`docs/plan/stage1-ssl-wbs.md`](docs/plan/stage1-ssl-wbs.md) | the adopted plan · the task list |
+| [`src/README.md`](src/README.md) | code layout, run order, data format |
+| [`CLAUDE.md`](CLAUDE.md) | project rules (data protection, leakage, reproducibility) |
+
+## Repository map
 
 ```
-sybil-llm/
-├── README.md
-├── CLAUDE.md               # Agent rules: staff research SWE persona, research-integrity + leakage rules
-├── tracker.html            # Standalone research-progress tracker (open via file://, localStorage-persisted)
-├── requirements.txt        # EDA/notebook environment (not the model-training env — see note in file)
-├── docs/
-│   ├── plan/                # research-plan.md — the 6-phase executable research plan
-│   ├── proposal/            # Long-form proposal introduction/dataset guide
-│   ├── research-notes/      # Gap analysis, novelty analysis, related-papers survey, simplified intro
-│   │   └── data_understanding/  # Phase 1 notes: dataset structure, attack taxonomy, field reference,
-│   │                             #   class balance, split protocol, data-quality checks, windowing defect
-│   └── planning/            # WBS, thesis formatting manual, example proposal template
-├── notebooks/                # EDA notebook, DL/transformer refresher notebook, utility script
-├── simulation/               # TypeScript + Vite window simulator (map replay, kinematics, tensor heatmap,
-│                             #   physics consistency, Sybil multi-identity) — see simulation/README.md
-├── scripts/                  # audit_splits.py, export_simulation_sample.py (+ tests/), organize_repo.sh
-├── proposal/                 # Thesis proposal LaTeX source, Markdown draft, references.bib, slides HTML, Figures/
-├── models/
-│   ├── transformer_model.ipynb   # Pretraining + fine-tuning + evaluation notebook
-│   ├── roadfm_lite_pretrained.pt
-│   ├── roadfm_lite_final.pt
-│   ├── roadfm_lite_config.json
-│   └── results/                  # training_loss.png, classification_metrics.png, embeddings_tsne.png, results_summary.json
-├── results/
-│   └── figures/eda/           # VeReMi EDA plots (moved out of data/, which is gitignored, so they're version-controlled)
-└── data/                      # gitignored (13GB) — raw VeReMi-Dataset scenarios + prepared_data/ (windows, splits, norm stats)
+agent.md · CLAUDE.md · index.html     current state · rules · landing page
+*.html                                explainer + tracker pages (open via file://)
+docs/                                 plan, notes, EC2 runbook, changelog (index: docs/README.md)
+src/                                  adopted-plan code: pipeline/ and eda/ notebooks, model/ (TimesNet package), tests/
+scripts/                              setup, Hugging Face, notebook runner, simulator exporters, legacy v1 tools, tests/
+simulation/                           TypeScript simulator of the windows the encoder reads
+notebooks/                            data understanding (EDA, raw maps) + study refreshers
+docker/ · docker-compose.yml          Ubuntu 24.04 training image (services gpu / cpu)
+models/ · results/                    legacy v1 pilot · v1 EDA figures
+proposal/                             thesis proposal (its method is superseded)
+data/                                 raw VeReMi-Dataset, 13 GB, gitignored, read-only
 ```
 
-## Data
+## Quick start
 
-`data/` is gitignored and not checked in. It contains:
-- `data/VeReMi-Dataset/` — raw simulation traces for 4 attack types (DataReplaySybil, DoSDisruptiveSybil, DoSRandomSybil, GridSybil) across two time windows (`_0709`, `_1416`).
-- `data/prepared_data/` — windowed/normalized tensors (`X_windows.npy`, `y_binary.npy`, `y_multiclass.npy`), train/val/test/group split indices, normalization stats, and `config.json` documenting the windowing pipeline (window size, stride, feature columns, label mapping).
+All commands run from the repo root; `npm` is only a task runner for the Python code (`npm run x -- <arg>` passes
+arguments through).
 
-`notebooks/eda_veremi.ipynb` regenerates `data/prepared_data/` when run from the **repo root** (it resolves the dataset path relative to cwd) — running it from another working directory will silently create a duplicate `data/` under that directory.
+**Mac (two venvs, Python 3.14.5):**
 
-## Environment
+```bash
+python3.14 -m venv .venv && .venv/bin/pip install -r requirements.txt              # EDA / notebooks (no torch)
+python3.14 -m venv .venv-train && .venv-train/bin/pip install -r requirements-train.txt   # training + tests (torch 2.14.1, MPS)
+npm run pipeline:prepare && npm run pipeline:encoder-input   # raw data -> src/data/ (needs data/VeReMi-Dataset/)
+npm run train:check        # fast correctness checks
+npm run train:smoke        # a short run; then npm run train:full
+npm test                   # pytest (scripts/tests + src/tests); npm run check = format check + tests
+```
 
-`requirements.txt` covers the EDA/notebook environment only. The environment used to train `transformer_model.ipynb` (PyTorch) is currently undocumented — export its `pip freeze` separately if you need to reproduce training.
+**Docker / EC2 (one command):** `npm run setup` (NVIDIA GPU) or `npm run setup:cpu` builds the image, runs both
+pipeline notebooks if their outputs are missing and runs `train:check`. Full guide:
+[`docs/ec2-training.md`](docs/ec2-training.md).
 
-## Status
+**Data and models:** the raw dataset and training runs move through two **private** Hugging Face repos
+(`npm run data:download` / `data:upload`, `model:upload` / `model:download` / `model:list`; log in first with
+`hf auth login`). The raw data is never committed.
 
-Active thesis research. See `docs/planning/wbs.md` for task status and `proposal/main.tex` / `proposal/proposal-draft.md` for the current proposal draft.
+**Simulator:** `npm run sim:data` (sample from `src/data/`, gitignored) then `npm run sim`; `sim:test`,
+`sim:typecheck`, `sim:build`.
+
+## Where outputs go
+
+| Output | Path (gitignored) |
+|---|---|
+| prepared data · encoder input | `src/data/prepared_data/` · `src/data/encoder_input/<subset>/T<n>/` |
+| training runs (config.json, env.json, metrics, checkpoints) | `src/runs/pretraining/benign_gridsybil/T64/<run_id>/` (`npm run train:runs`) |
+| simulator sample | `simulation/public/data/` |
+
+`data/` is protected: never write there (rules in `CLAUDE.md`).

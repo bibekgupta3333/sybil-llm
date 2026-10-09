@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RoadFM-Lite Pages</title>
+<style>
+:root {
+  --bg: #fafaf9; --card: #ffffff; --ink: #1c1917; --muted: #57534e; --line: #e7e5e4;
+  --accent: #2563eb; --accent-soft: #dbeafe; --real: #16a34a; --real-soft: #dcfce7;
+  --pad: #a8a29e; --pad-soft: #f5f5f4; --warn-soft: #fef3c7; --warn: #b45309;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c0a09; --card: #1c1917; --ink: #f5f5f4; --muted: #a8a29e; --line: #292524;
+    --accent: #60a5fa; --accent-soft: #1e3a5f; --real: #4ade80; --real-soft: #14532d;
+    --pad: #78716c; --pad-soft: #292524; --warn-soft: #422006; --warn: #fbbf24;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c0a09; --card: #1c1917; --ink: #f5f5f4; --muted: #a8a29e; --line: #292524;
+  --accent: #60a5fa; --accent-soft: #1e3a5f; --real: #4ade80; --real-soft: #14532d;
+  --pad: #78716c; --pad-soft: #292524; --warn-soft: #422006; --warn: #fbbf24;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+header h1 { font-size: 1.7rem; margin: 0 0 6px; }
+header p { color: var(--muted); margin: 0 0 18px; }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px;
+  margin: 0 0 18px; }
+section h2 { margin: 0 0 4px; font-size: 1.25rem; }
+.lead { color: var(--muted); margin: 0 0 14px; }
+a { color: var(--accent); }
+.pages { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.page { display: block; text-decoration: none; color: var(--ink); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 14px; background: var(--bg); }
+.page:hover, .page:focus-visible { border-color: var(--accent); outline: none; }
+.page strong { display: block; color: var(--accent); }
+.page span { font-size: .9rem; color: var(--muted); }
+.tag { display: inline-block; font-size: .72rem; padding: 1px 8px; border-radius: 999px; margin-left: 6px;
+  background: var(--real-soft); color: var(--real); vertical-align: middle; }
+.tag.old, .page span.tag.old { background: var(--pad-soft); color: var(--muted); font-size: .72rem; }
+ul { margin: 0; padding-left: 20px; }
+li { margin: 4px 0; }
+code { font: .88rem ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--pad-soft); padding: 1px 5px;
+  border-radius: 5px; overflow-wrap: anywhere; }
+table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+td { padding: 6px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+td:first-child { white-space: nowrap; }
+.note { background: var(--warn-soft); color: var(--ink); border-radius: 10px; padding: 10px 14px; font-size: .92rem; }
+@media (max-width: 560px) { td:first-child { white-space: normal; } section { padding: 16px; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>RoadFM-Lite</h1>
+    <p>Self-supervised TimesNet pretraining for Sybil attack detection on VeReMi-Extension — master's thesis,
+      Florida Polytechnic University. This page links every explainer page, document and command.</p>
+  </header>
+
+  <section>
+    <h2>Pages</h2>
+    <p class="lead">Open from this folder; the two trackers keep their ticks in this browser.</p>
+    <div class="pages">
+      <a class="page" href="tracker.html"><strong>Research tracker</strong><span>Whole thesis: phases, alignment
+        table, critical path.</span></a>
+      <a class="page" href="stage1-plan.html"><strong>Pretraining plan</strong><span>Per-task tracker for
+        pretraining and fine-tuning, plan review, diagrams.</span></a>
+      <a class="page" href="stage1-input-slides.html"><strong>Input representation slides</strong><span>44 slides
+        on the encoder input, for the professor.</span></a>
+      <a class="page" href="encoder-shapes.html"><strong>Encoder shapes</strong><span>Every matrix size and
+        parameter count through the TimesNet encoder.</span></a>
+      <a class="page" href="pretraining-explained.html"><strong>Pretraining explained</strong><span>One run step
+        by step: batches, losses, update, evaluation, checkpoints.</span></a>
+      <a class="page" href="proposal/thesis-proposal-presentation.html"><strong>Proposal slides
+        <span class="tag old">proposal-era</span></strong><span>The original proposal deck (method
+        superseded).</span></a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Documents</h2>
+    <ul>
+      <li><a href="agent.md">agent.md</a> — current state, decisions, what waits on the user (start here)</li>
+      <li><a href="README.md">README.md</a> — method, repo map, quick start</li>
+      <li><a href="docs/README.md">docs/README.md</a> — index of every document</li>
+      <li><a href="docs/plan/clarification.md">clarification.md</a> — the adopted plan ·
+        <a href="docs/plan/stage1-ssl-wbs.md">stage1-ssl-wbs.md</a> — tasks, findings, decisions</li>
+      <li><a href="docs/plan/stage1-preprocessing-feature-engineering.md">preprocessing + features</a> ·
+        <a href="docs/plan/stage1-encoder-notes.md">encoder notes</a></li>
+      <li><a href="docs/ec2-training.md">ec2-training.md</a> — Docker, EC2 and Hugging Face runbook</li>
+      <li><a href="src/README.md">src/README.md</a> — code layout and run order ·
+        <a href="CLAUDE.md">CLAUDE.md</a> — project rules</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Notebooks</h2>
+    <table>
+      <tr><td><code>src/pipeline/input_representation.ipynb</code></td><td>raw logs → prepared data (receiver view)</td></tr>
+      <tr><td><code>src/pipeline/benign_gridsybil/encoder_input_T64.ipynb</code></td><td>links → 64 × 13 windows + mask</td></tr>
+      <tr><td><code>src/pipeline/all/encoder_input_T24.ipynb</code></td><td>all attacks, T = 24 (not for training until F14)</td></tr>
+      <tr><td><code>src/eda/eda_window_size.ipynb</code></td><td>link lengths and the choice of T</td></tr>
+      <tr><td><code>src/eda/benign_gridsybil/eda_encoder_input_T64.ipynb</code></td><td>EDA of the encoder input</td></tr>
+      <tr><td><code>src/model/benign_gridsybil/encoder_T64.ipynb</code></td><td>the TimesNet encoder explained and checked</td></tr>
+      <tr><td><code>src/model/benign_gridsybil/timesnet/pretrain_monitor.ipynb</code></td><td>plots of a pretraining run</td></tr>
+      <tr><td><code>notebooks/eda_veremi.ipynb</code> · <code>benign_vs_attack_maps.ipynb</code></td><td>raw-data EDA · benign vs. attack maps</td></tr>
+      <tr><td><code>notebooks/refresher_*.ipynb</code></td><td>study notes: deep learning, numpy, pandas, pytorch</td></tr>
+      <tr><td><code>models/transformer_model.ipynb</code> <span class="tag old">legacy</span></td><td>v1 pilot; numbers invalid</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Commands</h2>
+    <p class="lead">Run from the repo root (<code>npm</code> only runs the Python tools).</p>
+    <table>
+      <tr><td><code>npm run setup</code> · <code>setup:cpu</code></td><td>one-command Docker setup (GPU / CPU)</td></tr>
+      <tr><td><code>npm run pipeline:prepare</code> · <code>pipeline:encoder-input</code></td><td>build the prepared data and the encoder input</td></tr>
+      <tr><td><code>npm run train:check</code> · <code>train:smoke</code> · <code>train:full</code></td><td>checks · short run · full pretraining run</td></tr>
+      <tr><td><code>npm run train:resume -- &lt;run_dir&gt;</code> · <code>train:runs</code></td><td>resume a run · list runs</td></tr>
+      <tr><td><code>npm test</code> · <code>npm run check</code></td><td>pytest · format check + tests</td></tr>
+      <tr><td><code>npm run data:download</code> · <code>model:upload</code> · <code>model:list</code></td><td>private Hugging Face repos</td></tr>
+      <tr><td><code>npm run sim:data</code> · <code>npm run sim</code></td><td>simulator sample · simulator dev server</td></tr>
+    </table>
+  </section>
+
+  <p class="note">Raw data in <code>data/</code> is protected (read-only). No pretraining result exists yet; the v1 pilot
+    numbers in <code>models/</code> are invalid as evidence.</p>
+</main>
+</body>
+</html>

@@ -42,43 +42,48 @@ readability first. OOP is preferred for readability and for managing a growing r
 | Few-shot fine-tuning (deferred) | train **A16** GridSybil, **A18** DoSRandom, **A19** DoSDisruptive + benign; **A17** DataReplay held out (zero-shot); **n ∈ {10, 20, 30, 50}**, ≥ 5 support sets per n; LR = pretraining LR / 10; **K ∈ {5, 10, 20}**, θ on val |
 | Splits | grouped by `(time window, physical vehicle)` pooled over the 4 scenarios (D8); benign + GridSybil encoder input: **90 / 10 train / test by sender vehicle** (D8′); pretraining check set = 10% of train vehicles; no val split |
 
-**The 13 adopted features** (whitelist, in this order — `settings.FEATURE_NAMES`):
+**The 13 adopted features** (whitelist, in this order — `timesnet/data.py::FEATURES`, and `features` in each
+`metadata.json`):
 `claimed_pos_x, claimed_pos_y, rx_pos_x, rx_pos_y, claimed_vel_x, claimed_vel_y, rx_vel_x, rx_vel_y,
 claimed_acl_x, claimed_acl_y, range, bearing, log_dtau` — "rx" = the receiver's own type-2 fix at rcvTime (D2).
-**Bearing = one value** (decided 2026-10-06): `atan2(dy, dx)` in radians, wrapped to (−π, π] via
-`tools.wrap_angle`; never split into sin/cos — the input stays **13 features**.
+**Bearing = one value** (decided 2026-10-06): `atan2(dy, dx)` in radians, wrapped to (−π, π] by
+`wrap_angle` in `pipeline/input_representation.ipynb`; never split into sin/cos — the input stays **13 features**.
 
 ---
 
 ## 2. Folder layout
 
 Run everything from the repo root (`python -m src.model.benign_gridsybil.timesnet.train ...`). Data code stays inside
-notebooks (user choice, 2026-10-07); model code is a package of small modules next to the notebook that explains it.
+notebooks as classes (user choice, 2026-10-07); model code is a package of small modules next to the notebook that explains it.
 
 ```
 src/
   agent.md · README.md
-  pipeline/
-    input_representation.ipynb        all scenarios: raw -> prepared_data
+  pipeline/                           notebooks that write data (classes inside the notebook)
+    input_representation.ipynb        all scenarios: raw -> data/prepared_data/
     benign_gridsybil/
       encoder_input_T64.ipynb         first trial: benign + GridSybil links -> 64 x 13 windows + mask
-  eda/
-    eda_window_size.ipynb             all scenarios: link lengths, choice of T (read-only)
+    all/
+      encoder_input_T24.ipynb         all attacks, T = 24, compact gzipped JSON (not for training until F14)
+  eda/                                read-only analysis notebooks
+    eda_window_size.ipynb             all scenarios: link lengths, choice of T
     benign_gridsybil/
-      eda_encoder_input_T64.ipynb     first trial: EDA of its encoder input (read-only)
+      eda_encoder_input_T64.ipynb     first trial: EDA of its encoder input
   model/benign_gridsybil/
     encoder_T64.ipynb                 the encoder explained and checked (imports timesnet/encoder.py)
     timesnet/                         self-supervised pretraining package (TimesNet only)
       config.py data.py encoder.py heads.py views.py losses.py monitors.py train.py
       pretrain_monitor.ipynb          read-only plots of a run
+  tests/                              pytest for the timesnet package (synthetic tensors, CPU)
   data/                               gitignored
     prepared_data/                    all scenarios
-    encoder_input/benign_gridsybil/T64/
-  runs/pretraining/benign_gridsybil/T64/<run_id>/   gitignored run folders (older runs: runs/stage1/)
+    encoder_input/benign_gridsybil/T64/ · encoder_input/all/T24/
+  runs/pretraining/benign_gridsybil/T64/<run_id>/   gitignored run folders
 ```
 
-Scope: benign + GridSybil is the first trial of the whole pipeline; the all-attack version gets sibling folders
-(e.g. `pipeline/all_attacks/`, `data/encoder_input/all_attacks/`) once it works.
+Scope: benign + GridSybil is the first trial of the whole pipeline; the all-attack version uses sibling `all/`
+folders (`pipeline/all/`, `data/encoder_input/all/`). Naming: `<subset>/` folder (`benign_gridsybil`, `all`) +
+`_T<n>` file suffix. Tests for `scripts/` (legacy v1 tools, exporters, `hf_hub.py`) live in `scripts/tests/`.
 
 Notebooks find the repo root by walking up to `CLAUDE.md`, so they run from any folder.
 
@@ -136,12 +141,12 @@ and, for older idioms, `scripts/prepare_data.py` / `scripts/export_simulation_sa
 
 **Module-level function — allowed only if ALL hold:** pure (no I/O, no globals, no RNG unless the
 generator is passed in), stateless, ≤ ~20 lines, a math/geometry/conversion/formatting helper
-(`range_bearing(dx, dy)`, `kmh_to_mps(v)`, `format_pct(x)`). These live in `src/tools.py`, are fully
-typed, docstringed, and unit-tested. Private one-liners inside a module (`_steps_within(...)`) are fine
+(`range_bearing(dx, dy)`, `kmh_to_mps(v)`, `format_pct(x)`). They live next to the class that uses them (a
+`_private` helper in the module, or a function cell in the notebook), fully typed and docstringed. Private one-liners inside a module (`_steps_within(...)`) are fine
 if they meet the same bar. No CLI `main()` logic beyond parse-args → build objects → `run()`.
 
 ```python
-# GOOD — pure helper in src/tools.py
+# GOOD — pure helper next to the code that uses it
 def range_bearing(dx: np.ndarray, dy: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Returns (range_m, bearing_rad) for planar offsets of any shape."""
     return np.hypot(dx, dy), np.arctan2(dy, dx)
@@ -166,7 +171,7 @@ def mask(w): ...
 
 ### 3.2 Class conventions
 - **Configs:** `@dataclasses.dataclass(frozen=True, slots=True)`; validate in `__post_init__` and raise
-  `ValueError` with the offending value. Document fields under `Attributes:` (as `PipelineConfig` does).
+  `ValueError` with the offending value. Document fields under `Attributes:` (as `PretrainConfig` in `timesnet/config.py` and `PipelineConfig` in `scripts/prepare_data.py` do).
   Configs are serialisable (`dataclasses.asdict`) and written next to results (RULE 4).
   ```python
   @dataclasses.dataclass(frozen=True, slots=True)
@@ -198,47 +203,47 @@ def mask(w): ...
   (`"Implements WBS S1.3.A1 (…)."`), what it reads/writes, and a `Usage:` line for runnable modules.
 - **Docstrings:** Google style on every public module/class/method/function, with `Args:`, `Returns:`,
   `Raises:`. Document array/tensor shapes and dtypes inline: `windows: (B, T, 13) float32`,
-  `Returns: logits (B, n_classes)`. Name feature order by reference to `config.json`, never re-list it.
+  `Returns: logits (B, n_classes)`. Name feature order by reference to `FEATURES` / `metadata.json`, never re-list it.
 - **Typing:** `from __future__ import annotations` in every module; full hints on all signatures
   (incl. `-> None`); `collections.abc` for `Sequence`/`Mapping`/`Iterator`; `X | None`, not `Optional`.
 - **Naming:** `CapWords` classes, `snake_case` functions/vars/modules, `UPPER_SNAKE` constants,
   `_leading_underscore` private. No single-letter names except loop indices and math (`B, T, F`).
-- **Imports:** three groups separated by a blank line — stdlib / third-party / local (`from src import tools`,
-  `from src.split import VehicleSplitter`); import modules, not `*`; no `sys.path` hacks inside `src/` (tests use the package).
+- **Imports:** three groups separated by a blank line — stdlib / third-party / local
+  (`from src.model.benign_gridsybil.timesnet import encoder`); import modules, not `*`; no `sys.path` hacks inside `src/` (tests use the package).
 - **Logging:** `_LOG = logging.getLogger(__name__)`; `%`-style lazy args (`_LOG.info("wrote %d", n)`);
   never `print` outside notebooks. Configure handlers only in the entry-point `main()`.
 - **Errors:** explicit exception types with messages naming the bad value/path; never bare `except:` or
   `except Exception: pass`; prefer raising over `assert` for data validation (asserts may be stripped).
-- **Formatting:** **black**, line length **120** (`pyproject.toml`; run `.venv-train/bin/black src scripts`, or format-on-save via `.vscode/settings.json`); f-strings for
+- **Formatting:** **black**, line length **120** (`pyproject.toml`; run `npm run format` / `npm run format:check`, or format-on-save via `.vscode/settings.json`); f-strings for
   messages; `pathlib.Path` for all paths (no `os.path`, no string concatenation).
 - **Determinism:** randomness only through an injected `np.random.Generator` / `torch.Generator` or an
   explicit `seed` config field; never `np.random.seed`/global torch seeding inside library code.
 
 ### 3.4 Testing
-- `pytest`, under `src/tests/`, **one file per module**: `src/encoders.py` →
-  `src/tests/test_encoders.py`, `src/settings.py` + `src/tools.py` → `src/tests/test_tools.py`. Inside a file, one
-  `Test<ClassName>` class per production class. Shared synthetic fixtures live only in `src/tests/conftest.py`.
-- **Synthetic fixtures only** — build tiny arrays in `tmp_path` (see `src/tests/conftest.py`).
-  Unit tests never read `data/`, `models/*.pt`, or the network.
+- `pytest`; config in `pyproject.toml` (`testpaths = scripts/tests, src/tests`). Tests for the pretraining package go in
+  `src/tests/`, **one file per module** (`timesnet/encoder.py` → `src/tests/test_encoder.py`, `data.py` →
+  `test_data.py`, `losses.py` → `test_losses.py`, `views.py` → `test_views.py`); shared synthetic fixtures live in
+  `src/tests/conftest.py`. Tests for `scripts/` live in `scripts/tests/`.
+- **Synthetic fixtures only** — tiny tensors / arrays built in the test or in `tmp_path`. Unit tests never read
+  `data/`, `src/data/`, `models/*.pt`, run folders or the network.
 - Test what the WBS acceptance criteria state: output **shapes** (`(B, T, 13)` in → expected out),
   **determinism** (same seed → identical arrays/tensors; different seed → different), **invariants**
-  (no NaN, masks hit the configured ratio, no label/`idx_val`/`idx_test` access in pretraining code paths,
-  split disjointness by vehicle), and config validation (`pytest.raises(ValueError)`).
-- Torch tests start with `torch = pytest.importorskip("torch")` so the EDA venv (no torch) still runs
-  the rest; never install torch to make a test pass (RULE 4 — ask first).
-- Run from the repo root: `.venv/bin/python -m pytest src/tests -q` (torch tests run only in the
-  training env once S1.0.4 pins it). Keep unit tests < a few seconds each; mark slow ones
-  `@pytest.mark.slow`.
+  (no NaN, padding ignored exactly, masks hit the configured ratio, no label / `_info` access in pretraining code
+  paths, split disjointness by vehicle), and config validation (`pytest.raises(ValueError)`).
+- Run from the repo root: `npm test` (= `.venv-train/bin/python -m pytest`, both suites; the training env has torch
+  and pytest). Keep unit tests < a few seconds each; mark slow ones `@pytest.mark.slow`. Never install a package to
+  make a test pass without the user's OK (RULE 4).
 
 ### 3.5 Pre-finish readability checklist (run before reporting done)
-1. Every new stateful thing is a class; every free function is pure, ≤ ~20 lines, in `src/tools.py`
-   (or `_private`), typed and tested.
+1. Every new stateful thing is a class; every free function is pure, ≤ ~20 lines, `_private` or next to its
+   user, typed and tested.
 2. Module docstring names the WBS task id; every public API has Args/Returns/Raises and tensor shapes.
 3. Configs are frozen dataclasses with `__post_init__` validation and are persisted with results + seed.
-4. No `print`, bare `except`, globals/singletons, `os.path`, or lines > 100 chars.
+4. No `print` outside notebooks, bare `except`, globals/singletons, `os.path`; `npm run format:check` passes
+   (black, line length 120).
 5. No reads of `y_*`, attack codes, `idx_val`, or `idx_test` in pretraining code; no writes to
    `data/` without asking.
-6. New tests pass (`.venv/bin/python -m pytest src/tests -q`); torch tests skip cleanly without torch.
+6. New tests pass (`npm test`).
 7. A reviewer can name each class's single job from its name + docstring first line; anything over
    ~300 lines has been split.
 
@@ -248,9 +253,9 @@ def mask(w): ...
 
 ### Data access (RULE 2)
 - Open everything under `data/` read-only. Never write, move or delete there without the user's explicit OK
-  for that exact path (approved so far: none; `data/prepared_receiver/` is pending S1.1.2).
-- Route every persistent array/table write through one writer class (`src/tools.py::SafeWriter`)
-  that raises if the output exists unless `overwrite=True`, and refuses paths outside an allow-list.
+  for that exact path (approved so far: none).
+- Writers check their output folder (refuse to overwrite unless asked) and never write outside `src/data/` or
+  `src/runs/`.
 - Large outputs go only to `src/data/` (gitignored) or an approved `data/` folder; never elsewhere in `src/`.
 
 ### Label-free pretraining (advisor constraint)
@@ -301,7 +306,8 @@ def mask(w): ...
 
 ### Notebooks (RULE 5)
 - Notebooks in `src/` find the repo root by walking up to `CLAUDE.md`; a new notebook without that does this in its first cell: `assert Path("CLAUDE.md").is_file() and Path("data").is_dir(), "run from repo root"`.
-- Import all logic from `src`; notebooks hold only loading, calling and plotting. No class or model code.
+- Data and EDA code lives in the notebooks as classes (user choice); model code lives in the `timesnet/` package and
+  the model notebooks import it instead of copying it.
 
 ### Git and scope (RULES 6, 7)
 - Never commit, push, `reset --hard` or `clean` unless asked. Staging and `git diff` are fine.
@@ -315,13 +321,13 @@ def mask(w): ...
 1. **Pick one WBS id** (e.g. S1.2.2) from `docs/plan/stage1-ssl-wbs.md`; check its `Dep` column is done.
    If it needs a `data/` write or a download, ask first and stop.
 2. **Read its acceptance criterion** and the plan text it cites (`clarification.md` § and decision D#).
-   Note the deliverable's `src/` path (see "WBS task → src path" above).
+   Note the deliverable's `src/` path (see "WBS task → file → class" above).
 3. **Design the interface first**: classes, dataclass configs, public methods, shapes, Google docstrings.
    OOP-first (~90% classes, ~10% small pure functions). Show it in the reply before large implementations.
 4. **Write tests** in `src/tests/` that encode the acceptance criterion (shapes, exact ratios, determinism,
    guard raises on labels, zero split overlap) plus a tiny synthetic fixture. No real-data reads in unit tests.
 5. **Implement** to the interface. Settings live in a frozen config dataclass; entry points are modules like `timesnet/train.py`.
-6. **Run the tests** (`python -m pytest src/tests -q` from the repo root) and any acceptance script. Fix until
+6. **Run the tests** (`npm test` from the repo root) and any acceptance script. Fix until
    green; never weaken a test to pass.
 7. **Record evidence**: test output, measured numbers, run directory path. Numbers come from the run, not the
    plan.

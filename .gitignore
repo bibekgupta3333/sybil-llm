@@ -1,17 +1,32 @@
-/data/
-.venv
+# Python
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
-.DS_Store
-*.DS_Store
-.env
-.gstack/
+.pytest_cache/
+.venv
+.venv-train/
+
+# Node (simulator)
 simulation/node_modules/
 simulation/dist/
 simulation/.cache/
-/notebooks/data/
 /simulation/public/
+
+# Data and run outputs (large, regenerable)
+/data/
 /src/data/
-.venv-train/
 /src/runs/
+/notebooks/data/
+
+# Checkpoints: only the legacy v1 pilot checkpoints stay tracked
+*.pt
+!models/*.pt
+
+# Secrets
+.env
+.env*
+
+# OS / tool state
+.DS_Store
+*.DS_Store
+.gstack/

@@ -78,7 +78,7 @@ That signal was outside the pipeline entirely until now.
   "Strips / heatmap / consistency follow" toggle switches which trail the other panels inspect, so you
   can watch the physics-consistency gauges break down (residual, heading-vs-velocity) on the fabricated
   trail specifically.
-- **Real finding from the committed sample:** of the 4 attack families, only **GridSybil** produced any
+- **Real finding from the reference sample (seed 42):** of the 4 attack families, only **GridSybil** produced any
   resolvable prepared/raw-VeReMi pairs (20, from a candidate pool drawn across every sampled GridSybil
   vehicle) — DataReplaySybil, DoSRandomSybil and DoSDisruptiveSybil attackers in this sample don't
   broadcast under an *additional* fabricated pseudonym the way GridSybil does; they tamper with content
@@ -105,7 +105,7 @@ That signal was outside the pipeline entirely until now.
 - **How matches are chosen.** For each fabricated broadcast, the exporter picks the Benign identity in
   the same run with the longest time overlap, requiring at least one full 20-step window on both sides
   (`BenignMatcher`). Vehicles not already in the sample are added and tagged `overlap_benign`. In the
-  committed sample 90 of 92 attack traces got a match: GridSybil 19, DataReplay 24, DoSRandom 24, DoSDisruptive 23.
+  reference sample (seed 42) 90 of 92 attack traces got a match: GridSybil 19, DataReplay 24, DoSRandom 24, DoSDisruptive 23.
 - **Window compare below the maps.** A bottom panel holds one benign window (x) next to one attack
   window (y): heatmap, kinematic strips, physics consistency and provenance per side, each stepped on
   its own. Pick windows with the tick rows. When several attacks are shown, choose which one with the
@@ -114,7 +114,7 @@ That signal was outside the pipeline entirely until now.
   of the same type from the same run that overlap the benign vehicle for at least 30 steps
   (`Dataset.attacksOverlapping`). Tick them to add them to the y map and the Both map, each in its own
   colour and labelled `v{sender}`. The shared window becomes the benign trace's time range, clipped to
-  the span of the selected attacks (`Dataset.benignMultiAttackView`). In the committed sample one benign
+  the span of the selected attacks (`Dataset.benignMultiAttackView`). In the reference sample (seed 42) one benign
   vehicle overlaps at most 3 attack traces (GridSybil: 5 benign vehicles overlap 2 or more). Raising
   `forged_pairs_per_cell` in the exporter would give more.
 - **Raw-data version:** `notebooks/benign_vs_attack_maps.ipynb` builds the same three maps directly from
@@ -122,8 +122,9 @@ That signal was outside the pipeline entirely until now.
 
 ## Data — `public/data/`
 
-A committed, stratified sample (~4.4 MB) produced by `scripts/export_simulation_sample.py`
-(read-only on `data/`):
+A stratified sample (~5 MB) produced by `scripts/export_simulation_sample.py` (read-only on `data/`). It is **not
+committed**: `simulation/public/` is gitignored, so generate it once after cloning (the encoder tab's sample comes from
+`npm run sim:data`, see below):
 
 ```bash
 cd ..   # repo root
@@ -178,7 +179,7 @@ A second tab, **"Encoder input (T = 64)"**, shows exactly what the TimesNet enco
 from `src/data/encoder_input/benign_gridsybil/T64/`. Code lives in `src/encoder/` (core logic + tests in
 `src/encoder/core/`, UI in `ui/` and `render/`), loaded on first open; the legacy tab is unchanged.
 
-- **Data:** `python scripts/export_encoder_sample.py` (read-only on `src/data/`) writes a 7.7 MB sample to
+- **Data:** `npm run sim:data` (= `scripts/export_encoder_sample.py`, read-only on `src/data/`) writes a 7.7 MB sample to
   `public/data/encoder/` (`manifest.json`, `x.f32` = normalised real rows only, `predictions/index.json`).
   `public/` is gitignored, so run the exporter once after cloning. Sample rule (seed 0): per split × scenario ×
   class, whole sender vehicles with all their windows (4,549 windows), plus rule-picked presenter windows badged

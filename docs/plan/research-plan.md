@@ -57,21 +57,24 @@ pretraining work (former task S1.0.3 removed).
 **Corrected plan adopted (2026-10-05, student decision):** `docs/plan/clarification.md` rewrites the advisor's
 plan with every fix from the review, and decisions D1–D8 are adopted as written there:
 
-| ID | Adopted |
+| ID | Adopted (digest; full text in `stage1-ssl-wbs.md` §1) |
 |---|---|
 | D1 | Network-heard pseudonym sequences (de-duplicated by `messageID`), **T = 64** (128 as sensitivity), fixed length, equal windows per vehicle |
+| D1′ | Revised 2026-10-06 (user): prepared data keeps the receiver's view as VeReMi recorded it — every received copy kept, one prepared file per raw trace file, links = what one receiver heard from one (pseudonym, sender) pair; fixed-T windows are cut later from links |
 | D2 | "Receiver observed" = the receiver's own GPS position and velocity at rcvTime |
 | D3 | sin/cos time of day **dropped**; replaced by range + bearing to the claimed position; log-Δτ kept (13 features; bearing = one wrapped angle, not sin/cos — 2026-10-06) |
 | D4 | Physics heads **P1–P3 detect injected violations** (speed spike / position jump, speed without matching positions, impossible turn; p = 0.5); original H1–H3 rules are diagnostics only |
 | D5 | **TCP dropped** (covered by the injected-violation heads) |
 | D6 | Hard negatives: same 50 m grid cell, same group, different pseudonym, ≥ 10 min apart (β = 0.5) |
 | D7 | Normalised losses; λ1 = 1, λ3–λ5 = 0.3, λ2 ∈ {0.1, 0.3, 1} + one uncertainty-weighting run; label-free checkpoint selection |
-| D8 | **Re-split** on (scenario group, physical vehicle) across the 4 scenarios and the group's time windows — **RULE 3 split change, adopted but not yet executed** (WBS S1.1.5) |
-| D11 | d = 512 (d_ff = 512, 73.4M-param encoder) — **superseded by D12**; TimesNet only in the code stays in force (2026-10-08, student) |
-| D13 | Robust scaling (median / IQR + soft tail) for claimed_pos and range in pretraining; NT-Xent masks same-broadcast pairs (2026-10-08) |
+| D8 | **Re-split** on (scenario group, physical vehicle) across the 4 scenarios and the group's time windows — **RULE 3 split change, executed 2026-10-06** in `src/pipeline/input_representation.ipynb` |
+| D8′ | ⚠ **RULE 3, 2026-10-08 (user):** benign + GridSybil encoder input split 90 / 10 train / test by sender vehicle (seed 0, stratified; 338,001 / 38,426 windows); pretraining check set = 10% of train vehicles; no val split |
 | D9 | Deviation from `proposal/main.tex` accepted |
 | D10 | TimesNet d_ff = d = 128 (no bottleneck; 4,595,840 params) — **width part superseded by D12**; P1–P3 hidden width d stays (2026-10-08, student) |
+| D11 | d = 512 (d_ff = 512, 73.4M-param encoder) — **superseded by D12**; TimesNet only in the code stays in force (2026-10-08, student) |
 | D12 | **d = 128, d_ff = 64** — the professor's plan (encoder 2,301,312 params, 2,402,448 with heads); d_ff = 128 and d = 256 / 512 are ablations chosen only by evidence (2026-10-08, student) |
+| D13 | Robust scaling (median / IQR + soft tail) for claimed_pos and range in pretraining; NT-Xent masks same-broadcast pairs (2026-10-08) |
+| D14 | Pretraining speed: **length-bucketed batches** (shuffled within each window length, batch order shuffled per epoch, every train window once per epoch), batch 256; `npm run train:full` lifts the 8 h cap (2026-10-08, user) |
 
 Updated 2026-10-06: the WBS now carries the adopted fine-tuning tasks (deferred until pretraining ends) and a sweep plan
 stating, for each hyperparameter, whether it is chosen label-free in pretraining or on validation in fine-tuning.

@@ -13,3 +13,8 @@ extend-exclude = '''
   | ^/\.venv
 )
 '''
+
+[tool.pytest.ini_options]
+testpaths = ["scripts/tests", "src/tests"]
+pythonpath = [".", "scripts"]
+addopts = "-q"

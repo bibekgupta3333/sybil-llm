@@ -1,0 +1,61 @@
+# Changelog (older entries)
+
+History moved out of the root `agent.md`, newest first, text unchanged. The newest 10 entries stay in
+[`agent.md`](../agent.md#changelog); when an entry drops out of that list, move it to the top of this file.
+
+- **2026-10-08** — `pretraining-explained.html` (multi-agent): 11 sections + 6 animations (epoch building, one step, joint loss, update + LR, end-of-epoch evaluation, healthy vs failing runs); all load without errors, no horizontal scroll at 1100 / 500 px; added to the root keep-list.
+- **2026-10-08** — multi-threaded input: `BatchPrefetcher` gathers the next batches in a background thread while the GPU trains (`prefetch_batches = 3`), `cpu_threads` setting (0 = all cores); order/content checked offline. Not run.
+- **2026-10-08** — first full run (batch 128) stopped by the user at step ~400 (1.65 s/step, too slow). D14: length-bucketed batches + batch 256 default; `npm run train:full` (no 8 h cap). Not run; speed to be measured with `npm run train:smoke`.
+- **2026-10-08** — root `package.json` with npm shortcuts for training (`train:check`, `train:smoke`, `train`, `train:recon-only`, `train:resume`, `train:help`, `train:runs`), formatting and the simulator; added to the root keep-list.
+- **2026-10-08** — EDA "before training" fixes done (D13): robust scaling with a soft tail for claimed_pos / range in the pretraining loader, NT-Xent false-negative masking by broadcast key; `--check` passes (padding Δ = 0, round-trip 1e-7; 188 masked pairs in the first 64 windows). Still open (before evaluation): labelled vehicle-grouped validation carve, bootstrap CIs, length bands.
+- **2026-10-08** — encoder-input EDA updated to the 90/10 train/test split and re-run (13 observations; probes fit on train, scored on test); two reviewer agents + a judge added one-line researcher notes (RIGHT 4, RISK 6, BETTER 2, WRONG 1). Top 3 before training: robust scaling for claimed_pos/range; mask same-broadcast/same-link pairs in NT-Xent (keep pseudonym 1 out of D6); vehicle-grouped labelled validation carve + bootstrap CIs + length bands (floor 0.535). Not yet acted on.
+- **2026-10-08** — `encoder-shapes.html`: 10 self-explaining animations (overview, input, embedding, FFT, fold, Inception + mix + residual + LayerNorm, masked mean, reconstruction, physics P1–P3, contrastive), each with clickable steps, a plain explanation, shape before → after and a worked number; all load without errors. Old run folders under `src/runs/stage1/` (smoke/checks/stopped run, pre-D12, no results) are gone except `check-d128-dff64`; new runs go to `src/runs/pretraining/`.
+- **2026-10-08** — names changed (user): "Stage 1" is now **self-supervised pretraining** (short: pretraining), "Stage 2" is **few-shot fine-tuning** (short: fine-tuning); task IDs (S1.x, S2.x) and file names (`stage1-*.html`, `docs/plan/stage1-*.md`) kept. Runs folder now `src/runs/pretraining/…` (old runs stay in `src/runs/stage1/`); `Stage1Model` → `PretrainingModel`. Docs also refreshed where stale (split D8′, pinned env, `src/` layout).
+- **2026-10-08** — D12 (student): back to the professor's width, d = 128, d_ff = 64 (supersedes D10's d_ff = d and D11's d = 512; TimesNet only and P1–P3 hidden width d stay). `config.py` changed; `--check` passes (encoder 2,301,312, padding Δ = 0). Docs, notebook and HTML pages updated (multi-agent).
+- **2026-10-08** — pretraining reorganised (multi-agent) into the package `src/model/benign_gridsybil/timesnet/` (8 modules + `pretrain_monitor.ipynb`), TimesNet only (Transformer ablation removed), d = 512 (D11); `pretrain_T64.py` deleted; `encoder_T64.ipynb` now imports the encoder. `--check` passes (73,433,600 encoder params, padding Δ = 0). Not trained. HTML pages / notes still describe d = 128.
+- **2026-10-08** — ⚠ RULE 3: encoder input re-split 90 / 10 train / test by vehicle (user; more training data); data rebuilt (376,427 windows, checks pass, 0 vehicles in both splits); `pretrain_T64.py` carves a 10% train-vehicle check set when there is no `pretrain_val` folder (`--check` passes). Still on the old four splits: `src/eda/benign_gridsybil/eda_encoder_input_T64.ipynb`, `scripts/export_encoder_sample.py`, the simulator's encoder tab.
+- **2026-10-08** — black formatter added: `pyproject.toml` (line length 120, excludes data/runs/simulation/models), `.vscode/settings.json` (format on save), installed in `.venv` and `.venv-train` (pinned in both requirements files); `src/` and `scripts/` reformatted (13 files); 41 pytest + `pretrain_T64.py --check` still pass.
+- **2026-10-08** — pretraining script rebuilt (user asked to train); `--check` passed (padding Δ = 0 for every loss; 4,595,840 encoder params); `--smoke` 30 steps OK (~3.6 s/step, 5.7 GB). Full TimesNet run started 00:35 as `20261008-003527-joint-timesnet` and stopped by the user at step ~50 (no checkpoint saved). At init the length probe R² is 0.97 and reconstruction (0.88) is worse than linear interpolation (0.21) — both to watch. No results yet.
+- **2026-10-08** — D10 propagated to every page (multi-agent): `encoder-shapes.html` (text, code re-run = 4,595,840, animations, Q&A), `stage1-encoder-notes.md`, slides, `stage1-plan.html`, `tracker.html`, `src/agent.md`, plan docs. Last bottleneck removed too: P1–P3 heads 128→128→1 (heads total 101,136; encoder + heads 4,696,976). Remaining d_ff = 64 mentions are history or the ablation.
+- **2026-10-08** — D10: TimesNet bottleneck removed (d_ff 64 → 128, user); encoder 4,595,840 params; `encoder_T64.ipynb` re-run, all checks pass. Pages that still show d_ff = 64 / 2.30M: `encoder-shapes.html`, `docs/plan/stage1-encoder-notes.md`, slides, `stage1-plan.html`, `tracker.html`.
+- **2026-10-07** — encoder files consolidated (user): removed `timesnet_encoder_T64.ipynb`, `transformer_encoder_T64.py`, `pretrain_T64.py`, `pretrain_T64_monitor.ipynb`; new single notebook `src/model/benign_gridsybil/encoder_T64.ipynb` covers S1.2.1–S1.2.6 (TimesNet + Transformer ablation, checks pass for both: padding Δ = 0, batch |Δz| ≤ 1e-6, CPU vs MPS 1.4e-6, T ∈ {50, 64, 100, 128}); no training. S1.3 pretraining code is gone.
+- **2026-10-07** — Transformer encoder ablation (S1.2.5) written as one class `src/model/benign_gridsybil/transformer_encoder_T64.py` (not run); `pretrain_T64.py --encoder transformer` switches to it.
+- **2026-10-07** — controlled pretraining script `src/model/benign_gridsybil/pretrain_T64.py` + monitor notebook written (not run, at the user's request); design ruled by a judge agent (3 forwards/step, contiguous crop, short windows excluded from P/NT-Xent, frozen loss scales, collapse + length monitors, label firewall).
+- **2026-10-07** — simulator gained the "Encoder input (T = 64)" tab: split / scenario / run / class selection, single or group (link, sender, receiver, batch of 32), heatmap + mask, spatial view, provenance with full-dataset split integrity (0 senders in > 1 split), presenter shortcuts chosen by explicit rules, empty predictions slot for later detection. Design dilemmas ruled by a judge agent. tsc clean, 60 vitest + 7 pytest pass, build OK.
+- **2026-10-07** — `encoder-shapes.html`: simple one-page matrix-size walkthrough of the encoder (one 28-row window); added to the root keep-list.
+- **2026-10-07** — `docs/plan/stage1-encoder-notes.md`: written study notes on the encoder (≈ 5.3k words, numbers from the notebook).
+- **2026-10-07** — torch env pinned (`.venv-train`, torch 2.14.1, MPS; S1.0.4). Encoder notebook `src/model/benign_gridsybil/encoder_T64.ipynb` (no training): masked TimesNet, 2,301,312 params; periods from an FFT over real rows only; heads + losses defined; all checks pass.
+- **2026-10-07** — folders reflect the trial scope: `src/pipeline/benign_gridsybil/`, `src/eda/benign_gridsybil/`, data moved to `src/data/encoder_input/benign_gridsybil/T64/` (content unchanged; `metadata.json` out_dir updated); all-scenario notebooks stay at `src/pipeline/` and `src/eda/`; links updated.
+- **2026-10-07** — `src/` organized into folders (code stays in the notebooks, user choice): `src/pipeline/` (input_representation, encoder_input_T64), `src/eda/` (eda_window_size, eda_encoder_input_T64), `src/data/`. Notebooks find the repo root by walking up to `CLAUDE.md`; links in docs / HTML updated.
+- **2026-10-07** — status update: input representation done for benign + GridSybil (S1.1.2–S1.1.5), S1.1.6 partly (length AUC 0.531); masking is in the data, model-side masking waits on the torch env (S1.0.4).
+- **2026-10-06** — encoder input switched to one fixed length (user: compute cost accepted): every window padded to 64 (`buckets = (64,)`), 376,427 windows, 71.0% padding, 39 shards, 1.8 GB; checks pass; EDA re-run (same takeaways); `stage1-input-slides.html` + `stage1-plan.html` updated (buckets shown as the alternative). EDA gained a padding/mask section: half the windows are padding from position 13–16; an unmasked mean leaks length (log_dtau AUC 0.492 → 0.442).
+- **2026-10-06** — `src/eda/benign_gridsybil/eda_encoder_input_T64.ipynb`: EDA of the bucketed input; length-only AUC 0.531; no single feature has |AUC − 0.5| > 0.1; |z| > 10 only in GridSybil claimed_pos / range; max split drift 0.10 std; repeated broadcasts never cross splits (894 cross-split matches are all standing cars).
+- **2026-10-06** — encoder input switched to crop + length buckets + mask (max T = 64): 376,427 windows, all
+  messages used, 26.3% padding; doc `docs/plan/stage1-preprocessing-feature-engineering.md`; slides + stage1-plan.html updated.
+- **2026-10-06** — `src/eda/eda_window_size.ipynb`: link lengths + T sweep + balance; largest T keeping ≥ 50% of messages without padding = 24; benign share most stable at T = 16.
+- **2026-10-06** — padding removed from the encoder input (user): 22,976 full 64-message windows (was 376,427
+  padded); uses 1.47 M of 6.98 M kept messages (benign 18%, GridSybil 23%).
+- **2026-10-06** — `stage1-input-slides.html`: 26-slide presentation of the input representation.
+- **2026-10-06** — `src/pipeline/benign_gridsybil/encoder_input_T64.ipynb`: benign + GridSybil encoder input, T = 64, padded windows +
+  mask (376,427 windows; padding ≈ 70%; padding-only AUC 0.531 on val).
+- **2026-10-06** — prepared data rebuilt in the receiver's view (D1′): all copies kept, VeReMi folder mirror,
+  `index.json`; de-duplicated T64/T128 output replaced.
+- **2026-10-06** — input representation rebuilt as `src/pipeline/input_representation.ipynb` (JSON only, no npy/parquet)
+  → `src/data/prepared_data/T64|T128`; vehicle-grouped split in force again (RULE 3).
+- **2026-10-06** — S1.1 code (`src/*.py`, tests, notebook, config) and prepared data (`src/data/`,
+  `data/prepared_receiver/`) **removed at the user's request**; findings F1/F11–F13 kept; S1.1 tasks reset to
+  not done; D8 not executed. (A copy of the removed code exists only in the agent's session scratchpad.)
+- **2026-10-06** — `src/` simplified to a flat layout (one file per step; old `model/`, `helpers/`,
+  `scripts/`, `configs/` removed); outputs verified byte-identical; command is now `python -m src.prepare`.
+- **2026-10-06** — S1.1 run on full data → `data/prepared_receiver/` (15,904 samples); new split executed
+  (RULE 3, 0% copies); F11 decided (pseudonym-level), F13 found; probe: length AUC 0.551.
+- **2026-10-06** — S1.1 coded in `src/` (helpers, `model/data.py`, `model/splits.py`, `model/evaluation.py`,
+  `scripts/prepare.py`, notebook, 85 tests); S1.1.1 leak audit done; F11 + F12 found; D8 key refined;
+  `agent.md` restored to the root after the tidy hook moved it.
+- **2026-10-06** — `src/agent.md` added (flat layout, OOP 90/10, guardrails); bearing fixed as one angle
+  (13 features); WBS gained fine-tuning tasks + sweep plan; `tracker.html` rewritten for the adopted plan; this file
+  created.
+- **2026-10-05** — corrected plan adopted (D1–D9); `clarification.md` written; deviation from `main.tex`
+  accepted.
+- **2026-10-04** — plan review (19 → 18 issues) added to `stage1-plan.html`.
+- **2026-09-30** — advisor's TimesNet pretraining plan received; WBS + findings F1–F10; F1 leak confirmed.

@@ -1,7 +1,7 @@
-# src — RoadFM-Lite input pipeline
+# src — RoadFM-Lite code for the adopted plan
 
 This folder holds the code for the adopted plan: turning raw VeReMi-Extension logs into the input a TimesNet
-encoder reads. The code lives inside notebooks. Rules for writing code here are in [`agent.md`](agent.md); the
+encoder reads (notebooks), and the self-supervised pretraining package (`model/benign_gridsybil/timesnet/`). Rules for writing code here are in [`agent.md`](agent.md); the
 project's current state is in the root [`agent.md`](../agent.md).
 
 **Current scope:** benign + GridSybil is the **first trial** of the whole pipeline. All attack types come after it
@@ -17,6 +17,8 @@ src/
     input_representation.ipynb         all scenarios: raw logs -> prepared_data/
     benign_gridsybil/
       encoder_input_T64.ipynb          trial: links -> 64 x 13 windows + mask
+    all/
+      encoder_input_T24.ipynb          all attacks, T = 24 (built; not for training until F14 is decided)
   model/
     benign_gridsybil/
       encoder_T64.ipynb                trial: the TimesNet encoder explained and checked (imports timesnet/encoder.py)
@@ -27,9 +29,13 @@ src/
     eda_window_size.ipynb              all scenarios: link lengths, choice of T
     benign_gridsybil/
       eda_encoder_input_T64.ipynb      trial: EDA of the encoder input
+  tests/                               pytest for the timesnet package (synthetic tensors, CPU)
   data/                                outputs (gitignored)
     prepared_data/                     2.9 GB, mirrors data/VeReMi-Dataset
     encoder_input/benign_gridsybil/T64/   1.8 GB, the encoder input
+    encoder_input/all/T24/             0.6 GB, all-attack input (F14 open)
+  runs/                                training runs (gitignored)
+    pretraining/benign_gridsybil/T64/<run_id>/   config.json, env.json, metrics.jsonl, checkpoints
 ```
 
 ## How to run
@@ -41,19 +47,18 @@ by themselves, so they can be opened from any folder. Run them in this order:
 
 | # | Notebook | Reads | Writes | Time |
 |---|---|---|---|---|
-| 1 | `pipeline/input_representation.ipynb` | `data/VeReMi-Dataset/` (read only) | `data/prepared_data/` | ~1 min |
-| 2 | `pipeline/benign_gridsybil/encoder_input_T64.ipynb` | `data/prepared_data/` | `data/encoder_input/benign_gridsybil/T64/` | ~2.5 min |
+| 1 | `pipeline/input_representation.ipynb` (`npm run pipeline:prepare`) | `data/VeReMi-Dataset/` (repo root, read only) | `src/data/prepared_data/` | ~1 min |
+| 2 | `pipeline/benign_gridsybil/encoder_input_T64.ipynb` (`npm run pipeline:encoder-input`) | `src/data/prepared_data/` | `src/data/encoder_input/benign_gridsybil/T64/` | ~2.5 min |
+| 2b | `pipeline/all/encoder_input_T24.ipynb` (not for training until F14) | `src/data/prepared_data/` | `src/data/encoder_input/all/T24/` | minutes |
 | 3 | `model/benign_gridsybil/encoder_T64.ipynb` (kernel `roadfm-train`) | one train shard | nothing | ~1 min |
-| 4 | `.venv-train/bin/python -m src.model.benign_gridsybil.timesnet.train --check` → `--smoke` → no flag | train shards only (10% of train vehicles = check set) | `src/runs/pretraining/benign_gridsybil/T64/<run_id>/` (older runs: `src/runs/stage1/…`) | hours |
+| 4 | `npm run train:check` → `train:smoke` → `train:full` (= `.venv-train/bin/python -m src.model.benign_gridsybil.timesnet.train …`) | train shards only (10% of train vehicles = check set) | `src/runs/pretraining/benign_gridsybil/T64/<run_id>/` | hours |
 | — | `eda/*.ipynb` | the outputs above | nothing | seconds |
-| Docker | Linux / EC2: `docker compose build gpu` (or `cpu`), `docker compose run --rm gpu bash`, then inside `npm run pipeline:prepare` → `npm run pipeline:encoder-input` → `npm run train:check` → `train:smoke` → `train:full` (image venv via `PY=/opt/venv/bin/python`; torch 2.14.1 `cu126` for `gpu`, `cpu` for `cpu`; guide `docs/ec2-training.md`) | as rows 1–4 (repo bind-mounted at `/workspace`) | as rows 1–4 | first build ≈ 1.5 min (`cpu`, 2.8 GB image; `gpu` ≈ 10 GB, longer); then as rows 1–4 |
+| Docker | Linux / EC2 / Mac with Docker: `npm run setup` (GPU) or `npm run setup:cpu` — builds the image and runs rows 1, 2 and the check; full runbook in [`docs/ec2-training.md`](../docs/ec2-training.md) | as rows 1–4 (repo bind-mounted at `/workspace`) | as rows 1–4 | image build ≈ 1.5 min (`cpu`) |
 
-One command (Docker, Ubuntu / EC2 or Mac): `./scripts/setup.sh [--cpu] [--rebuild-data] [--skip-build]` runs the checks, the image build, both pipeline notebooks (if their outputs are missing) and `train:check` (raw data must already be in `data/VeReMi-Dataset/`; see `docs/ec2-training.md`).
+More shortcuts from the repo root: `npm run train:resume -- src/runs/pretraining/benign_gridsybil/T64/<run_id>`, `npm run train:runs`, `npm test` (pytest for `scripts/tests` + `src/tests`), `npm run check` (format check + tests); all in `package.json`.
 
-Shortcuts from the repo root: `npm run train:check`, `npm run train:smoke`, `npm run train`, `npm run train:resume -- src/runs/pretraining/benign_gridsybil/T64/<run_id>`, `npm run train:runs` (see `package.json`).
-
-Paths in the table are under `src/`, except `data/VeReMi-Dataset/`, which is the protected raw data at the repo
-root (never written to).
+Notebook paths in the table are under `src/`; data paths are written in full. `data/VeReMi-Dataset/` is the
+protected raw data at the repo root (never written to).
 
 ## What the data is
 
@@ -66,7 +71,7 @@ root (never written to).
 - **Split:** 90 / 10 train / test by sender vehicle (D8′, seed 0, stratified; 338,001 / 38,426 windows); no vehicle
   appears in both. Pretraining carves a check set of 10% of train vehicles; there is no val split.
 
-Output files in `data/encoder_input/benign_gridsybil/T64/`:
+Output files in `src/data/encoder_input/benign_gridsybil/T64/`:
 
 - `<split>/b64/part-XXXXX.json`: `id`, `x` (64 × 13) and `mask` (64). There are no labels here.
 - `part-XXXXX_info.json`: labels, `n_messages` and the sender/receiver of each window. Use it for evaluation only.
@@ -74,7 +79,7 @@ Output files in `data/encoder_input/benign_gridsybil/T64/`:
 
 ## Rules that matter here
 
-- Never write under the root `data/` folder (raw data, slow to rebuild).
+- Never write under the root `data/` folder (raw data, slow to rebuild); outputs go to `src/data/` and `src/runs/`.
 - No attack labels in pretraining; labels are read only for evaluation.
 - The encoder **must use the mask**: average and compute losses over real rows only, and take FFT periods from real
   rows. Never feed the mask or `n_messages` as a feature (window length is a weak shortcut, AUC 0.531).

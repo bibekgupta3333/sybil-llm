@@ -1,8 +1,6 @@
-# EDA / notebook / report-generation environment (.venv, Python 3.14).
-# NOTE: the model-training environment used for transformer_model.ipynb (torch,
-# roadfm_lite_*.pt) is undocumented and separate from this venv — no torch
-# is installed here. Export that environment's `pip freeze` separately if
-# training needs to be reproduced.
+# EDA / notebooks / legacy v1 parquet tooling environment (.venv, Python 3.14.5, no torch).
+# Training + tests: requirements-train.txt (.venv-train, macOS freeze) · Docker/Linux: requirements/linux.txt.
+# Keep pins shared with those files equal when you change one.
 numpy==2.4.4
 pandas==3.0.2
 scipy==1.17.1

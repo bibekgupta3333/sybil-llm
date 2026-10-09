@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import pathlib
 import platform
 import re
 import shutil
@@ -26,6 +27,10 @@ NVIDIA_QUERY_FIELDS = ("name", "memory.total", "memory.used", "driver_version", 
 SMOKE_SIZE = 1024
 SMOKE_REPEATS = 5
 SMOKE_TOLERANCE = 1e-2
+# PCI subsystem ids (vendor 0x10de) of AWS vGPU profiles: 0x1733 = the fractional L4 of g6f / gr6f. These need NVIDIA's
+# GRID guest driver; Ubuntu's nvidia drivers refuse them ("NVIDIA vGPU ... is not supported").
+VGPU_SUBSYSTEMS = frozenset({"0x1733"})
+PCI_DEVICES = pathlib.Path("/sys/bus/pci/devices")
 
 # Runs argv and returns its stdout, or None when the command is missing, fails or times out.
 CommandRunner = Callable[[Sequence[str]], "str | None"]
@@ -91,11 +96,36 @@ def parse_lspci_nvidia(text: str) -> list[str]:
     return [line.strip() for line in text.splitlines() if "nvidia" in line.lower()]
 
 
+def find_vgpu_devices(pci_root: pathlib.Path = PCI_DEVICES) -> list[str]:
+    """PCI addresses of NVIDIA devices whose subsystem id is a known AWS vGPU profile (empty when none / no sysfs)."""
+    found = []
+    try:
+        devices = sorted(pci_root.iterdir())
+    except OSError:
+        return []
+    for device in devices:
+        try:
+            vendor = (device / "vendor").read_text().strip()
+            subsystem = (device / "subsystem_device").read_text().strip()
+        except OSError:
+            continue
+        if vendor == "0x10de" and subsystem in VGPU_SUBSYSTEMS:
+            found.append(device.name)
+    return found
+
+
 class HostProbe:
     """What the operating system reports about GPUs, independent of torch."""
 
-    def __init__(self, runner: CommandRunner = run_command, system: str | None = None, machine: str | None = None):
+    def __init__(
+        self,
+        runner: CommandRunner = run_command,
+        system: str | None = None,
+        machine: str | None = None,
+        pci_root: pathlib.Path = PCI_DEVICES,
+    ):
         self._run = runner
+        self._pci_root = pci_root
         self._system = system or platform.system()
         self._machine = machine or platform.machine()
 
@@ -109,6 +139,7 @@ class HostProbe:
             "gpus": [],
             "cuda_driver_version": None,
             "lspci_nvidia": None,
+            "vgpu_devices": [],
             "apple_chip": None,
         }
         query = self._run(
@@ -124,6 +155,7 @@ class HostProbe:
         if self._system == "Linux":
             lspci = self._run(["lspci"])
             info["lspci_nvidia"] = parse_lspci_nvidia(lspci) if lspci is not None else None
+            info["vgpu_devices"] = find_vgpu_devices(self._pci_root)
         if self._system == "Darwin":
             chip = self._run(["sysctl", "-n", "machdep.cpu.brand_string"])
             info["apple_chip"] = chip.strip() if chip else None
@@ -251,6 +283,7 @@ class GpuReport:
             lines.extend(f"→ lspci: {line}" for line in self.host["lspci_nvidia"])
         elif self.host["system"] == "Linux":
             lines.append("→ lspci: no NVIDIA device" if self.host["lspci_nvidia"] == [] else "→ lspci: not available")
+        lines.extend(self.driver_hints())
         if self.host["apple_chip"]:
             lines.append(f"✓ Apple chip: {self.host['apple_chip']}")
 
@@ -280,6 +313,22 @@ class GpuReport:
             lines.append(f"✗ smoke test on {smoke.get('device')}: {smoke.get('error') or smoke}")
         lines.append("✓ CUDA ready" if self.has_cuda else f"! no CUDA device — training runs on {smoke.get('device')}")
         return "\n".join(lines)
+
+    def driver_hints(self) -> list[str]:
+        """What to do when the host has an NVIDIA device (lspci / vGPU scan) but nvidia-smi does not work."""
+        vgpu = self.host.get("vgpu_devices") or []
+        if self.host["gpus"] or not (self.host["lspci_nvidia"] or vgpu):
+            return []
+        if vgpu:
+            return [
+                f"! vGPU device ({', '.join(vgpu)}, fractional GPU as on g6f / gr6f) without a working driver:"
+                " it needs NVIDIA's GRID guest driver, Ubuntu's nvidia drivers refuse it",
+                "  fix: bash scripts/ec2_bootstrap.sh --install-driver   (installs AWS's GRID driver; docs/ec2-training.md)",
+            ]
+        return [
+            "! NVIDIA device present but no working driver — fix: bash scripts/ec2_bootstrap.sh --install-driver"
+            " (on g6f / gr6f, a vGPU, the GRID driver is needed; docs/ec2-training.md)"
+        ]
 
 
 def _fmt(value: float | None) -> str:

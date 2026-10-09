@@ -20,6 +20,8 @@ BANNER_OUT = """
 | NVIDIA-SMI 570.86.15              Driver Version: 570.86.15      CUDA Version: 12.8     |
 +-----------------------------------------------------------------------------------------+
 """
+NO_PCI = pathlib.Path("/nonexistent-pci-root")  # keeps the tests independent of the machine's own sysfs
+LSPCI_L4 = "31:00.0 3D controller: NVIDIA Corporation AD104GL [L4] (rev a1)\n"
 LSPCI_OUT = (
     "00:1e.0 3D controller: NVIDIA Corporation GA102GL [A10G] (rev a1)\n"
     "00:03.0 VGA compatible controller: Amazon.com, Inc. Device 1111\n"
@@ -103,7 +105,7 @@ def test_run_command_missing_tool_returns_none():
 
 def test_host_probe_linux_with_gpu():
     runner = FakeRunner({"nvidia-smi --query-gpu": QUERY_OUT, "nvidia-smi": BANNER_OUT, "lspci": LSPCI_OUT})
-    info = gpu_check.HostProbe(runner=runner, system="Linux", machine="x86_64").collect()
+    info = gpu_check.HostProbe(runner=runner, system="Linux", machine="x86_64", pci_root=NO_PCI).collect()
     assert info["nvidia_smi"] == "ok"
     assert [g["name"] for g in info["gpus"]] == ["NVIDIA A10G", "NVIDIA A10G"]
     assert info["cuda_driver_version"] == "12.8"
@@ -112,7 +114,7 @@ def test_host_probe_linux_with_gpu():
 
 
 def test_host_probe_linux_without_nvidia_smi_or_lspci():
-    info = gpu_check.HostProbe(runner=FakeRunner({}), system="Linux", machine="x86_64").collect()
+    info = gpu_check.HostProbe(runner=FakeRunner({}), system="Linux", machine="x86_64", pci_root=NO_PCI).collect()
     assert info["nvidia_smi"] == "not found or failed"
     assert info["gpus"] == [] and info["cuda_driver_version"] is None
     assert info["lspci_nvidia"] is None
@@ -160,7 +162,9 @@ def test_best_device_order(info, device):
 
 
 def linux_no_gpu_report(torch_probe: gpu_check.TorchProbe) -> gpu_check.GpuReport:
-    host = gpu_check.HostProbe(runner=FakeRunner({"lspci": LSPCI_OUT.splitlines()[1]}), system="Linux", machine="x")
+    host = gpu_check.HostProbe(
+        runner=FakeRunner({"lspci": LSPCI_OUT.splitlines()[1]}), system="Linux", machine="x", pci_root=NO_PCI
+    )
     return gpu_check.GpuReport(host=host, torch_probe=torch_probe)
 
 
@@ -215,9 +219,62 @@ def test_report_with_cuda_device(capsys):
             }
 
     runner = FakeRunner({"nvidia-smi --query-gpu": QUERY_OUT, "nvidia-smi": BANNER_OUT, "lspci": LSPCI_OUT})
-    report = gpu_check.GpuReport(host=gpu_check.HostProbe(runner=runner, system="Linux"), torch_probe=FakeProbe())
+    report = gpu_check.GpuReport(
+        host=gpu_check.HostProbe(runner=runner, system="Linux", pci_root=NO_PCI), torch_probe=FakeProbe()
+    )
     assert gpu_check.main(["--require-gpu"], report=report) == 0
     out = capsys.readouterr().out
     assert "cuda:0 NVIDIA A10G (sm 8.6, 22.3 GiB)" in out
     assert "driver 570.86.15" in out and "CUDA 12.8" in out
     assert "CUDA ready" in out
+
+
+# --- vGPU (g6f / gr6f) and driver hints -----------------------------------------------------------------------------
+
+
+def fake_pci(root: pathlib.Path, devices: dict[str, tuple[str, str]]) -> pathlib.Path:
+    """A fake /sys/bus/pci/devices: {address: (vendor, subsystem_device)}."""
+    for address, (vendor, subsystem) in devices.items():
+        (root / address).mkdir(parents=True)
+        (root / address / "vendor").write_text(vendor + "\n")
+        (root / address / "subsystem_device").write_text(subsystem + "\n")
+    return root
+
+
+def test_find_vgpu_devices(tmp_path):
+    root = fake_pci(
+        tmp_path,
+        {"0000:31:00.0": ("0x10de", "0x1733"), "0000:1e.0": ("0x10de", "0x1234"), "0000:00.3": ("0x1d0f", "0x1733")},
+    )
+    assert gpu_check.find_vgpu_devices(root) == ["0000:31:00.0"]
+    assert gpu_check.find_vgpu_devices(tmp_path / "missing") == []
+
+
+def test_vgpu_without_driver_hints_grid(tmp_path, capsys):
+    root = fake_pci(tmp_path, {"0000:31:00.0": ("0x10de", "0x1733")})
+    host = gpu_check.HostProbe(runner=FakeRunner({"lspci": LSPCI_L4}), system="Linux", machine="x86_64", pci_root=root)
+    report = gpu_check.GpuReport(host=host, torch_probe=NoTorchProbe())
+    assert report.host["vgpu_devices"] == ["0000:31:00.0"]
+    assert gpu_check.main([], report=report) == 0
+    out = capsys.readouterr().out
+    assert "vGPU device (0000:31:00.0" in out and "GRID guest driver" in out
+    assert "ec2_bootstrap.sh --install-driver" in out
+
+
+def test_nvidia_without_driver_hints_install_driver(capsys):
+    host = gpu_check.HostProbe(runner=FakeRunner({"lspci": LSPCI_L4}), system="Linux", machine="x", pci_root=NO_PCI)
+    report = gpu_check.GpuReport(host=host, torch_probe=NoTorchProbe())
+    assert gpu_check.main([], report=report) == 0
+    out = capsys.readouterr().out
+    assert "NVIDIA device present but no working driver" in out and "GRID" in out
+
+
+def test_no_hint_when_driver_works(tmp_path, capsys):
+    root = fake_pci(tmp_path, {"0000:31:00.0": ("0x10de", "0x1733")})
+    runner = FakeRunner({"nvidia-smi --query-gpu": QUERY_OUT, "nvidia-smi": BANNER_OUT, "lspci": LSPCI_L4})
+    report = gpu_check.GpuReport(
+        host=gpu_check.HostProbe(runner=runner, system="Linux", pci_root=root), torch_probe=NoTorchProbe()
+    )
+    assert gpu_check.main([], report=report) == 0
+    out = capsys.readouterr().out
+    assert "nvidia-smi: NVIDIA A10G" in out and "fix:" not in out and "no working driver" not in out

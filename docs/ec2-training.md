@@ -30,11 +30,54 @@ tmux new -s train                      # then: npm run train:full ; afterwards n
 
 | Command | What it does |
 |---|---|
-| `bash scripts/ec2_bootstrap.sh` | everything above; idempotent; log `~/roadfm-bootstrap.log`; `--check`, `--dry-run`, `--allow-root`, `--install-driver` (GPU without a working `nvidia-smi`: driver ≥ 560, then reboot + re-run), `--docker` (optional Docker route) |
+| `bash scripts/ec2_bootstrap.sh` | everything above; idempotent; log `~/roadfm-bootstrap.log`; `--check`, `--dry-run`, `--allow-root`, `--install-driver` (GPU without a working `nvidia-smi`: Ubuntu's server driver ≥ 560, then reboot + re-run; on a vGPU host AWS's GRID driver, see below), `--driver auto\|grid\|ubuntu` (which driver; default `auto`), `--docker` (optional Docker route) |
 | `npm run setup:venv` (`bash scripts/setup_venv.sh`) | only the venvs: creates / completes `.venv-train` + `.venv` with uv, installs the pins (macOS: `requirements-train.txt`; Linux: `requirements/linux.txt` + torch), registers the kernels, verifies; `--check` (= `npm run setup:venv:check`, also fails on a pin mismatch), `--dry-run`, `--recreate`, `--no-eda`, `--cpu` / `--cuda` |
 | `npm run gpu:check` · `npm run gpu:require` | GPU report (`scripts/gpu_check.py`: nvidia-smi, torch CUDA / MPS, smoke test); `gpu:require` exits 1 when torch sees no CUDA device — use it before `train:full` |
 
 `hf`, `uv` are linked into `/usr/local/bin`; `gh` comes from GitHub's apt repo.
+
+### g6f / gr6f: fractional GPU (vGPU) needs the GRID driver
+
+`g6f` / `gr6f` instances get a **slice of an NVIDIA L4**, exposed as an NVIDIA vGPU (PCI `10de:27b8`, subsystem
+`10de:1733`). The GPU memory is only that slice: on `g6f.xlarge` `nvidia-smi` shows `NVIDIA L4-3Q` with **3 GB**
+(torch: 2.79 GiB), not 24 GB. Ubuntu's nvidia drivers (`nvidia-driver-*`, `*-open`) refuse a vGPU — dmesg says
+`NVRM: The NVIDIA vGPU ... is not supported by open nvidia.ko`, `nvidia-smi` fails and `torch.cuda.is_available()`
+is False. These instances need **NVIDIA's GRID guest driver**, which AWS publishes in a public bucket (anonymous, no AWS
+CLI or IAM role): `curl 'https://ec2-linux-nvidia-drivers.s3.amazonaws.com/?list-type=2&prefix=latest/'`.
+
+What `bash scripts/ec2_bootstrap.sh` does about it:
+
+- **Detection** (`--driver auto`): a vGPU host is one whose instance type (IMDSv2, 2 s timeout) matches `g6f.` /
+  `gr6f.`, or that has an NVIDIA device with a known vGPU subsystem id (`0x1733`), or whose dmesg mentions
+  `NVIDIA vGPU`. `--driver grid` / `--driver ubuntu` override the detection.
+- **`--check`** shows `GPU kind` (vGPU + why, or full GPU), the installed driver kind (`grid`, `ubuntu`, `other`,
+  `none`) and, for GRID, the license status. A vGPU host without a working GRID driver is a failure
+  (`vGPU with non-GRID driver`) with the fix: `bash scripts/ec2_bootstrap.sh --install-driver`.
+- **`--install-driver`** on a vGPU host: installs `build-essential`, `dkms`, the headers of the running kernel and
+  `linux-headers-aws` (DKMS rebuilds the module after kernel updates); purges Ubuntu's versioned nvidia driver
+  packages (`nvidia-driver-NNN*`, `nvidia-dkms-NNN*`, `nvidia-utils-NNN*`, `nvidia-compute-utils-NNN`,
+  `nvidia-firmware-NNN*`, `libnvidia-*-NNN`, `xserver-xorg-video-nvidia-NNN`; `nvidia-prime`,
+  `libnvidia-egl-wayland1` and the container toolkit are kept); unloads leftover nvidia modules; resolves the newest
+  `latest/NVIDIA-Linux-<arch>-*-grid-aws.run` from the bucket listing, downloads it to `~/.cache/roadfm-bootstrap/`
+  (skipped when a file of the listed size is already there), checks the size against the listing and the runfile's
+  own checksum (`sh <file> --check`); installs it with `--silent --dkms --no-questions --ui=none` (the installer's
+  default open kernel module accepts the vGPU with the GRID build); blacklists nouveau
+  (`/etc/modprobe.d/blacklist-nouveau.conf`, if not already); rebuilds the initramfs with the tool the host uses
+  (`update-initramfs` when `initramfs-tools` is installed, else `dracut -f --kver $(uname -r)` — Ubuntu 26.04 uses
+  dracut, and the installer may rebuild none when it finds several); then `modprobe nvidia`, `modprobe nvidia-uvm`
+  and `nvidia-smi`. If `nvidia-smi` still fails it asks for a reboot and a re-run. The installer also enables the
+  `nvidia-persistenced` and `nvidia-gridd` services; on AWS no license configuration is needed
+  (`nvidia-smi -q | grep -i license` shows `Licensed`).
+- **Idempotent:** a working GRID driver (`nvidia-gridd` present, `nvidia-smi` works) is kept; `--dry-run` prints the
+  plan (including the resolved bucket key and size) and changes nothing.
+
+**Never** run `apt install nvidia-driver-*` or `ubuntu-drivers install` on a g6f / gr6f instance afterwards: it
+replaces the GRID driver with one that refuses the vGPU. (The script's Ubuntu-driver path only runs on non-vGPU
+hosts or with `--driver ubuntu`.)
+
+Check afterwards with `npm run gpu:check` (it also prints a GRID hint when it finds a vGPU without a working driver).
+Note that 3 GB of GPU memory is small for batch 256; check `train:smoke` before a long run, or pick a full-GPU
+instance (`g6.xlarge`, `g5.xlarge`).
 
 **Tested without AWS** in a simulated fresh instance (Docker is used only for this test, `docker/ec2-sim/`):
 `npm run ec2:sim` (root, Ubuntu 26.04) and `npm run ec2:sim:ubuntu` (`ubuntu` user, 24.04) run the bootstrap twice,
@@ -98,7 +141,8 @@ Nothing is written into `data/`.
 ## 1. Instance
 
 - **Type:** `g6.xlarge` (NVIDIA L4, 24 GB, 4 vCPU, 16 GB RAM) or `g5.xlarge` (NVIDIA A10G, 24 GB, 4 vCPU, 16 GB RAM)
-  is plenty for d = 128 (2.3 M encoder params, batch 256). The pipeline notebooks use `multiprocessing`; a
+  is plenty for d = 128 (2.3 M encoder params, batch 256). `g6f` / `gr6f` are fractional L4s (vGPU; `g6f.xlarge`:
+  3 GB GPU memory) and need AWS's GRID driver — see "g6f / gr6f" above. The pipeline notebooks use `multiprocessing`; a
   `g6.2xlarge` / `g5.2xlarge` (8 vCPU, 32 GB) makes data preparation faster if you care.
 - **AMI, easiest:** "Deep Learning Base OSS Nvidia Driver GPU AMI (Ubuntu 24.04)" — NVIDIA driver, Docker and the
   NVIDIA Container Toolkit are already installed. Check with `nvidia-smi` and

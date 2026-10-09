@@ -6,13 +6,18 @@
 #
 #   --dry-run          print every command, change nothing
 #   --check            only report what is installed (exit 1 if a required component is missing)
-#   --install-driver   install the NVIDIA server driver (>= 560) when a GPU is present but nvidia-smi fails (reboot after)
+#   --install-driver   install the NVIDIA driver when a GPU is present but nvidia-smi fails: Ubuntu's server driver
+#                      (>= 560; reboot after), or on a vGPU host (g6f / gr6f, fractional L4) AWS's GRID guest driver
+#   --driver KIND      which driver a GPU host needs: auto (default: GRID on a vGPU host, else Ubuntu's), grid, ubuntu
 #   --docker           also install Docker Engine + compose + NVIDIA Container Toolkit (the optional Docker route)
 #   --no-start         do not start / restart services or run containers (also automatic when systemd is not PID 1)
 #   --allow-root       run as root (e.g. the root shell on EC2) without the root warning; root also works without it
 #   --native, --hf-cli accepted for compatibility (both are now always installed)
 #   -h, --help         this help
 #
+# vGPU hosts (g6f / gr6f, instance type from IMDSv2, or the vGPU PCI subsystem / dmesg): Ubuntu's nvidia drivers
+# refuse the vGPU, so --install-driver purges them and installs the newest latest/*grid-aws.run from AWS's public
+# bucket (s3://ec2-linux-nvidia-drivers; size checked against the listing, `sh run --check`, `--silent --dkms`).
 # Installs the same environment as the local Mac: base tools (git, git-lfs, tmux, htop, jq, build-essential, the pango
 # libs weasyprint needs, ...), Node.js 22 LTS + npm (NodeSource), the GitHub CLI `gh` (cli.github.com apt repo), uv,
 # the Hugging Face CLI `hf` (uv tool, linked into /usr/local/bin), and both venvs via scripts/setup_venv.sh:
@@ -29,8 +34,17 @@ NATIVE=1
 DOCKER=0
 NO_START=0
 ALLOW_ROOT=0
-for arg in "$@"; do
+DRIVER_KIND=auto
+args=("$@")
+while (($#)); do
+  arg="$1"
+  shift
   case "$arg" in
+    --driver=*) DRIVER_KIND="${arg#--driver=}" ;;
+    --driver)
+      DRIVER_KIND="${1:-}"
+      shift || true
+      ;;
     --dry-run) DRY_RUN=1 ;;
     --check) CHECK_ONLY=1 ;;
     --install-driver) INSTALL_DRIVER=1 ;;
@@ -40,7 +54,7 @@ for arg in "$@"; do
     --no-start) NO_START=1 ;;
     --allow-root) ALLOW_ROOT=1 ;;
     -h | --help)
-      sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
+      awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"
       exit 0
       ;;
     *)
@@ -49,6 +63,10 @@ for arg in "$@"; do
       ;;
   esac
 done
+[[ "$DRIVER_KIND" =~ ^(auto|grid|ubuntu)$ ]] || {
+  echo "--driver must be auto, grid or ubuntu (got '$DRIVER_KIND')" >&2
+  exit 2
+}
 
 # Versions kept equal to docker/Dockerfile and requirements/linux.txt.
 NODE_MAJOR=22
@@ -58,6 +76,12 @@ TORCH_VERSION=2.14.1
 HF_HUB_VERSION=2.2.0
 MIN_DRIVER=560
 FALLBACK_DRIVER=570
+# vGPU (fractional GPU) instance families: they need NVIDIA's GRID guest driver, which AWS publishes in a public bucket.
+VGPU_INSTANCE_RE='^(g6f|gr6f)\.'
+# PCI subsystem ids (vendor 0x10de) of known AWS vGPU profiles: 0x1733 = the fractional L4 of g6f / gr6f.
+VGPU_SUBSYSTEMS=(0x1733)
+GRID_BUCKET_URL="https://ec2-linux-nvidia-drivers.s3.amazonaws.com"
+GRID_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/roadfm-bootstrap"
 # libpango-1.0-0 + libpangoft2-1.0-0: runtime libs of weasyprint (the .venv EDA env renders HTML / PDF with it).
 BASE_PACKAGES=(ca-certificates curl wget gnupg git git-lfs tmux htop jq unzip build-essential pciutils lsb-release
   libpango-1.0-0 libpangoft2-1.0-0)
@@ -76,7 +100,7 @@ else
 fi
 # Everything below is also appended to the log file.
 exec > >(tee -a "$LOG_FILE") 2>&1
-printf '\n# %s  ec2_bootstrap.sh %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*"
+printf '\n# %s  ec2_bootstrap.sh %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "${args[*]}"
 
 banner() { printf '\n%s== %s ==%s\n' "$BOLD" "$1" "$RESET"; }
 ok() { printf '%s✓%s %s\n' "$GREEN" "$RESET" "$1"; }
@@ -124,6 +148,91 @@ driver_major() {
   v="$(driver_version)"
   v="${v%%.*}"
   [[ "$v" =~ ^[0-9]+$ ]] && echo "$v" || echo 0
+}
+# EC2 instance type via IMDSv2 (short timeouts; empty off EC2). ROADFM_INSTANCE_TYPE overrides it (tests, non-EC2).
+INSTANCE_TYPE_CACHE=""
+instance_type() {
+  if [[ -n "${ROADFM_INSTANCE_TYPE+x}" ]]; then
+    echo "$ROADFM_INSTANCE_TYPE"
+    return 0
+  fi
+  if [[ -z "$INSTANCE_TYPE_CACHE" ]]; then
+    local token
+    token="$(curl -fsS -X PUT --connect-timeout 1 --max-time 2 -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' \
+      http://169.254.169.254/latest/api/token 2>/dev/null || true)"
+    if [[ -n "$token" ]]; then
+      INSTANCE_TYPE_CACHE="$(curl -fsS --connect-timeout 1 --max-time 2 -H "X-aws-ec2-metadata-token: $token" \
+        http://169.254.169.254/latest/meta-data/instance-type 2>/dev/null || true)"
+    fi
+    INSTANCE_TYPE_CACHE="${INSTANCE_TYPE_CACHE:--}"  # "-" = asked, no answer
+  fi
+  [[ "$INSTANCE_TYPE_CACHE" == "-" ]] || echo "$INSTANCE_TYPE_CACHE"
+}
+# Why this host counts as a vGPU host (empty = not one): the instance family, the PCI subsystem of a known AWS vGPU
+# profile, or the kernel's "NVIDIA vGPU ... not supported" message after a wrong driver was tried.
+VGPU_REASON_CACHE=""
+vgpu_reason() {
+  if [[ -z "$VGPU_REASON_CACHE" ]]; then
+    local it dev sub reason=""
+    it="$(instance_type)"
+    if [[ "$it" =~ $VGPU_INSTANCE_RE ]]; then
+      reason="instance type $it"
+    else
+      for dev in /sys/bus/pci/devices/*; do
+        [[ "$(cat "$dev/vendor" 2>/dev/null)" == 0x10de ]] || continue
+        sub="$(cat "$dev/subsystem_device" 2>/dev/null || true)"
+        if [[ " ${VGPU_SUBSYSTEMS[*]} " == *" $sub "* ]]; then
+          reason="PCI subsystem 10de:${sub#0x}"
+          break
+        fi
+      done
+    fi
+    if [[ -z "$reason" ]] && { dmesg 2>/dev/null || sudo -n dmesg 2>/dev/null || true; } | grep -q 'NVIDIA vGPU'; then
+      reason="dmesg reports an NVIDIA vGPU"
+    fi
+    VGPU_REASON_CACHE="${reason:--}"
+  fi
+  [[ "$VGPU_REASON_CACHE" == "-" ]] || echo "$VGPU_REASON_CACHE"
+}
+# grid | ubuntu: which driver this host needs (--driver, else auto-detected).
+wanted_driver() {
+  if [[ "$DRIVER_KIND" != auto ]]; then
+    echo "$DRIVER_KIND"
+  elif [[ -n "$(vgpu_reason)" ]]; then
+    echo grid
+  else
+    echo ubuntu
+  fi
+}
+# Ubuntu's versioned nvidia driver packages that are installed (nvidia-driver-595-open, nvidia-dkms-*, nvidia-utils-*,
+# nvidia-compute-utils-*, nvidia-firmware-*, libnvidia-*-595, xserver-xorg-video-nvidia-595, ...). Unversioned helpers
+# (nvidia-prime, libnvidia-egl-wayland1) and the container toolkit are kept.
+ubuntu_nvidia_packages() {
+  dpkg-query -W -f='${Package} ${Status}\n' 'nvidia-*' 'libnvidia-*' 'xserver-xorg-video-nvidia-*' 2>/dev/null \
+    | awk '/install ok installed/ {print $1}' | grep -vE '^(lib)?nvidia-container' \
+    | grep -E '^(nvidia|libnvidia|xserver-xorg-video-nvidia)(-[a-z0-9]+)*-[0-9]{3}(-server)?(-open)?(-[0-9.]+)?$' || true
+}
+# Installed driver: grid (NVIDIA's GRID runfile: nvidia-gridd), ubuntu (apt packages), other (e.g. a DLAMI runfile),
+# none.
+driver_kind() {
+  if command -v nvidia-gridd >/dev/null 2>&1 || [[ -e /etc/nvidia/gridd.conf.template ]]; then
+    echo grid
+  elif ubuntu_nvidia_packages | grep -qE '^nvidia-(driver|dkms|kernel-source|headless)-'; then
+    echo ubuntu
+  elif command -v nvidia-smi >/dev/null 2>&1 || [[ -e /proc/driver/nvidia/version ]]; then
+    echo other
+  else
+    echo none
+  fi
+}
+grid_license() { nvidia-smi -q 2>/dev/null | sed -nE 's/^[[:space:]]*License Status[[:space:]]*:[[:space:]]*//p' | head -1 || true; }
+# "key size" of the newest latest/NVIDIA-Linux-<arch>-*-grid-aws.run in the public bucket (anonymous S3 list API).
+grid_latest() {
+  local arch
+  arch="$(uname -m)"
+  curl -fsS --max-time 30 "$GRID_BUCKET_URL/?list-type=2&prefix=latest/" 2>/dev/null | sed 's#<Contents>#\n#g' \
+    | sed -nE "s#.*<Key>(latest/NVIDIA-Linux-${arch}-[^<]*-grid-aws\.run)</Key>.*<Size>([0-9]+)</Size>.*#\1 \2#p" \
+    | sort -V -k1,1 | tail -1 || true
 }
 node_major() {
   local v
@@ -283,18 +392,32 @@ report() {
     status_row "Docker" "" "skipped (native route; --docker adds it)"
   fi
   if has_nvidia_gpu; then
-    local gpu
+    local gpu kind want vr
     gpu="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 || true)"
+    kind="$(driver_kind)"
+    want="$(wanted_driver)"
+    vr="$(vgpu_reason)"
+    status_row "GPU kind" "$([[ -n "$vr" ]] && echo "vGPU ($vr)" || echo "full GPU")" "needs the $want driver (--driver $DRIVER_KIND)"
     if nvidia_smi_ok; then
-      local dv
+      local dv lic
       dv="$(driver_version)"
       if (($(driver_major) >= MIN_DRIVER)); then
-        status_row "NVIDIA driver" "$dv ($gpu)" ok
+        status_row "NVIDIA driver" "$dv $kind ($gpu)" ok
       else
-        status_row "NVIDIA driver" "$dv (< $MIN_DRIVER, cu126 needs >= $MIN_DRIVER)" "too old"
+        status_row "NVIDIA driver" "$dv $kind (< $MIN_DRIVER, cu126 needs >= $MIN_DRIVER)" "too old"
       fi
+      if [[ "$kind" == grid ]]; then
+        lic="$(grid_license)"
+        status_row "vGPU license" "${lic:-unknown}" "$([[ "$lic" == Licensed* ]] && echo ok || echo 'check: nvidia-smi -q | grep -i license')"
+      fi
+    elif [[ "$want" == grid && "$kind" != grid ]]; then
+      status_row "NVIDIA driver" "vGPU with non-GRID driver ($kind)" missing
+      row "" "" "${YELLOW}fix: bash scripts/ec2_bootstrap.sh --install-driver  (purges Ubuntu's nvidia packages, installs AWS's GRID driver)${RESET}"
+    elif [[ "$kind" == grid ]]; then
+      status_row "NVIDIA driver" "GRID installed, nvidia-smi fails" missing
+      row "" "" "${YELLOW}fix: sudo modprobe nvidia, or sudo reboot${RESET}"
     else
-      status_row "NVIDIA driver" "GPU present, nvidia-smi fails" missing
+      status_row "NVIDIA driver" "GPU present, nvidia-smi fails ($kind)" missing
     fi
     if ((DOCKER)) && command -v nvidia-ctk >/dev/null 2>&1; then
       status_row "NVIDIA Container Toolkit" "$(nvidia-ctk --version 2>/dev/null | head -1 | awk '{print $NF}')" ok
@@ -487,9 +610,91 @@ if ((DOCKER)); then
 fi
 
 # ---------------------------------------------------------------------------------------------------------------------
+# AWS's GRID guest driver for vGPU hosts: purge Ubuntu's nvidia packages (they refuse the vGPU), download the newest
+# latest/*grid-aws.run, check its size + checksum, install it with DKMS, load it, verify with nvidia-smi.
+install_grid_driver() {
+  local pkgs=() latest key size file have
+  mapfile -t pkgs < <(ubuntu_nvidia_packages)
+  # DKMS builds the kernel module for the running kernel (and again after kernel updates: linux-headers-aws).
+  apt_install build-essential dkms "linux-headers-$(uname -r)"
+  if [[ "$(uname -r)" == *-aws ]]; then apt_install linux-headers-aws; fi
+  if ((${#pkgs[@]})); then
+    step "purging Ubuntu's nvidia packages (they do not support the vGPU): ${pkgs[*]}"
+    run "${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive apt-get purge -y "${pkgs[@]}"
+    run "${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive apt-get autoremove -y
+  fi
+  # A module left loaded by the old driver blocks the installer; nothing to do when none is loaded.
+  run_sh "${SUDO[*]} modprobe -r nvidia_drm nvidia_modeset nvidia_uvm nvidia 2>/dev/null || true"
+  latest="$(grid_latest)"
+  if [[ -z "$latest" ]]; then
+    if ((DRY_RUN)); then
+      warn "could not list $GRID_BUCKET_URL/?prefix=latest/ (offline?) — a real run would stop here"
+      latest="latest/NVIDIA-Linux-$(uname -m)-<version>-grid-aws.run 0"
+    else
+      die "no latest/*grid-aws.run for $(uname -m) in $GRID_BUCKET_URL — see docs/ec2-training.md (g6f / gr6f)"
+    fi
+  fi
+  key="${latest% *}"
+  size="${latest##* }"
+  file="$GRID_CACHE/${key##*/}"
+  step "GRID driver: $key ($size bytes)"
+  run mkdir -p "$GRID_CACHE"
+  have="$(stat -c %s "$file" 2>/dev/null || echo 0)"
+  if [[ "$have" == "$size" ]]; then
+    ok "already downloaded: $file"
+  else
+    run curl -fL --retry 3 -o "$file" "$GRID_BUCKET_URL/$key"
+  fi
+  if ((!DRY_RUN)); then
+    have="$(stat -c %s "$file" 2>/dev/null || echo 0)"
+    [[ "$have" == "$size" ]] || die "$file is $have bytes, the bucket listing says $size — delete it and re-run"
+    ok "size matches the bucket listing ($size bytes)"
+  fi
+  run sh "$file" --check
+  # The installer picks the open kernel module by default; with the GRID build it accepts the vGPU.
+  run "${SUDO[@]}" sh "$file" --silent --dkms --no-questions --ui=none
+  if [[ "$(cat /etc/modprobe.d/blacklist-nouveau.conf 2>/dev/null)" != *"blacklist nouveau"* ]]; then
+    run_sh "printf 'blacklist nouveau\\noptions nouveau modeset=0\\n' | ${SUDO[*]} tee /etc/modprobe.d/blacklist-nouveau.conf >/dev/null"
+  fi
+  # The installer may skip the initramfs when it finds several tools; rebuild it with the one this host uses
+  # (Ubuntu 26.04: dracut, whose package also ships an update-initramfs wrapper; older releases: initramfs-tools).
+  if pkg_installed initramfs-tools && command -v update-initramfs >/dev/null 2>&1; then
+    run "${SUDO[@]}" update-initramfs -u -k "$(uname -r)"
+  elif command -v dracut >/dev/null 2>&1; then
+    run "${SUDO[@]}" dracut -f --kver "$(uname -r)"
+  else
+    warn "no update-initramfs / dracut found — initramfs not rebuilt"
+  fi
+  run "${SUDO[@]}" modprobe nvidia
+  run "${SUDO[@]}" modprobe nvidia-uvm
+  if ((DRY_RUN)); then
+    run nvidia-smi
+  elif nvidia_smi_ok && [[ "$(driver_kind)" == grid ]]; then
+    ok "GRID driver $(driver_version) works: $(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader | head -1)"
+  else
+    NEED_REBOOT=1
+    warn "GRID driver installed but nvidia-smi does not work yet — reboot (sudo reboot), then re-run this script"
+  fi
+}
+
 banner "NVIDIA driver"
 if ! has_nvidia_gpu; then
   ok "no NVIDIA GPU found — skipped (.venv-train gets torch cpu)"
+elif [[ "$(wanted_driver)" == grid ]]; then
+  vr="$(vgpu_reason)"
+  step "vGPU host (${vr:-forced with --driver grid}): needs NVIDIA's GRID guest driver from AWS"
+  kind="$(driver_kind)"
+  if nvidia_smi_ok && [[ "$kind" == grid ]]; then
+    ok "GRID driver $(driver_version) works (nvidia-smi, license: $(grid_license)) — kept"
+  elif nvidia_smi_ok; then
+    warn "nvidia-smi works with a $kind driver $(driver_version) on a vGPU host — kept (--install-driver does not replace a working driver)"
+  elif [[ "$kind" == grid ]] && ((!DRY_RUN)) && "${SUDO[@]}" modprobe nvidia 2>/dev/null && nvidia_smi_ok; then
+    ok "GRID driver $(driver_version) loaded (modprobe nvidia) — kept"
+  elif ((INSTALL_DRIVER)); then
+    install_grid_driver
+  else
+    bad "vGPU with a non-working $kind driver — re-run with --install-driver (installs AWS's GRID driver)"
+  fi
 else
   if nvidia_smi_ok; then
     dv="$(driver_version)"

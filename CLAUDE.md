@@ -38,7 +38,7 @@ every doc and page has a one-line entry in `docs/README.md`.
 | `tracker.html` | Whole-thesis progress tracker (open in a browser; localStorage state) |
 | `encoder-shapes.html` · `pretraining-explained.html` · `stage1-input-slides.html` | Explainer pages: encoder matrix shapes · the pretraining run · input-representation slides for the professor |
 | `src/` · `src/agent.md` · `src/README.md` | All new code for the adopted TimesNet plan (`pipeline/`, `eda/`, `model/`, gitignored `data/` + `runs/`, `tests/`) · its coding rules and workflow · layout + run order |
-| `scripts/` | Tooling: `setup.sh` (one-command Docker setup), `hf_hub.py` (private HF repos), `run_notebook.py`, `export_encoder_sample.py` / `export_simulation_sample.py` (simulator data), `organize_repo.sh` (hook); legacy v1 `prepare_data.py`, `audit_splits.py`; tests in `scripts/tests/` |
+| `scripts/` | Tooling: `ec2_bootstrap.sh` (EC2 host = the Mac setup, no Docker), `setup_venv.sh` (both venvs + kernels), `gpu_check.py`, `setup.sh` (one-command setup, `--native` or Docker), `hf_hub.py` (private HF repos), `run_notebook.py`, `export_encoder_sample.py` / `export_simulation_sample.py` (simulator data), `organize_repo.sh` (hook); legacy v1 `prepare_data.py`, `audit_splits.py`; tests in `scripts/tests/` |
 | `package.json` | npm task shortcuts (`setup`, `pipeline:*`, `train:*`, `hf:*` / `data:*` / `model:*`, `docker:*`, `format`, `test`, `check`, `sim*`) |
 | `docker/` · `docker-compose.yml` | Ubuntu 24.04 training image (services `gpu` / `cpu`, repo bind-mounted at `/workspace`) |
 | `requirements.txt` · `requirements-train.txt` · `requirements/linux.txt` · `pyproject.toml` | EDA venv `.venv` · PyTorch venv `.venv-train` (pinned) · Docker / Linux pins · black (120) + pytest config |

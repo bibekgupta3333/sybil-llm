@@ -11,24 +11,38 @@ through two **private** Hugging Face repos (`scripts/hf_hub.py`):
 
 Every command runs from the **repo root** (RULE 5). `npm` is only a task runner; `npm run x -- <arg>` passes `<arg>`.
 
-## Fresh instance: host bootstrap
+## Fresh instance: host bootstrap (no Docker — the EC2 route)
 
-On a brand-new Ubuntu 24.04 instance npm is not installed yet, so the **very first command** is the bash script
-itself (as the normal `ubuntu` user, which has sudo), then `npm run setup`:
+On EC2 everything runs **directly on the host** and mirrors the Mac: the same two venvs (`.venv-train` for training,
+pipeline and tests; `.venv` for EDA), Python 3.14.5, the same pins (Linux: `requirements/linux.txt` + torch 2.14.1
+`cu126` on a GPU, `cpu` otherwise; EDA: `requirements.txt`), the same Jupyter kernels (`python3`, `roadfm-train`).
+npm is not installed yet, so the first command is the bash script (as `ubuntu`, or in a root shell with `--allow-root`):
 
 ```bash
 git clone <this repo> sybil-llm && cd sybil-llm
-bash scripts/ec2_bootstrap.sh                  # base tools, Node.js 22 + npm, Docker + buildx + compose, NVIDIA Container Toolkit (GPU), uv
-bash scripts/ec2_bootstrap.sh --install-driver # plain Ubuntu AMI with a GPU but no working nvidia-smi: also the driver (>= 560), then reboot + re-run
-newgrp docker                                  # the script added you to the docker group
-npm run setup                                  # GPU; or npm run setup:cpu
+bash scripts/ec2_bootstrap.sh          # base tools, Node 22 + npm, uv, hf, gh, both venvs + kernels, then a GPU report
+gh auth login && hf auth login         # GitHub (git pull / push) and Hugging Face (private repos)
+npm run gpu:check                      # which GPU, driver, CUDA, what torch sees, a matmul smoke test
+npm run data:download                  # raw dataset -> data/VeReMi-Dataset/ (or copy it there yourself)
+npm run setup:native                   # prepared data, encoder input, train:check (re-creates the venvs if needed)
+tmux new -s train                      # then: npm run train:full ; afterwards npm run model:upload -- <run_dir>
 ```
 
-Flags: `--check` (report only; = `npm run ec2:check`), `--dry-run` (print every command; = `npm run ec2:dry-run`),
-`--native` (also `.venv-train` with Python 3.14.5 + torch 2.14.1 cu126 / cpu + kernels, for running without Docker;
-= `npm run ec2:bootstrap:native`), `--hf-cli` (`hf` on the host), `--no-start`, `--allow-root`. Idempotent (re-runs
-skip what is installed); log in `~/roadfm-bootstrap.log`. On the Deep Learning Base AMI it finds the driver, Docker and
-the toolkit already there and adds only Node.js, the base tools and uv. §1a below is the same install by hand.
+| Command | What it does |
+|---|---|
+| `bash scripts/ec2_bootstrap.sh` | everything above; idempotent; log `~/roadfm-bootstrap.log`; `--check`, `--dry-run`, `--allow-root`, `--install-driver` (GPU without a working `nvidia-smi`: driver ≥ 560, then reboot + re-run), `--docker` (optional Docker route) |
+| `npm run setup:venv` (`bash scripts/setup_venv.sh`) | only the venvs: creates / completes `.venv-train` + `.venv` with uv, installs the pins (macOS: `requirements-train.txt`; Linux: `requirements/linux.txt` + torch), registers the kernels, verifies; `--check` (= `npm run setup:venv:check`, also fails on a pin mismatch), `--dry-run`, `--recreate`, `--no-eda`, `--cpu` / `--cuda` |
+| `npm run gpu:check` · `npm run gpu:require` | GPU report (`scripts/gpu_check.py`: nvidia-smi, torch CUDA / MPS, smoke test); `gpu:require` exits 1 when torch sees no CUDA device — use it before `train:full` |
+
+`hf`, `uv` are linked into `/usr/local/bin`; `gh` comes from GitHub's apt repo.
+
+**Tested without AWS** in a simulated fresh instance (Docker is used only for this test, `docker/ec2-sim/`):
+`npm run ec2:sim` (root, Ubuntu 26.04) and `npm run ec2:sim:ubuntu` (`ubuntu` user, 24.04) run the bootstrap twice,
+then check in a new login shell: npm, `hf`, `gh`, `setup:venv:check`, `.venv` imports, both kernels, `gpu:check`
+(exit 0) and `gpu:require` (exit 1, no GPU), `hf:whoami`, `npm test`, `setup:native` (stops at the missing dataset)
+and `ec2:check`. GPU parts (driver, cu126 torch) can only be tested on a GPU instance.
+
+The sections below describe the **optional Docker route** (Mac / CPU tests, or EC2 with `--docker`).
 
 ## One command
 
@@ -260,8 +274,8 @@ GPU, too little disk) — the first real test of it is `nvidia-smi` + `torch.cud
 On the Mac nothing changes: the npm scripts fall back to `.venv-train/bin/python` when `PY` is unset.
 
 ```bash
-python3.14 -m venv .venv-train
-.venv-train/bin/pip install -r requirements-train.txt      # macOS arm64 freeze (MPS, includes mac-only appnope)
+npm run setup:venv                  # .venv-train (requirements-train.txt, MPS) + .venv (requirements.txt) + kernels
+npm run setup:venv:check            # report only; fails on a pin mismatch
 npm run train:check && npm run train:smoke
 ```
 

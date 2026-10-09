@@ -59,19 +59,20 @@ arguments through).
 **Mac (two venvs, Python 3.14.5):**
 
 ```bash
-python3.14 -m venv .venv && .venv/bin/pip install -r requirements.txt              # EDA / notebooks (no torch)
-python3.14 -m venv .venv-train && .venv-train/bin/pip install -r requirements-train.txt   # training + tests (torch 2.14.1, MPS)
+npm run setup:venv         # .venv (EDA, requirements.txt) + .venv-train (training + tests, torch 2.14.1, MPS) + kernels; --check to verify
+npm run gpu:check          # which GPU / MPS torch sees
 npm run pipeline:prepare && npm run pipeline:encoder-input   # raw data -> src/data/ (needs data/VeReMi-Dataset/)
 npm run train:check        # fast correctness checks
 npm run train:smoke        # a short run; then npm run train:full
 npm test                   # pytest (scripts/tests + src/tests); npm run check = format check + tests
 ```
 
-**Fresh EC2 instance (Ubuntu 24.04):** `bash scripts/ec2_bootstrap.sh` first (installs Node.js 22 + npm, Docker +
-compose, the NVIDIA Container Toolkit when there is a GPU, uv; `--check`, `--dry-run`, `--install-driver`, `--native`),
-then `newgrp docker` and the Docker command below.
+**Fresh EC2 instance (Ubuntu 22.04 / 24.04 / 26.04, no Docker):** `bash scripts/ec2_bootstrap.sh` installs
+everything the Mac has (Node 22 + npm, uv, `hf`, `gh`, the same two venvs + kernels) and prints a GPU report; then
+`gh auth login`, `hf auth login`, `npm run data:download`, `npm run setup:native`, `npm run train:full` in tmux.
+Tested locally in Ubuntu containers (`npm run ec2:sim`, `ec2:sim:ubuntu`). Guide: [`docs/ec2-training.md`](docs/ec2-training.md).
 
-**Docker / EC2 (one command):** `npm run setup` (NVIDIA GPU) or `npm run setup:cpu` builds the image, runs both
+**Docker (optional, Mac / CPU tests):** `npm run setup` (NVIDIA GPU) or `npm run setup:cpu` builds the image, runs both
 pipeline notebooks if their outputs are missing and runs `train:check`. Full guide:
 [`docs/ec2-training.md`](docs/ec2-training.md).
 

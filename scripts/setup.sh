@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # One-command setup for RoadFM-Lite on Ubuntu (EC2, NVIDIA) or a Mac with Docker. Run from the repo root:
 #
-#   ./scripts/setup.sh [--cpu] [--rebuild-data] [--skip-build]
+#   ./scripts/setup.sh [--native] [--cpu] [--rebuild-data] [--skip-build]
 #
+#   --native        no Docker: run everything with .venv-train/bin/python on this machine (EC2 after
+#                   `bash scripts/ec2_bootstrap.sh`); completes the venvs with scripts/setup_venv.sh when its
+#                   --check fails, prints the GPU check; the GPU is used when torch sees CUDA
 #   --cpu           use the `cpu` compose service (default: `gpu`, needs an NVIDIA GPU + container toolkit)
 #   --rebuild-data  re-run both pipeline notebooks even if their outputs exist
 #   --skip-build    do not run `docker compose build` (the image must already exist)
@@ -13,15 +16,17 @@
 set -euo pipefail
 
 SERVICE="gpu"
+NATIVE=0
 REBUILD_DATA=0
 SKIP_BUILD=0
 for arg in "$@"; do
   case "$arg" in
+    --native) NATIVE=1 ;;
     --cpu) SERVICE="cpu" ;;
     --rebuild-data) REBUILD_DATA=1 ;;
     --skip-build) SKIP_BUILD=1 ;;
     -h | --help)
-      sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
@@ -52,7 +57,22 @@ fail() {
   printf '%s✗%s %s\n' "$RED" "$RESET" "$1" >&2
   exit 1
 }
-in_container() { docker compose run --rm -T "$SERVICE" "$@"; }
+if ((NATIVE)); then
+  PY="${PY:-$REPO_ROOT/.venv-train/bin/python}"
+  export PY
+  SERVICE="native"
+  # Same interface as the container route: `python` means the project interpreter, anything else runs as is.
+  in_container() {
+    if [[ "$1" == python ]]; then
+      shift
+      "$PY" "$@"
+    else
+      "$@"
+    fi
+  }
+else
+  in_container() { docker compose run --rm -T "$SERVICE" "$@"; }
+fi
 timed() {
   # Runs a command and prints how long it took.
   local label="$1"
@@ -63,6 +83,28 @@ timed() {
 }
 
 banner "Host checks (service: $SERVICE)"
+if ((NATIVE)); then
+  command -v npm >/dev/null 2>&1 || fail "npm not found — run: bash scripts/ec2_bootstrap.sh"
+  ok "npm $(npm -v)"
+  if [[ "$PY" == "$REPO_ROOT/.venv-train/bin/python" ]]; then
+    # Same venvs as the bootstrap / the Mac: complete them when the check fails (idempotent, no-op when ready).
+    if bash scripts/setup_venv.sh --check >/dev/null 2>&1; then
+      ok "venvs ready (scripts/setup_venv.sh --check)"
+    else
+      warn "venvs not ready — running scripts/setup_venv.sh"
+      bash scripts/setup_venv.sh || fail "scripts/setup_venv.sh failed — see its output above"
+    fi
+  fi
+  [[ -x "$PY" ]] || fail "$PY not found — run: bash scripts/setup_venv.sh (or bash scripts/ec2_bootstrap.sh)"
+  ok "python: $PY"
+  if [[ -f scripts/gpu_check.py ]]; then
+    "$PY" scripts/gpu_check.py | sed 's/^/  /' || warn "gpu_check.py failed — see above (not fatal)"
+  elif command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
+    ok "host GPU: $(nvidia-smi --query-gpu=name,driver_version --format=csv,noheader | head -1)"
+  else
+    warn "no working nvidia-smi — training will run on the CPU"
+  fi
+else
 command -v docker >/dev/null 2>&1 || fail "docker not found — install Docker (docs/ec2-training.md §1a)"
 ok "docker $(docker --version | sed 's/^Docker version //')"
 docker compose version >/dev/null 2>&1 || fail "'docker compose' (v2 plugin) not found — install docker-compose-plugin"
@@ -78,6 +120,7 @@ if [[ "$SERVICE" == "gpu" ]]; then
     sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart docker   (docs/ec2-training.md §1a)"
   ok "NVIDIA container runtime registered"
 fi
+fi
 free_gb=$(df -Pk . | awk 'NR==2 {print int($4 / 1048576)}')
 if ((free_gb < MIN_FREE_GB)); then
   warn "only ${free_gb} GB free on this disk (want ≥ ${MIN_FREE_GB} GB: image + prepared data + runs)"
@@ -86,7 +129,9 @@ else
 fi
 
 banner "Docker image"
-if ((SKIP_BUILD)); then
+if ((NATIVE)); then
+  ok "native route: no image"
+elif ((SKIP_BUILD)); then
   docker image inspect "roadfm-lite:$SERVICE" >/dev/null 2>&1 \
     || fail "--skip-build given but image roadfm-lite:$SERVICE does not exist — drop --skip-build"
   ok "build skipped; image roadfm-lite:$SERVICE exists"
@@ -95,7 +140,9 @@ else
 fi
 
 banner "Container environment"
-in_container python - "$SERVICE" <<'PY' || fail "container environment check failed (see above)"
+expect="$SERVICE"
+((NATIVE)) && command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1 && expect="native-gpu"
+in_container python - "$expect" <<'PY' || fail "container environment check failed (see above)"
 import sys
 import torch
 
@@ -105,7 +152,7 @@ cuda = torch.cuda.is_available()
 print(f"  torch.cuda.is_available() = {cuda}")
 if cuda:
     print(f"  GPU: {torch.cuda.get_device_name(0)}")
-if service == "gpu" and not cuda:
+if service in ("gpu", "native-gpu") and not cuda:
     sys.exit("CUDA not available inside the gpu container")
 from jupyter_client.kernelspec import KernelSpecManager
 
@@ -140,7 +187,7 @@ else
   ok "$raw_files files in $RAW_DIR ($where)"
 fi
 
-banner "Data pipeline (in the container)"
+banner "Data pipeline ($SERVICE)"
 if ((REBUILD_DATA)) || [[ ! -f "$PREPARED_INDEX" ]]; then
   timed "prepared data -> src/data/prepared_data/" in_container npm run pipeline:prepare
 else
@@ -157,6 +204,16 @@ timed "train:check passed" in_container npm run train:check
 
 banner "Done"
 ok "setup complete (service: $SERVICE)"
+if ((NATIVE)); then
+  cat <<EOF
+Next commands (from the repo root):
+  npm run train:smoke                         # ~30 steps, real speed + memory
+  tmux new -s train   # then:
+  npm run train:full                          # full run (30 h guard)
+  npm run model:upload -- <run_dir>           # e.g. src/runs/pretraining/benign_gridsybil/T64/<run_id>
+EOF
+  exit 0
+fi
 cat <<EOF
 Next commands (from the repo root):
   docker compose run --rm $SERVICE npm run train:smoke                    # ~30 steps, real speed + memory

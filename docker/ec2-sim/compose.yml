@@ -1,0 +1,26 @@
+# Test only: simulates a fresh Ubuntu EC2 instance to check scripts/ec2_bootstrap.sh (the EC2 route itself uses no
+# Docker). The repo is mounted read-only and copied inside (no data, no venvs), so nothing on this machine changes.
+#   docker compose -f docker/ec2-sim/compose.yml run --rm root     # as root, like an EC2 root shell (26.04)
+#   docker compose -f docker/ec2-sim/compose.yml run --rm ubuntu   # as the default `ubuntu` user with sudo (24.04)
+# or: npm run ec2:sim / npm run ec2:sim:ubuntu
+x-common: &common
+  volumes:
+    - ../..:/src:ro
+  command: bash /src/docker/ec2-sim/run.sh
+  environment:
+    SIM_ARGS: ${SIM_ARGS:-}
+
+services:
+  root:
+    <<: *common
+    image: ubuntu:26.04
+    environment:
+      SIM_USER: root
+      SIM_ARGS: ${SIM_ARGS:---allow-root}
+
+  ubuntu:
+    <<: *common
+    image: ubuntu:24.04
+    environment:
+      SIM_USER: ubuntu
+      SIM_ARGS: ${SIM_ARGS:-}

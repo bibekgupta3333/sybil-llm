@@ -1,30 +1,32 @@
 #!/usr/bin/env bash
-# Prepares a fresh Ubuntu 24.04 EC2 instance (plain Ubuntu AMI or the Deep Learning Base AMI) with every HOST
-# dependency RoadFM-Lite needs. Run it once as a normal user with sudo, from anywhere (npm is not installed yet):
+# Prepares a fresh Ubuntu EC2 instance (22.04 / 24.04 / 26.04; plain Ubuntu AMI or the Deep Learning Base AMI) to run
+# RoadFM-Lite directly on the host — no Docker. Run it once from the repo root (npm is not installed yet):
 #
 #   bash scripts/ec2_bootstrap.sh [options]
 #
 #   --dry-run          print every command, change nothing
 #   --check            only report what is installed (exit 1 if a required component is missing)
 #   --install-driver   install the NVIDIA server driver (>= 560) when a GPU is present but nvidia-smi fails (reboot after)
-#   --native           also set up the non-Docker route: Python 3.14.5 (uv), .venv-train (requirements/linux.txt + torch
-#                      2.14.1 cu126 / cpu), Jupyter kernels roadfm-train + python3
-#   --hf-cli           also install the Hugging Face CLI on the host (`hf`; login can also happen inside the container)
+#   --docker           also install Docker Engine + compose + NVIDIA Container Toolkit (the optional Docker route)
 #   --no-start         do not start / restart services or run containers (also automatic when systemd is not PID 1)
 #   --allow-root       run as root (e.g. the root shell on EC2) without the root warning; root also works without it
+#   --native, --hf-cli accepted for compatibility (both are now always installed)
 #   -h, --help         this help
 #
-# Installs: base tools (git, git-lfs, tmux, htop, jq, build-essential, ...), Node.js 22 LTS + npm (NodeSource),
-# Docker Engine + buildx + compose plugin (Docker's apt repo, user added to the docker group), NVIDIA Container
-# Toolkit when an NVIDIA GPU is present, uv. Idempotent: everything already installed is skipped. Log:
-# ~/roadfm-bootstrap.log. Next step afterwards: `npm run setup` (GPU) or `npm run setup:cpu`. Guide: docs/ec2-training.md.
+# Installs the same environment as the local Mac: base tools (git, git-lfs, tmux, htop, jq, build-essential, the pango
+# libs weasyprint needs, ...), Node.js 22 LTS + npm (NodeSource), the GitHub CLI `gh` (cli.github.com apt repo), uv,
+# the Hugging Face CLI `hf` (uv tool, linked into /usr/local/bin), and both venvs via scripts/setup_venv.sh:
+# .venv-train (Python 3.14.5 + requirements/linux.txt + torch 2.14.1 cu126 on a GPU / cpu otherwise + Jupyter kernels
+# python3, roadfm-train) and .venv (EDA, requirements.txt). Ends with the GPU check (scripts/gpu_check.py).
+# Idempotent: everything already installed is skipped. Log: ~/roadfm-bootstrap.log. Next: `gh auth login`,
+# `hf auth login`, `npm run gpu:check`, `npm run data:download`, `npm run setup:native`. Guide: docs/ec2-training.md.
 set -euo pipefail
 
 DRY_RUN=0
 CHECK_ONLY=0
 INSTALL_DRIVER=0
-NATIVE=0
-HF_CLI=0
+NATIVE=1
+DOCKER=0
 NO_START=0
 ALLOW_ROOT=0
 for arg in "$@"; do
@@ -32,8 +34,9 @@ for arg in "$@"; do
     --dry-run) DRY_RUN=1 ;;
     --check) CHECK_ONLY=1 ;;
     --install-driver) INSTALL_DRIVER=1 ;;
-    --native) NATIVE=1 ;;
-    --hf-cli) HF_CLI=1 ;;
+    --native) : ;;
+    --hf-cli) : ;;
+    --docker) DOCKER=1 ;;
     --no-start) NO_START=1 ;;
     --allow-root) ALLOW_ROOT=1 ;;
     -h | --help)
@@ -55,7 +58,9 @@ TORCH_VERSION=2.14.1
 HF_HUB_VERSION=2.2.0
 MIN_DRIVER=560
 FALLBACK_DRIVER=570
-BASE_PACKAGES=(ca-certificates curl wget gnupg git git-lfs tmux htop jq unzip build-essential pciutils lsb-release)
+# libpango-1.0-0 + libpangoft2-1.0-0: runtime libs of weasyprint (the .venv EDA env renders HTML / PDF with it).
+BASE_PACKAGES=(ca-certificates curl wget gnupg git git-lfs tmux htop jq unzip build-essential pciutils lsb-release
+  libpango-1.0-0 libpangoft2-1.0-0)
 DOCKER_PACKAGES=(docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin)
 DOCKER_CONFLICTS=(docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc)
 
@@ -132,18 +137,35 @@ missing_base_packages() {
   local p
   for p in "${BASE_PACKAGES[@]}"; do pkg_installed "$p" || printf '%s ' "$p"; done
 }
-torch_variant() { if has_nvidia_gpu; then echo cu126; else echo cpu; fi; }
+hf_version() { hf version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true; }
+gh_version() { gh --version 2>/dev/null | head -1 | awk '{print $3}' || true; }
+# setup_venv.sh flag for the torch wheel: cu126 on an NVIDIA host, cpu otherwise.
+torch_flag() { if has_nvidia_gpu; then echo --cuda; else echo --cpu; fi; }
+SETUP_VENV="$REPO_ROOT/scripts/setup_venv.sh"
+GPU_CHECK="$REPO_ROOT/scripts/gpu_check.py"
 VENV_PY="$REPO_ROOT/.venv-train/bin/python"
+EDA_PY="$REPO_ROOT/.venv/bin/python"
+# .venv-train: Python + torch version, the imports the npm commands need, both Jupyter kernels.
 native_ok() {
   [[ -x "$VENV_PY" ]] || return 1
   "$VENV_PY" - "$PYTHON_VERSION" "$TORCH_VERSION" <<'PY' >/dev/null 2>&1
 import sys
 from jupyter_client.kernelspec import KernelSpecManager
-import torch
+import black, huggingface_hub, nbclient, numpy, pandas, pytest, torch  # noqa: F401
 
 assert sys.version.split()[0] == sys.argv[1], sys.version
 assert torch.__version__.split("+")[0] == sys.argv[2], torch.__version__
 assert {"python3", "roadfm-train"} <= set(KernelSpecManager().find_kernel_specs())
+PY
+}
+# .venv (EDA): Python version and the EDA imports (weasyprint also needs the pango system libs).
+eda_ok() {
+  [[ -x "$EDA_PY" ]] || return 1
+  "$EDA_PY" - "$PYTHON_VERSION" <<'PY' >/dev/null 2>&1
+import sys
+import ipykernel, matplotlib, numpy, pandas, seaborn, sklearn, weasyprint  # noqa: F401
+
+assert sys.version.split()[0] == sys.argv[1], sys.version
 PY
 }
 
@@ -225,36 +247,40 @@ report() {
     status_row "Node.js (>= $NODE_MAJOR)" "$(node -v 2>/dev/null || true)" missing
   fi
   if command -v npm >/dev/null 2>&1; then status_row "npm" "$(npm -v 2>/dev/null)" ok; else status_row "npm" "" missing; fi
-  if command -v docker >/dev/null 2>&1; then
-    status_row "Docker Engine" "$(docker --version 2>/dev/null | sed 's/^Docker version //')" ok
-  else
-    status_row "Docker Engine" "" missing
-  fi
-  if docker compose version >/dev/null 2>&1; then
-    status_row "docker compose plugin" "$(docker compose version --short 2>/dev/null)" ok
-  else
-    status_row "docker compose plugin" "" missing
-  fi
-  if docker buildx version >/dev/null 2>&1; then
-    status_row "docker buildx plugin" "$(docker buildx version 2>/dev/null | awk '{print $2}')" ok
-  else
-    status_row "docker buildx plugin" "" missing
-  fi
-  if in_docker_group; then
-    if id -nG 2>/dev/null | tr ' ' '\n' | grep -qx docker; then
-      status_row "docker group" "$TARGET_USER" ok
+  if ((DOCKER)); then
+    if command -v docker >/dev/null 2>&1; then
+      status_row "Docker Engine" "$(docker --version 2>/dev/null | sed 's/^Docker version //')" ok
     else
-      status_row "docker group" "$TARGET_USER" "added; re-login or 'newgrp docker'"
+      status_row "Docker Engine" "" missing
+    fi
+    if docker compose version >/dev/null 2>&1; then
+      status_row "docker compose plugin" "$(docker compose version --short 2>/dev/null)" ok
+    else
+      status_row "docker compose plugin" "" missing
+    fi
+    if docker buildx version >/dev/null 2>&1; then
+      status_row "docker buildx plugin" "$(docker buildx version 2>/dev/null | awk '{print $2}')" ok
+    else
+      status_row "docker buildx plugin" "" missing
+    fi
+    if in_docker_group; then
+      if id -nG 2>/dev/null | tr ' ' '\n' | grep -qx docker; then
+        status_row "docker group" "$TARGET_USER" ok
+      else
+        status_row "docker group" "$TARGET_USER" "added; re-login or 'newgrp docker'"
+      fi
+    else
+      status_row "docker group" "$TARGET_USER" missing
+    fi
+    if ! has_systemd; then
+      status_row "docker service" "" "skipped (systemd is not PID 1)"
+    elif systemctl is-active --quiet docker 2>/dev/null; then
+      status_row "docker service" "active" ok
+    else
+      status_row "docker service" "inactive" "not running (start: sudo systemctl enable --now docker)"
     fi
   else
-    status_row "docker group" "$TARGET_USER" missing
-  fi
-  if ! has_systemd; then
-    status_row "docker service" "" "skipped (systemd is not PID 1)"
-  elif systemctl is-active --quiet docker 2>/dev/null; then
-    status_row "docker service" "active" ok
-  else
-    status_row "docker service" "inactive" "not running (start: sudo systemctl enable --now docker)"
+    status_row "Docker" "" "skipped (native route; --docker adds it)"
   fi
   if has_nvidia_gpu; then
     local gpu
@@ -270,29 +296,37 @@ report() {
     else
       status_row "NVIDIA driver" "GPU present, nvidia-smi fails" missing
     fi
-    if command -v nvidia-ctk >/dev/null 2>&1; then
+    if ((DOCKER)) && command -v nvidia-ctk >/dev/null 2>&1; then
       status_row "NVIDIA Container Toolkit" "$(nvidia-ctk --version 2>/dev/null | head -1 | awk '{print $NF}')" ok
-    else
+    elif ((DOCKER)); then
       status_row "NVIDIA Container Toolkit" "" missing
     fi
-    if docker_runtime_configured; then
-      status_row "docker nvidia runtime" "/etc/docker/daemon.json" ok
-    else
-      status_row "docker nvidia runtime" "" missing
+    if ((DOCKER)); then
+      if docker_runtime_configured; then
+        status_row "docker nvidia runtime" "/etc/docker/daemon.json" ok
+      else
+        status_row "docker nvidia runtime" "" missing
+      fi
     fi
   else
-    status_row "NVIDIA GPU" "none found" "skipped (CPU service works)"
+    status_row "NVIDIA GPU" "none found" "skipped (torch cpu)"
   fi
   if command -v uv >/dev/null 2>&1; then status_row "uv" "$(uv --version | awk '{print $2}')" ok; else status_row "uv" "" missing; fi
   if command -v hf >/dev/null 2>&1; then
-    status_row "Hugging Face CLI (host)" "$(hf version 2>/dev/null | sed -n 's/.*version: *//p' | head -1 || true)" ok 0
+    status_row "Hugging Face CLI (hf)" "$(hf_version) ($(command -v hf))" ok
   else
-    status_row "Hugging Face CLI (host)" "" missing "$HF_CLI"
+    status_row "Hugging Face CLI (hf)" "" missing
   fi
+  if command -v gh >/dev/null 2>&1; then status_row "GitHub CLI (gh)" "$(gh_version)" ok; else status_row "GitHub CLI (gh)" "" missing; fi
   if native_ok; then
-    status_row "native .venv-train" "$("$VENV_PY" -c 'import sys, torch; print(sys.version.split()[0], "torch", torch.__version__)')" ok 0
+    status_row ".venv-train" "$("$VENV_PY" -c 'import sys, torch; print(sys.version.split()[0], "torch", torch.__version__)')" ok
   else
-    status_row "native .venv-train" "" missing "$NATIVE"
+    status_row ".venv-train" "" missing
+  fi
+  if eda_ok; then
+    status_row ".venv (EDA)" "$("$EDA_PY" -c 'import sys, pandas; print(sys.version.split()[0], "pandas", pandas.__version__)')" ok
+  else
+    status_row ".venv (EDA)" "" missing
   fi
 }
 
@@ -314,11 +348,11 @@ if ((EUID == 0)); then
   SUDO=()
   if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
     TARGET_USER="$SUDO_USER"  # `sudo bash scripts/ec2_bootstrap.sh` from a normal user: that user gets the docker group
-    warn "running via sudo: system packages for the host, docker group for '$TARGET_USER', uv / --native for root"
+    warn "running via sudo: uv, hf and its login live in root's home; .venv-train in $REPO_ROOT"
   elif ((ALLOW_ROOT)); then
-    ok "running as root (--allow-root): the docker group step targets root"
+    ok "running as root (--allow-root)"
   else
-    warn "running as root: the docker group step targets root (fine for a single-user EC2 box; --allow-root silences this)"
+    warn "running as root (fine for a single-user EC2 box; --allow-root silences this)"
   fi
 else
   SUDO=(sudo)
@@ -343,12 +377,12 @@ fi
 
 if ((!DRY_RUN)) && ((EUID != 0)); then
   command -v sudo >/dev/null 2>&1 || die "sudo not found"
-  sudo -v || die "sudo failed — this script needs a user with sudo rights"
+  sudo -n true 2>/dev/null || sudo -v || die "sudo failed — this script needs a user with sudo rights"
 fi
 ARCH="$(dpkg --print-architecture)"
 CODENAME="${VERSION_CODENAME:-noble}"  # from /etc/os-release, sourced above
 DOCKER_CODENAME="$CODENAME"
-if ! curl -fsSI "https://download.docker.com/linux/ubuntu/dists/${CODENAME}/Release" >/dev/null 2>&1; then
+if ((DOCKER)) && ! curl -fsSI "https://download.docker.com/linux/ubuntu/dists/${CODENAME}/Release" >/dev/null 2>&1; then
   DOCKER_CODENAME=noble  # Docker's repo can lag a new Ubuntu release; the 24.04 packages run on newer releases
   warn "Docker has no apt repo for '$CODENAME' yet — using the '$DOCKER_CODENAME' (24.04) packages"
 fi
@@ -400,44 +434,62 @@ if ((!DRY_RUN)); then
 fi
 
 # ---------------------------------------------------------------------------------------------------------------------
-banner "Docker Engine + buildx + compose plugin"
-if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1 && docker buildx version >/dev/null 2>&1; then
-  ok "docker $(docker --version | sed 's/^Docker version //'), compose $(docker compose version --short) — kept"
+banner "GitHub CLI (gh)"
+if command -v gh >/dev/null 2>&1; then
+  ok "gh $(gh_version) ($(command -v gh)) — kept"
 else
-  conflicts=()
-  for p in "${DOCKER_CONFLICTS[@]}"; do pkg_installed "$p" && conflicts+=("$p"); done
-  if ((${#conflicts[@]})); then
-    step "removing packages that conflict with Docker's own: ${conflicts[*]}"
-    run "${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive apt-get remove -y "${conflicts[@]}"
+  add_apt_repo "GitHub CLI" "https://cli.github.com/packages/githubcli-archive-keyring.gpg" \
+    /etc/apt/keyrings/githubcli-archive-keyring.gpg /etc/apt/sources.list.d/github-cli.list \
+    "deb [arch=$ARCH signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" 0
+  apt_install gh
+  if ((!DRY_RUN)); then
+    hash -r
+    if command -v gh >/dev/null 2>&1; then ok "gh $(gh_version); log in with: gh auth login"; else bad "gh not found after install — see the log"; fi
   fi
-  add_apt_repo "Docker" "https://download.docker.com/linux/ubuntu/gpg" \
-    /etc/apt/keyrings/docker.asc /etc/apt/sources.list.d/docker.list \
-    "deb [arch=$ARCH signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $DOCKER_CODENAME stable" 0
-  apt_install "${DOCKER_PACKAGES[@]}"
-  ((DRY_RUN)) || ok "docker $(docker --version | sed 's/^Docker version //'), compose $(docker compose version --short)"
-fi
-if in_docker_group; then
-  ok "$TARGET_USER is in the docker group"
-else
-  if ! getent group docker >/dev/null 2>&1; then run "${SUDO[@]}" groupadd docker; fi
-  run "${SUDO[@]}" usermod -aG docker "$TARGET_USER"
-  NEED_RELOGIN=1
-  warn "$TARGET_USER added to the docker group — log out and back in (or run 'newgrp docker') before using docker"
-fi
-if can_start; then
-  if systemctl is-active --quiet docker && systemctl is-enabled --quiet docker; then
-    ok "docker service enabled and running"
-  else
-    run "${SUDO[@]}" systemctl enable --now docker
-  fi
-else
-  step "docker service start skipped (--no-start or no systemd)"
 fi
 
 # ---------------------------------------------------------------------------------------------------------------------
-banner "NVIDIA (driver + Container Toolkit)"
+if ((DOCKER)); then
+  banner "Docker Engine + buildx + compose plugin"
+  if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1 && docker buildx version >/dev/null 2>&1; then
+    ok "docker $(docker --version | sed 's/^Docker version //'), compose $(docker compose version --short) — kept"
+  else
+    conflicts=()
+    for p in "${DOCKER_CONFLICTS[@]}"; do pkg_installed "$p" && conflicts+=("$p"); done
+    if ((${#conflicts[@]})); then
+      step "removing packages that conflict with Docker's own: ${conflicts[*]}"
+      run "${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive apt-get remove -y "${conflicts[@]}"
+    fi
+    add_apt_repo "Docker" "https://download.docker.com/linux/ubuntu/gpg" \
+      /etc/apt/keyrings/docker.asc /etc/apt/sources.list.d/docker.list \
+      "deb [arch=$ARCH signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $DOCKER_CODENAME stable" 0
+    apt_install "${DOCKER_PACKAGES[@]}"
+    ((DRY_RUN)) || ok "docker $(docker --version | sed 's/^Docker version //'), compose $(docker compose version --short)"
+  fi
+  if in_docker_group; then
+    ok "$TARGET_USER is in the docker group"
+  else
+    if ! getent group docker >/dev/null 2>&1; then run "${SUDO[@]}" groupadd docker; fi
+    run "${SUDO[@]}" usermod -aG docker "$TARGET_USER"
+    NEED_RELOGIN=1
+    warn "$TARGET_USER added to the docker group — log out and back in (or run 'newgrp docker') before using docker"
+  fi
+  if can_start; then
+    if systemctl is-active --quiet docker && systemctl is-enabled --quiet docker; then
+      ok "docker service enabled and running"
+    else
+      run "${SUDO[@]}" systemctl enable --now docker
+    fi
+  else
+    step "docker service start skipped (--no-start or no systemd)"
+  fi
+
+fi
+
+# ---------------------------------------------------------------------------------------------------------------------
+banner "NVIDIA driver"
 if ! has_nvidia_gpu; then
-  ok "no NVIDIA GPU found — skipped (use the cpu service: npm run setup:cpu)"
+  ok "no NVIDIA GPU found — skipped (.venv-train gets torch cpu)"
 else
   if nvidia_smi_ok; then
     dv="$(driver_version)"
@@ -470,31 +522,34 @@ else
     bad "NVIDIA GPU present but nvidia-smi fails — re-run with --install-driver (or use the Deep Learning Base AMI)"
   fi
 
-  if command -v nvidia-ctk >/dev/null 2>&1 && pkg_installed nvidia-container-toolkit; then
-    ok "NVIDIA Container Toolkit $(nvidia-ctk --version 2>/dev/null | head -1 | awk '{print $NF}') — kept"
-  else
-    add_apt_repo "NVIDIA Container Toolkit" "https://nvidia.github.io/libnvidia-container/gpgkey" \
-      /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg /etc/apt/sources.list.d/nvidia-container-toolkit.list \
-      "deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://nvidia.github.io/libnvidia-container/stable/deb/\$(ARCH) /" 1
-    apt_install nvidia-container-toolkit
-  fi
-  if docker_runtime_configured; then
-    ok "docker already has the nvidia runtime (/etc/docker/daemon.json)"
-  else
-    run "${SUDO[@]}" nvidia-ctk runtime configure --runtime=docker
-    if can_start; then run "${SUDO[@]}" systemctl restart docker; else step "docker restart skipped (--no-start)"; fi
-  fi
-  if can_start && ((!DRY_RUN)) && ((!NEED_REBOOT)) && nvidia_smi_ok; then
-    step "checking that containers see the GPU"
-    if "${SUDO[@]}" docker run --rm --gpus all ubuntu:24.04 nvidia-smi; then
-      ok "GPU visible inside a container"
+  if ((DOCKER)); then
+    banner "NVIDIA Container Toolkit (--docker)"
+    if command -v nvidia-ctk >/dev/null 2>&1 && pkg_installed nvidia-container-toolkit; then
+      ok "NVIDIA Container Toolkit $(nvidia-ctk --version 2>/dev/null | head -1 | awk '{print $NF}') — kept"
     else
-      bad "docker run --gpus all failed — see docs/ec2-training.md §1a"
+      add_apt_repo "NVIDIA Container Toolkit" "https://nvidia.github.io/libnvidia-container/gpgkey" \
+        /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg /etc/apt/sources.list.d/nvidia-container-toolkit.list \
+        "deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://nvidia.github.io/libnvidia-container/stable/deb/\$(ARCH) /" 1
+      apt_install nvidia-container-toolkit
     fi
-  elif ((DRY_RUN)) && can_start; then
-    run "${SUDO[@]}" docker run --rm --gpus all ubuntu:24.04 nvidia-smi
-  else
-    step "container GPU check skipped (--no-start, reboot pending, or no working driver)"
+    if docker_runtime_configured; then
+      ok "docker already has the nvidia runtime (/etc/docker/daemon.json)"
+    else
+      run "${SUDO[@]}" nvidia-ctk runtime configure --runtime=docker
+      if can_start; then run "${SUDO[@]}" systemctl restart docker; else step "docker restart skipped (--no-start)"; fi
+    fi
+    if can_start && ((!DRY_RUN)) && ((!NEED_REBOOT)) && nvidia_smi_ok; then
+      step "checking that containers see the GPU"
+      if "${SUDO[@]}" docker run --rm --gpus all ubuntu:24.04 nvidia-smi; then
+        ok "GPU visible inside a container"
+      else
+        bad "docker run --gpus all failed — see docs/ec2-training.md §1a"
+      fi
+    elif ((DRY_RUN)) && can_start; then
+      run "${SUDO[@]}" docker run --rm --gpus all ubuntu:24.04 nvidia-smi
+    else
+      step "container GPU check skipped (--no-start, reboot pending, or no working driver)"
+    fi
   fi
 fi
 
@@ -507,41 +562,54 @@ else
   ((DRY_RUN)) || ok "uv $("$HOME/.local/bin/uv" --version | awk '{print $2}') in ~/.local/bin"
 fi
 
-if ((HF_CLI)); then
-  banner "Hugging Face CLI (host)"
+banner "Hugging Face CLI (hf)"
+if command -v hf >/dev/null 2>&1 && [[ "$(hf_version)" == "$HF_HUB_VERSION" ]]; then
+  ok "hf $(hf_version) ($(command -v hf)) — kept"
+else
+  run uv tool install --force "huggingface_hub[hf_xet]==${HF_HUB_VERSION}"
+fi
+# ~/.local/bin is not on PATH in every new shell: link hf and uv into /usr/local/bin so they always resolve
+run uv tool update-shell || true
+for tool in hf uv; do
+  if [[ -x "$HOME/.local/bin/$tool" && "$(readlink -f "/usr/local/bin/$tool" 2>/dev/null)" != "$(readlink -f "$HOME/.local/bin/$tool")" ]]; then
+    run "${SUDO[@]}" ln -sf "$HOME/.local/bin/$tool" "/usr/local/bin/$tool"
+  fi
+done
+if ((!DRY_RUN)); then
+  hash -r
   if command -v hf >/dev/null 2>&1; then
-    ok "hf already installed ($(command -v hf)) — kept"
+    ok "hf $(hf_version) ($(command -v hf)); log in with: hf auth login"
   else
-    run uv tool install "huggingface_hub[cli,hf_xet]==${HF_HUB_VERSION}"
+    bad "hf not found after install — see the log"
   fi
 fi
 
 # ---------------------------------------------------------------------------------------------------------------------
 if ((NATIVE)); then
-  banner "Native route (.venv-train without Docker)"
-  variant="$(torch_variant)"
-  if native_ok; then
-    ok ".venv-train already has Python $PYTHON_VERSION, torch $TORCH_VERSION and both kernels"
-  else
-    [[ -f "$REPO_ROOT/requirements/linux.txt" ]] || die "requirements/linux.txt not found under $REPO_ROOT"
-    run uv python install "$PYTHON_VERSION"
-    if [[ -x "$VENV_PY" ]]; then
-      have="$("$VENV_PY" -c 'import sys; print(sys.version.split()[0])' 2>/dev/null || true)"
-      [[ "$have" == "$PYTHON_VERSION" ]] \
-        || die ".venv-train exists with Python '${have:-?}', not $PYTHON_VERSION — remove it (rm -rf .venv-train) and re-run"
-      ok ".venv-train exists (Python $have); completing it"
-    else
-      run uv venv "$REPO_ROOT/.venv-train" --python "$PYTHON_VERSION"
-    fi
-    run uv pip install --python "$VENV_PY" -r "$REPO_ROOT/requirements/linux.txt"
-    run uv pip install --python "$VENV_PY" --index-url https://pypi.org/simple \
-      --extra-index-url "https://download.pytorch.org/whl/${variant}" "torch==${TORCH_VERSION}+${variant}"
-    run "$VENV_PY" -m ipykernel install --sys-prefix --name python3 --display-name "Python 3"
-    run "$VENV_PY" -m ipykernel install --sys-prefix --name roadfm-train --display-name "Python (roadfm-train)"
-    if ((!DRY_RUN)); then
-      native_ok || die ".venv-train check failed (python / torch / kernels) — see the log"
+  banner "Virtual environments (.venv-train + .venv, scripts/setup_venv.sh)"
+  [[ -f "$SETUP_VENV" ]] || die "scripts/setup_venv.sh not found under $REPO_ROOT"
+  venv_args=("$(torch_flag)")
+  ((DRY_RUN)) && venv_args+=(--dry-run)
+  step "bash scripts/setup_venv.sh ${venv_args[*]}"
+  bash "$SETUP_VENV" "${venv_args[@]}" || die "scripts/setup_venv.sh failed (exit $?) — see the log"
+  if ((!DRY_RUN)); then
+    if native_ok; then
       ok ".venv-train: $("$VENV_PY" -c 'import sys, torch; print(sys.version.split()[0], "torch", torch.__version__, "cuda", torch.cuda.is_available())')"
+    else
+      bad ".venv-train check failed (python / torch / imports / kernels) — see the log"
+      REQUIRED_MISSING=1
     fi
+    if eda_ok; then ok ".venv (EDA) ready"; else bad ".venv (EDA) check failed — see the log"; REQUIRED_MISSING=1; fi
+  fi
+fi
+
+# ---------------------------------------------------------------------------------------------------------------------
+if ((!DRY_RUN)); then
+  banner "GPU"
+  if [[ -x "$VENV_PY" && -f "$GPU_CHECK" ]]; then
+    "$VENV_PY" "$GPU_CHECK" || warn "gpu_check.py exited non-zero — see above (not fatal)"
+  else
+    warn "GPU check skipped: .venv-train or scripts/gpu_check.py missing"
   fi
 fi
 
@@ -554,26 +622,17 @@ report
 ((NEED_RELOGIN)) && warn "docker group changed: run 'newgrp docker' (or log out and back in) before using docker"
 
 banner "Next commands"
-if has_nvidia_gpu; then
-  setup_cmd="npm run setup                         # GPU (service gpu)"
-  shell_cmd="npm run docker:shell"
-  train_cmd="npm run docker:train  (= train:full in the gpu container)"
-else
-  setup_cmd="npm run setup:cpu                     # no NVIDIA GPU here (service cpu)"
-  shell_cmd="npm run docker:shell:cpu"
-  train_cmd="docker compose run --rm cpu npm run train:full  (no GPU: slow)"
-fi
 cat <<EOF
-  newgrp docker                         # or log out and back in, so docker works without sudo
   cd $REPO_ROOT
-  # put the raw dataset in data/VeReMi-Dataset/ yourself, or once it is on the Hub:
-  $shell_cmd              # then inside: hf auth login && npm run data:download && exit
-  $setup_cmd
-  tmux new -s train                     # then: $train_cmd
+  gh auth login                         # GitHub: push / pull the repo, gh pr …
+  hf auth login                         # paste a read/write token (private repos)
+  npm run hf:whoami
+  npm run gpu:check                     # host GPU + torch view + matmul smoke test
+  npm run data:download                 # raw dataset -> data/VeReMi-Dataset/ (or copy it there yourself)
+  npm run setup:native                  # prepared data, encoder input, train:check (.venv-train)
+  tmux new -s train                     # then: npm run train:full
 EOF
-if ((NATIVE)); then
-  echo "  # native route (no Docker): npm run train:check / train:smoke / train:full use .venv-train/bin/python"
-fi
+((NEED_RELOGIN)) && echo "  # Docker route (--docker): newgrp docker, then npm run setup"
 ((REQUIRED_MISSING)) && ((!DRY_RUN)) && {
   bad "some required components are still missing (see the summary)"
   exit 1

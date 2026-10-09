@@ -2,9 +2,11 @@
 
 `Trainer` is seeded, resumable and budgeted (time and a 16 GB memory guard) and picks checkpoints on label-free
 check-set losses. `preflight` proves that padding never matters and that the views touch real rows only. Outputs go
-to `src/runs/pretraining/benign_gridsybil/T64/<run_id>/`: config.json, env.json, metrics.jsonl, best.pt, last.pt.
+to `src/runs/pretraining/benign_gridsybil/T64/<run_id>/` (or `--runs-dir <dir>/<run_id>/`, e.g. on Google Drive):
+config.json, env.json, metrics.jsonl, best.pt, last.pt.
 
     .venv-train/bin/python -m src.model.benign_gridsybil.timesnet.train [--check | --smoke | --preset recon_only]
+        [--runs-dir DIR] [--run-id NAME] [--resume RUN_DIR]
 """
 
 from __future__ import annotations
@@ -476,6 +478,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Self-supervised TimesNet pretraining (benign + GridSybil, T = 64)")
     p.add_argument("--preset", default="joint", choices=["joint", "recon_only"])
     p.add_argument("--run-id", default=None, help="folder name under runs_dir (default: timestamp + preset)")
+    p.add_argument(
+        "--runs-dir",
+        default=None,
+        help="parent folder of new run folders, may be outside the repo (e.g. Google Drive); default: config runs_dir",
+    )
     p.add_argument("--resume", default=None, help="run folder to resume from (uses its config.json and last.pt)")
     p.add_argument("--check", action="store_true", help="load one shard per split, run the pre-flight checks, exit")
     p.add_argument("--smoke", action="store_true", help="one shard per split, 30 steps, small eval")
@@ -497,20 +504,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return p.parse_args(argv)
 
 
-def main(argv: list[str] | None = None) -> None:
-    """Entry point: resume, check, smoke or a full run."""
-    args = parse_args(argv)
-    if not (Path("CLAUDE.md").is_file() and Path("src/data").is_dir()):
-        raise SystemExit("run from the repository root")
+def settings_from_args(args: argparse.Namespace) -> tuple[PretrainConfig, Path, bool]:
+    """Settings, run folder and resume flag from the parsed options (unset options keep the preset's value).
+
+    A resumed run takes its settings from its own config.json, so the run folder may live anywhere (e.g. on Google
+    Drive); only the time budget and the resource guard can be changed on resume.
+    """
     if args.resume:
-        run_dir = Path(args.resume)
+        run_dir = Path(args.resume).expanduser()
         settings = PretrainConfig.from_dict(json.loads((run_dir / "config.json").read_text()))
         if args.max_hours is not None:
             settings.max_hours = args.max_hours
         if args.resource_guard is not None:
             settings.resource_guard = args.resource_guard
-        Trainer(settings, run_dir, resume=True).run()
-        return
+        return settings, run_dir, True
     settings = PretrainConfig.preset(args.preset)
     for name in (
         "max_epochs",
@@ -526,6 +533,8 @@ def main(argv: list[str] | None = None) -> None:
         value = getattr(args, name)
         if value is not None:
             setattr(settings, name, value)
+    if args.runs_dir is not None:
+        settings.runs_dir = str(Path(args.runs_dir).expanduser())  # recorded in config.json
     if args.smoke or args.check:
         settings.shards_per_split, settings.eval_windows, settings.log_every = 1, 512, 5
         settings.max_steps = settings.max_steps or 30
@@ -534,9 +543,17 @@ def main(argv: list[str] | None = None) -> None:
     settings.validate()
     stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     kind = "check" if args.check else "smoke" if args.smoke else args.preset
-    run_dir = Path(settings.runs_dir) / (args.run_id or f"{stamp}-{kind}")
-    trainer = Trainer(settings, run_dir, resume=False)
-    if args.check:
+    return settings, Path(settings.runs_dir) / (args.run_id or f"{stamp}-{kind}"), False
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Entry point: resume, check, smoke or a full run."""
+    args = parse_args(argv)
+    if not (Path("CLAUDE.md").is_file() and Path("src/data").is_dir()):
+        raise SystemExit("run from the repository root")
+    settings, run_dir, resume = settings_from_args(args)
+    trainer = Trainer(settings, run_dir, resume=resume)
+    if args.check and not resume:
         print(f"checks passed; report in {run_dir / 'env.json'}")
         return
     trainer.run()

@@ -85,6 +85,7 @@ def fake_snapshot_into(api: FakeApi):
 def fake_single(api: FakeApi):
     def _download(repo_id: str, filename: str, *, local_dir: str, **kw: Any) -> str:
         target = pathlib.Path(local_dir) / filename
+        target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(api.files[filename])
         return str(target)
 
@@ -362,3 +363,179 @@ def test_cli_defaults() -> None:
     assert args.to == hf_hub.DEFAULT_RUNS_DIR and args.force is False
     args = hf_hub.parse_args(["--model-repo", "x/y", "upload-model", "some/dir", "--include-last"])
     assert args.model_repo == "x/y" and args.include_last and args.run_dir == pathlib.Path("some/dir")
+
+
+# ---- encoder input ---------------------------------------------------------------------------------------------
+
+
+@pytest.fixture
+def encoder_input(tmp_path: pathlib.Path) -> pathlib.Path:
+    root = tmp_path / "encoder_input" / "benign_gridsybil" / "T64"
+    for split in ("train", "test"):
+        shard = root / split / "b64"
+        shard.mkdir(parents=True)
+        (shard / "part-00000.json").write_text(f'[{{"id": "{split}-0"}}]\n')
+        (shard / "part-00000_info.json").write_text('{"labels": [0]}\n')
+    (root / "metadata.json").write_text('{"T": 64}\n')
+    (root / ".DS_Store").write_bytes(b"junk")
+    return root
+
+
+def input_transfer(api: FakeApi, download: bool = False) -> hf_hub.EncoderInputTransfer:
+    hub = make_hub(api, snapshot=fake_snapshot_into(api), single=fake_single(api)) if download else make_hub(api)
+    return hf_hub.EncoderInputTransfer(hf_hub.HubConfig(), hub, log=lambda m: None)
+
+
+def tree(root: pathlib.Path) -> dict[str, bytes]:
+    return {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()}
+
+
+def test_input_repo_id_resolution() -> None:
+    assert hf_hub.HubConfig.resolve(env={}).input_repo == "bibekgupta3333/roadfm-lite-encoder-input"
+    assert hf_hub.HubConfig.resolve(env={"HF_INPUT_REPO": "u/i"}).input_repo == "u/i"
+    cfg = hf_hub.HubConfig.resolve(env={"HF_INPUT_REPO": "u/i"}, input_repo="f/i")
+    assert cfg.input_repo == "f/i" and cfg.input_url() == "https://huggingface.co/datasets/f/i"
+
+
+def test_upload_encoder_input_layout(encoder_input: pathlib.Path) -> None:
+    api = FakeApi()
+    before = tree(encoder_input)
+    url = input_transfer(api).upload(encoder_input)
+    assert url == f"https://huggingface.co/datasets/{hf_hub.DEFAULT_INPUT_REPO}"
+    create = [kw for name, kw in api.calls if name == "create_repo"][0]
+    assert create["private"] is True and create["exist_ok"] is True and create["repo_type"] == "dataset"
+    assert create["repo_id"] == hf_hub.DEFAULT_INPUT_REPO
+    data_upload = [kw for name, kw in api.calls if name == "upload_folder"][0]
+    assert data_upload["path_in_repo"] == "benign_gridsybil/T64"
+    manifest = json.loads(api.files["manifests/benign_gridsybil/T64.json"])
+    assert set(manifest["files"]) == {
+        "metadata.json",
+        "train/b64/part-00000.json",
+        "train/b64/part-00000_info.json",
+        "test/b64/part-00000.json",
+        "test/b64/part-00000_info.json",
+    }
+    assert "encoder input" in api.files[hf_hub.CARD_NAME].decode()
+    assert tree(encoder_input) == before  # the local tree is only read
+
+
+class PrefixApi(FakeApi):
+    """FakeApi whose upload_folder honours `path_in_repo` (the encoder input sits under a prefix)."""
+
+    def upload_folder(self, **kwargs: Any) -> None:
+        self.calls.append(("upload_folder", kwargs))
+        root = pathlib.Path(kwargs["folder_path"])
+        prefix = kwargs.get("path_in_repo")
+        for path in hf_hub.iter_tree(root):
+            rel = path.relative_to(root).as_posix()
+            self.files[f"{prefix}/{rel}" if prefix else rel] = path.read_bytes()
+
+
+def test_download_encoder_input_restores_exactly(encoder_input: pathlib.Path, tmp_path: pathlib.Path) -> None:
+    api = PrefixApi()
+    input_transfer(api).upload(encoder_input)
+    target = tmp_path / "fresh" / "encoder_input" / "benign_gridsybil" / "T64"
+    assert input_transfer(api, download=True).download(target) == target
+    expected = {k: v for k, v in tree(encoder_input).items() if not k.endswith(".DS_Store")}
+    assert tree(target) == expected  # same tree: no manifest, card, .cache or staging left
+    assert sorted(p.name for p in target.parent.iterdir()) == ["T64"]
+
+
+def test_download_encoder_input_idempotent(encoder_input: pathlib.Path, tmp_path: pathlib.Path) -> None:
+    api = PrefixApi()
+    input_transfer(api).upload(encoder_input)
+    target = tmp_path / "T64"
+    input_transfer(api, download=True).download(target)
+    calls: list[str] = []
+    transfer = input_transfer(api, download=True)
+    transfer.hub.snapshot_download = lambda *a, **k: calls.append("snapshot")  # type: ignore[method-assign]
+    transfer.download(target)  # already matches: no download, no error
+    assert calls == []
+
+
+def test_download_encoder_input_refuses_differing_then_force(
+    encoder_input: pathlib.Path, tmp_path: pathlib.Path
+) -> None:
+    api = PrefixApi()
+    input_transfer(api).upload(encoder_input)
+    target = tmp_path / "T64"
+    target.mkdir()
+    (target / "metadata.json").write_text('{"T": 32}\n')
+    (target / "stale.json").write_text("{}")
+    with pytest.raises(hf_hub.HubError, match="--force"):
+        input_transfer(api, download=True).download(target)
+    assert (target / "metadata.json").read_text() == '{"T": 32}\n'
+    input_transfer(api, download=True).download(target, force=True)
+    assert not (target / "stale.json").exists()
+    assert (target / "metadata.json").read_text() == '{"T": 64}\n'
+
+
+def test_download_encoder_input_detects_corruption(encoder_input: pathlib.Path, tmp_path: pathlib.Path) -> None:
+    api = PrefixApi()
+    input_transfer(api).upload(encoder_input)
+    api.files["benign_gridsybil/T64/metadata.json"] = b'{"T": 32}\n'  # same size, other bytes
+    target = tmp_path / "T64"
+    with pytest.raises(hf_hub.HubError, match="sha256 mismatch"):
+        input_transfer(api, download=True).download(target)
+    assert not target.exists()
+
+
+def test_download_encoder_input_checks_file_count(encoder_input: pathlib.Path, tmp_path: pathlib.Path) -> None:
+    api = PrefixApi()
+    input_transfer(api).upload(encoder_input)
+    del api.files["benign_gridsybil/T64/test/b64/part-00000.json"]
+    with pytest.raises(hf_hub.HubError, match="manifest lists 5"):
+        input_transfer(api, download=True).download(tmp_path / "T64")
+
+
+def test_download_encoder_input_needs_manifest(tmp_path: pathlib.Path) -> None:
+    api = PrefixApi(existing={"benign_gridsybil/T64/metadata.json": b"{}"})
+    with pytest.raises(hf_hub.HubError, match="upload-encoder-input"):
+        input_transfer(api, download=True).download(tmp_path / "T64")
+
+
+def test_cli_encoder_input_defaults() -> None:
+    args = hf_hub.parse_args(["download-encoder-input"])
+    assert args.input == "benign_gridsybil/T64" and args.path is None and args.all is False and args.force is False
+    args = hf_hub.parse_args(["--input-repo", "x/i", "upload-encoder-input", "--path", "some/dir"])
+    assert args.input_repo == "x/i" and args.path == pathlib.Path("some/dir")
+    assert hf_hub.parse_args(["upload-encoder-input", "--input", "all/T24"]).input == "all/T24"
+    with pytest.raises(SystemExit):
+        hf_hub.parse_args(["upload-encoder-input", "--all", "--input", "all/T24"])  # one or the other
+
+
+@pytest.fixture
+def input_root(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> pathlib.Path:
+    """Two encoder-input trees (benign_gridsybil/T64, all/T24) under a temporary INPUT_ROOT."""
+    root = tmp_path / "encoder_input"
+    for prefix, name in (("benign_gridsybil/T64", "part-00000.json"), ("all/T24", "part-00000.json.gz")):
+        shard = root / prefix / "train"
+        shard.mkdir(parents=True)
+        (shard / name).write_bytes(prefix.encode())
+        (root / prefix / "metadata.json").write_text(f'{{"prefix": "{prefix}"}}\n')
+    (root / "notes").mkdir()  # no metadata.json: not a tree
+    monkeypatch.setattr(hf_hub, "INPUT_ROOT", root)
+    return root
+
+
+def test_local_input_trees(input_root: pathlib.Path) -> None:
+    assert hf_hub.local_input_trees(input_root) == ["all/T24", "benign_gridsybil/T64"]
+    assert hf_hub.local_input_trees(input_root / "missing") == []
+
+
+def test_cli_encoder_input_all_round_trip(input_root: pathlib.Path, tmp_path: pathlib.Path) -> None:
+    api = PrefixApi()
+    hub = make_hub(api, snapshot=fake_snapshot_into(api), single=fake_single(api))
+    expected = {prefix: tree(input_root / prefix) for prefix in ("all/T24", "benign_gridsybil/T64")}
+    assert hf_hub.main(["upload-encoder-input", "--all"], hub=hub) == 0
+    assert {"manifests/all/T24.json", "manifests/benign_gridsybil/T64.json"} <= set(api.files)
+    assert hf_hub.EncoderInputTransfer(hf_hub.HubConfig(), hub).remote_prefixes() == ["all/T24", "benign_gridsybil/T64"]
+    fresh = tmp_path / "fresh"
+    hf_hub.INPUT_ROOT = fresh  # restored by monkeypatch
+    assert hf_hub.main(["download-encoder-input", "--all"], hub=hub) == 0
+    assert {prefix: tree(fresh / prefix) for prefix in expected} == expected
+    assert hf_hub.main(["download-encoder-input", "--input", "all/T24"], hub=hub) == 0  # already matches: no-op
+
+
+def test_cli_encoder_input_all_rejects_path(input_root: pathlib.Path) -> None:
+    assert hf_hub.main(["upload-encoder-input", "--all", "--path", "x"], hub=make_hub(PrefixApi())) == 1

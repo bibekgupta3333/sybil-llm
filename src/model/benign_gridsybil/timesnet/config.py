@@ -22,7 +22,7 @@ class PretrainConfig:
 
     # data
     data_dir: str = "src/data/encoder_input/benign_gridsybil/T64"
-    runs_dir: str = "src/runs/pretraining/benign_gridsybil/T64"
+    runs_dir: str = "src/runs/pretraining/benign_gridsybil/T64"  # CLI --runs-dir (e.g. a mounted volume)
     shards_per_split: int | None = None  # None = all shards; smoke uses 1
     workers: int = 8
     holdout_frac: float = 0.10  # train / test layout: share of train sender vehicles kept as the check set

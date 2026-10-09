@@ -67,6 +67,52 @@ npm run train:smoke        # a short run; then npm run train:full
 npm test                   # pytest (scripts/tests + src/tests); npm run check = format check + tests
 ```
 
+**Training commands (examples).** `npm run train -- <options>`; every option is recorded in the run's `config.json`.
+Runs go to `src/runs/pretraining/benign_gridsybil/T64/<run_id>/`; watch them with
+`src/model/benign_gridsybil/timesnet/pretrain_monitor.ipynb`.
+
+```bash
+# Pilot on the Mac: MPS, 16 GB cap, 2 hours, 2 epochs (the LR schedule spans max-epochs, so cap epochs with time)
+npm run train -- --device mps --mem-gb 16 --max-hours 2 --max-epochs 2
+
+# Same pilot with a smaller batch (less memory per step, ~2x the steps; 256 is the plan, other sizes are ablations)
+npm run train -- --device mps --mem-gb 16 --max-hours 2 --max-epochs 2 --batch-size 128
+
+# Overnight on the Mac: 10 epochs, early stopping still on, named run folder
+npm run train -- --device mps --mem-gb 16 --max-epochs 10 --max-hours 18 --run-id mac-10ep
+
+# Full run (plan: batch 256, max 20 epochs, patience 5, 30 h cap); on EC2 the GPU is picked automatically
+npm run train:full
+npm run train -- --device cuda --max-hours 30         # same, forcing the GPU (EC2: run npm run gpu:require first)
+
+# No memory cap / memory-budget stop (memory is still logged)
+npm run train -- --device mps --max-epochs 10 --no-resource-guard
+
+# Reconstruction loss only (sanity-baseline preset; = npm run train:recon-only), or the contrastive weight λ2 from the sweep {0.1, 0.3, 1}
+npm run train -- --preset recon_only --max-epochs 10
+npm run train -- --lambda-nce 0.1 --max-epochs 10
+
+# Quick checks and a fixed number of updates
+npm run train:check                                   # pre-flight checks, no training
+npm run train:smoke                                   # one shard, 30 steps: real speed + memory
+npm run train -- --smoke --max-steps 5 --batch-size 20 --run-id tiny
+
+# Resume a stopped run (uses its config.json and last.pt), list runs, all options
+npm run train:resume -- src/runs/pretraining/benign_gridsybil/T64/<run_id>
+npm run train:runs
+npm run train:help
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--device` | `auto` (mps → cuda → cpu) | `mps`, `cuda` or `cpu` |
+| `--batch-size` | 256 (plan) | windows per step; changing it changes the run (no LR re-scaling), so treat it as an ablation |
+| `--max-epochs` · `--max-hours` · `--max-steps` | 20 · 8 (`train:full`: 30) · none | stop at whichever comes first; early stopping (patience 5) can stop sooner |
+| `--mem-gb` · `--no-resource-guard` | 22 | memory budget (MPS cap + stop); the guard off = no cap, no stop |
+| `--preset` · `--lambda-nce` | `joint` · 0.3 | loss mix: all losses or reconstruction only; contrastive weight λ2 |
+| `--run-id` · `--seed` | timestamp + preset · 0 | run folder name; random seed |
+| `--check` · `--smoke` · `--resume` | — | pre-flight checks · short real run · continue a run |
+
 **Fresh EC2 instance (Ubuntu 22.04 / 24.04 / 26.04, no Docker):** `bash scripts/ec2_bootstrap.sh` installs
 everything the Mac has (Node 22 + npm, uv, `hf`, `gh`, the same two venvs + kernels) and prints a GPU report; then
 `gh auth login`, `hf auth login`, `npm run data:download`, `npm run setup:native`, `npm run train:full` in tmux.
@@ -76,9 +122,16 @@ Tested locally in Ubuntu containers (`npm run ec2:sim`, `ec2:sim:ubuntu`). Guide
 pipeline notebooks if their outputs are missing and runs `train:check`. Full guide:
 [`docs/ec2-training.md`](docs/ec2-training.md).
 
-**Data and models:** the raw dataset and training runs move through two **private** Hugging Face repos
-(`npm run data:download` / `data:upload`, `model:upload` / `model:download` / `model:list`; log in first with
-`hf auth login`). The raw data is never committed.
+**Data and models:** the raw dataset, the ready encoder input and training runs move through **private** Hugging Face
+repos (log in first with `hf auth login`); none of it is committed.
+
+```bash
+npm run data:upload / data:download                 # raw data/VeReMi-Dataset/ (13 GB)
+npm run data:upload-input:all                       # every tree in src/data/encoder_input/ (benign_gridsybil/T64, all/T24)
+npm run data:download-input:all                     # restore them all, sha256-checked (skips trees that already match)
+npm run data:download-input -- --input all/T24      # one tree (default benign_gridsybil/T64)
+npm run model:upload -- <run_dir> / model:download -- <run_id> / model:list
+```
 
 **Simulator:** `npm run sim:data` (sample from `src/data/`, gitignored) then `npm run sim`; `sim:test`,
 `sim:typecheck`, `sim:build`.

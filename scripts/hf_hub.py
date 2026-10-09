@@ -1,18 +1,22 @@
-"""Hugging Face Hub transfers: the raw VeReMi-Extension mirror (dataset repo) and pretraining runs (model repo).
+"""Hugging Face Hub transfers: the raw VeReMi-Extension mirror and the encoder input (dataset repos) and pretraining
+runs (model repo).
 
 Run from the repo root with the training env (it pins `huggingface_hub` and `hf-xet`):
 
     .venv-train/bin/python scripts/hf_hub.py whoami
     .venv-train/bin/python scripts/hf_hub.py upload-dataset [--path data/VeReMi-Dataset]
     .venv-train/bin/python scripts/hf_hub.py download-dataset [--path data/VeReMi-Dataset] [--force]
+    .venv-train/bin/python scripts/hf_hub.py upload-encoder-input [--input benign_gridsybil/T64 | --all]
+    .venv-train/bin/python scripts/hf_hub.py download-encoder-input [--input ... | --all] [--path ...] [--force]
     .venv-train/bin/python scripts/hf_hub.py upload-model <run_dir> [--name <run_id>] [--include-last]
     .venv-train/bin/python scripts/hf_hub.py download-model <run_id> [--to src/runs/pretraining/benign_gridsybil/T64]
     .venv-train/bin/python scripts/hf_hub.py list-models
 
-Both repos are private. Repo ids resolve as flag > environment (`HF_DATASET_REPO`, `HF_MODEL_REPO`) > default.
-The dataset upload never writes into `data/`: its MANIFEST.json (relative path -> size, sha256) and dataset card are
-built in a temporary folder. Downloads refuse to write into a non-empty target unless `--force`, and verify what they
-fetched (dataset: MANIFEST.json; model: the run's SHA256SUMS). The token is read by `huggingface_hub` itself and is
+All repos are private. Repo ids resolve as flag > environment (`HF_DATASET_REPO`, `HF_INPUT_REPO`, `HF_MODEL_REPO`)
+> default. Uploads never write into the local tree: the manifest (relative path -> size, sha256) and dataset card are
+built in a temporary folder. Downloads refuse to overwrite a non-empty (encoder input: differing) target unless
+`--force`, and verify what they fetched (dataset: MANIFEST.json; encoder input: its manifest, sha256 + file count;
+model: the run's SHA256SUMS). An encoder-input tree that already matches is left alone. The token is read by `huggingface_hub` itself and is
 never printed.
 """
 
@@ -33,6 +37,10 @@ from typing import Any
 
 DEFAULT_DATASET_REPO = "bibekgupta3333/veremi-extension-raw"
 DEFAULT_MODEL_REPO = "bibekgupta3333/roadfm-lite-timesnet"
+DEFAULT_INPUT_REPO = "bibekgupta3333/roadfm-lite-encoder-input"
+DEFAULT_INPUT_PREFIX = "benign_gridsybil/T64"
+INPUT_ROOT = Path("src/data/encoder_input")
+DEFAULT_INPUT_PATH = INPUT_ROOT / DEFAULT_INPUT_PREFIX
 DEFAULT_DATASET_PATH = Path("data/VeReMi-Dataset")
 DEFAULT_RUNS_DIR = Path("src/runs/pretraining/benign_gridsybil/T64")
 
@@ -134,25 +142,36 @@ class HubConfig:
     Attributes:
         dataset_repo: Private dataset repo holding the raw VeReMi-Extension tree.
         model_repo: Private model repo holding pretraining runs under `runs/<run_id>/`.
+        input_repo: Private dataset repo holding the prepared encoder input (e.g. `benign_gridsybil/T64/`).
     """
 
     dataset_repo: str = DEFAULT_DATASET_REPO
     model_repo: str = DEFAULT_MODEL_REPO
+    input_repo: str = DEFAULT_INPUT_REPO
 
     @classmethod
     def resolve(
-        cls, dataset_repo: str | None = None, model_repo: str | None = None, env: Mapping[str, str] | None = None
+        cls,
+        dataset_repo: str | None = None,
+        model_repo: str | None = None,
+        env: Mapping[str, str] | None = None,
+        input_repo: str | None = None,
     ) -> HubConfig:
-        """Flag > environment (`HF_DATASET_REPO`, `HF_MODEL_REPO`) > default."""
+        """Flag > environment (`HF_DATASET_REPO`, `HF_MODEL_REPO`, `HF_INPUT_REPO`) > default."""
         env = os.environ if env is None else env
         return cls(
             dataset_repo=dataset_repo or env.get("HF_DATASET_REPO") or DEFAULT_DATASET_REPO,
             model_repo=model_repo or env.get("HF_MODEL_REPO") or DEFAULT_MODEL_REPO,
+            input_repo=input_repo or env.get("HF_INPUT_REPO") or DEFAULT_INPUT_REPO,
         )
 
     def dataset_url(self) -> str:
         """Browser URL of the dataset repo."""
         return f"https://huggingface.co/datasets/{self.dataset_repo}"
+
+    def input_url(self) -> str:
+        """Browser URL of the encoder-input dataset repo."""
+        return f"https://huggingface.co/datasets/{self.input_repo}"
 
     def model_url(self) -> str:
         """Browser URL of the model repo."""
@@ -201,7 +220,7 @@ class Hub:
         except RepositoryNotFoundError as err:
             raise HubError(
                 f"{repo_type} repo `{repo_id}` not found (or not visible to `{self.whoami()}`); "
-                "check the id (flag / HF_DATASET_REPO / HF_MODEL_REPO) or upload first"
+                "check the id (flag / HF_DATASET_REPO / HF_INPUT_REPO / HF_MODEL_REPO) or upload first"
             ) from err
 
     def repo_files(self, repo_id: str, repo_type: str) -> list[str]:
@@ -209,14 +228,114 @@ class Hub:
         return list(self.api.list_repo_files(repo_id, repo_type=repo_type))
 
 
-class DatasetTransfer:
-    """Mirror `data/VeReMi-Dataset` to a private dataset repo and back, verified by a manifest."""
+class TreeTransfer:
+    """Shared upload / verify code for mirroring a local folder tree to a private dataset repo.
+
+    The tree is uploaded as is (OS clutter skipped); a manifest (relative path -> size, sha256) and a dataset card are
+    built in a temporary folder, so the local tree is only read. Subclasses choose the repo, where the tree sits in
+    it and where the manifest goes.
+    """
+
+    repo_type = "dataset"
+    manifest_in_repo = MANIFEST_NAME
 
     def __init__(self, config: HubConfig, hub: Hub, log: Callable[[str], None] = print) -> None:
         self.config = config
         self.hub = hub
         self.log = log
-        self.repo_type = "dataset"
+
+    @property
+    def repo_id(self) -> str:
+        """The repo this transfer reads and writes."""
+        raise NotImplementedError
+
+    def card(self, manifest: Mapping[str, Mapping[str, Any]]) -> str:
+        """Dataset card (README.md) written once, when the repo has none."""
+        raise NotImplementedError
+
+    def _upload_tree(self, path: Path, label: str, path_in_repo: str | None = None) -> dict[str, dict[str, Any]]:
+        """Create the private repo if needed, upload `path` (at `path_in_repo`), then the manifest and card.
+
+        Returns:
+            The manifest of the uploaded tree.
+        """
+        path = Path(path)
+        if not path.is_dir() or not is_non_empty_dir(path):
+            raise HubError(f"folder `{path}` is missing or empty")
+        user = self.hub.whoami()
+        repo = self.repo_id
+        self.log(f"user {user}; {self.repo_type} repo {repo} (private)")
+        self.hub.api.create_repo(repo, repo_type=self.repo_type, private=True, exist_ok=True)
+        self.log(f"hashing {path} for {self.manifest_in_repo} (read-only) ...")
+        manifest = build_manifest(path, progress=self._progress)
+        has_card = CARD_NAME in self.hub.repo_files(repo, self.repo_type)
+        self.log(f"uploading {len(manifest):,} files (re-run the same command to resume) ...")
+        kwargs = dict(
+            repo_id=repo,
+            folder_path=str(path),
+            repo_type=self.repo_type,
+            ignore_patterns=UPLOAD_IGNORE_PATTERNS,
+            commit_message=f"Upload {label} ({len(manifest)} files)",
+        )
+        if path_in_repo:
+            # `upload_large_folder` (older huggingface_hub) has no `path_in_repo`; `upload_folder` does.
+            self.hub.api.upload_folder(path_in_repo=path_in_repo, **kwargs)
+        else:
+            self._upload_folder(**kwargs)
+        with tempfile.TemporaryDirectory(prefix="hf-dataset-meta-") as tmp:
+            meta = Path(tmp)
+            target = meta / self.manifest_in_repo
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps(self._manifest_doc(manifest), indent=1))
+            if not has_card:
+                (meta / CARD_NAME).write_text(self.card(manifest))
+            self.hub.api.upload_folder(
+                repo_id=repo, folder_path=str(meta), repo_type=self.repo_type, commit_message="Add manifest"
+            )
+        return manifest
+
+    def _fetch_manifest(self, remote: Iterable[str]) -> dict[str, Any] | None:
+        """The manifest's `files` mapping from the repo, or None when the repo has no manifest."""
+        if self.manifest_in_repo not in set(remote):
+            return None
+        with tempfile.TemporaryDirectory(prefix="hf-dataset-meta-") as tmp:
+            local = self.hub.hf_hub_download(
+                self.repo_id, self.manifest_in_repo, repo_type=self.repo_type, local_dir=tmp
+            )
+            return json.loads(Path(local).read_text())["files"]
+
+    def _upload_folder(self, **kwargs: Any) -> Any:
+        """`upload_large_folder` where this huggingface_hub has it; else `upload_folder`.
+
+        In huggingface_hub 2.x `upload_large_folder` is gone: with `hf-xet` installed `upload_folder` streams the
+        files, commits in batches and resumes when re-run.
+        """
+        large = getattr(self.hub.api, "upload_large_folder", None)
+        if callable(large):
+            kwargs.pop("commit_message", None)
+            return large(**kwargs)
+        return self.hub.api.upload_folder(**kwargs)
+
+    def _progress(self, done: int, total: int) -> None:
+        if done == total or done % 2000 == 0:
+            self.log(f"  hashed {done:,}/{total:,}")
+
+    @staticmethod
+    def _manifest_doc(manifest: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+        return {
+            "created": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+            "n_files": len(manifest),
+            "total_bytes": sum(entry["size"] for entry in manifest.values()),
+            "files": dict(manifest),
+        }
+
+
+class DatasetTransfer(TreeTransfer):
+    """Mirror `data/VeReMi-Dataset` to the root of a private dataset repo and back, verified by a manifest."""
+
+    @property
+    def repo_id(self) -> str:
+        return self.config.dataset_repo
 
     def card(self, manifest: Mapping[str, Mapping[str, Any]]) -> str:
         """Dataset card (README.md) for the private mirror; it records no secrets."""
@@ -259,32 +378,9 @@ vehicle) and ground truth.
         Returns:
             The dataset repo URL.
         """
-        path = Path(path)
-        if not path.is_dir() or not is_non_empty_dir(path):
+        if not Path(path).is_dir() or not is_non_empty_dir(Path(path)):
             raise HubError(f"dataset folder `{path}` is missing or empty")
-        user = self.hub.whoami()
-        repo = self.config.dataset_repo
-        self.log(f"user {user}; dataset repo {repo} (private)")
-        self.hub.api.create_repo(repo, repo_type=self.repo_type, private=True, exist_ok=True)
-        self.log(f"hashing {path} for {MANIFEST_NAME} (read-only) ...")
-        manifest = build_manifest(path, progress=self._progress)
-        has_card = CARD_NAME in self.hub.repo_files(repo, self.repo_type)
-        self.log(f"uploading {len(manifest):,} files (re-run the same command to resume) ...")
-        self._upload_folder(
-            repo_id=repo,
-            folder_path=str(path),
-            repo_type=self.repo_type,
-            ignore_patterns=UPLOAD_IGNORE_PATTERNS,
-            commit_message=f"Upload VeReMi-Extension tree ({len(manifest)} files)",
-        )
-        with tempfile.TemporaryDirectory(prefix="hf-dataset-meta-") as tmp:
-            meta = Path(tmp)
-            (meta / MANIFEST_NAME).write_text(json.dumps(self._manifest_doc(manifest), indent=1))
-            if not has_card:
-                (meta / CARD_NAME).write_text(self.card(manifest))
-            self.hub.api.upload_folder(
-                repo_id=repo, folder_path=str(meta), repo_type=self.repo_type, commit_message="Add manifest"
-            )
+        self._upload_tree(Path(path), "VeReMi-Extension tree")
         url = self.config.dataset_url()
         self.log(f"done: {url}")
         return url
@@ -298,7 +394,7 @@ vehicle) and ground truth.
         path = Path(path)
         if is_non_empty_dir(path) and not force:
             raise HubError(f"`{path}` exists and is not empty; refusing to overwrite (pass --force to merge into it)")
-        repo = self.config.dataset_repo
+        repo = self.repo_id
         self.hub.whoami()
         self.hub.require_repo(repo, self.repo_type)
         remote = self.hub.repo_files(repo, self.repo_type)
@@ -308,10 +404,8 @@ vehicle) and ground truth.
         self.hub.snapshot_download(
             repo, repo_type=self.repo_type, local_dir=str(path), ignore_patterns=list(DATASET_META_FILES)
         )
-        if MANIFEST_NAME in remote:
-            with tempfile.TemporaryDirectory(prefix="hf-dataset-meta-") as tmp:
-                local = self.hub.hf_hub_download(repo, MANIFEST_NAME, repo_type=self.repo_type, local_dir=tmp)
-                manifest = json.loads(Path(local).read_text())["files"]
+        manifest = self._fetch_manifest(remote)
+        if manifest is not None:
             self.log(f"verifying {len(manifest):,} files against {MANIFEST_NAME} ...")
             problems = verify_manifest(path, manifest, check_hashes=check_hashes)
         else:
@@ -324,30 +418,143 @@ vehicle) and ground truth.
         self.log(f"verified: {path}")
         return path
 
-    def _upload_folder(self, **kwargs: Any) -> Any:
-        """`upload_large_folder` where this huggingface_hub has it; else `upload_folder`.
 
-        In huggingface_hub 2.x `upload_large_folder` is gone: with `hf-xet` installed `upload_folder` streams the
-        files, commits in batches and resumes when re-run.
+def local_input_trees(root: Path = INPUT_ROOT) -> list[str]:
+    """Encoder-input trees under `root` (folders holding a `metadata.json`), as prefixes like `all/T24`."""
+    root = Path(root)
+    if not root.is_dir():
+        return []
+    return sorted(meta.parent.relative_to(root).as_posix() for meta in root.rglob("metadata.json"))
+
+
+class EncoderInputTransfer(TreeTransfer):
+    """Move one prepared encoder-input tree through a private dataset repo.
+
+    The local tree `src/data/encoder_input/<prefix>/` (e.g. `benign_gridsybil/T64`, `all/T24`) sits at `<prefix>/` in
+    the repo; its manifest is `manifests/<prefix>.json` (outside the tree, so the download restores it exactly).
+    """
+
+    def __init__(
+        self,
+        config: HubConfig,
+        hub: Hub,
+        log: Callable[[str], None] = print,
+        prefix: str = DEFAULT_INPUT_PREFIX,
+    ) -> None:
+        super().__init__(config, hub, log)
+        self.prefix = prefix.strip("/")
+        self.manifest_in_repo = f"manifests/{self.prefix}.json"
+
+    @property
+    def repo_id(self) -> str:
+        return self.config.input_repo
+
+    def remote_prefixes(self) -> list[str]:
+        """Prefixes of the trees in the repo, read from `manifests/<prefix>.json`."""
+        self.hub.require_repo(self.repo_id, self.repo_type)
+        files = self.hub.repo_files(self.repo_id, self.repo_type)
+        return sorted(
+            f[len("manifests/") : -len(".json")] for f in files if f.startswith("manifests/") and f.endswith(".json")
+        )
+
+    def card(self, manifest: Mapping[str, Mapping[str, Any]]) -> str:
+        """Dataset card (README.md) for the encoder-input repo; it records no secrets."""
+        return f"""---
+license: other
+pretty_name: RoadFM-Lite encoder input (private)
+tags: [vanet, sybil, veremi, timesnet, self-supervised]
+---
+
+# RoadFM-Lite — encoder input (private)
+
+Windows prepared from the VeReMi-Extension logs (Kamel et al., 2020) for a master's thesis (RoadFM-Lite, Florida
+Polytechnic University), uploaded only to move them to training machines. Not a new release; the original dataset's
+terms apply.
+
+## Layout
+
+Every `<prefix>/` folder is the project's `src/data/encoder_input/<prefix>/` (e.g. `benign_gridsybil/T64/`: benign +
+GridSybil, T = 64 x 13 features + mask; `all/T24/`: all classes, T = 24, compact gzipped JSON), with `train/` and
+`test/` split by sender vehicle and a `metadata.json`. `manifests/<prefix>.json` maps every file of that tree to its
+size and sha256.
+
+## Download (from the project repo root)
+
+```bash
+.venv-train/bin/python scripts/hf_hub.py download-encoder-input --all              # every tree, verified
+.venv-train/bin/python scripts/hf_hub.py download-encoder-input --input all/T24    # one tree
+```
+"""
+
+    def upload(self, path: Path = DEFAULT_INPUT_PATH) -> str:
+        """Upload the local encoder-input tree to `<prefix>/` (repo created private if missing), then its manifest.
+
+        Returns:
+            The dataset repo URL.
         """
-        large = getattr(self.hub.api, "upload_large_folder", None)
-        if callable(large):
-            kwargs.pop("commit_message", None)
-            return large(**kwargs)
-        return self.hub.api.upload_folder(**kwargs)
+        if not Path(path).is_dir() or not is_non_empty_dir(Path(path)):
+            raise HubError(
+                f"encoder-input folder `{path}` is missing or empty; build it with `npm run pipeline:encoder-input`"
+            )
+        self._upload_tree(Path(path), f"encoder input {self.prefix}", path_in_repo=self.prefix)
+        url = self.config.input_url()
+        self.log(f"done: {url}/tree/main/{self.prefix}")
+        return url
 
-    def _progress(self, done: int, total: int) -> None:
-        if done == total or done % 2000 == 0:
-            self.log(f"  hashed {done:,}/{total:,}")
+    def download(self, path: Path = DEFAULT_INPUT_PATH, force: bool = False, check_hashes: bool = True) -> Path:
+        """Restore `<prefix>/` of the repo exactly at `path`, verified by sha256 and file count.
 
-    @staticmethod
-    def _manifest_doc(manifest: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
-        return {
-            "created": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
-            "n_files": len(manifest),
-            "total_bytes": sum(entry["size"] for entry in manifest.values()),
-            "files": dict(manifest),
-        }
+        An existing tree that already matches the manifest is left alone (idempotent). A differing one is replaced
+        only with `force`. The download goes to a hidden staging folder next to `path` and is moved into place only
+        after it verifies.
+
+        Raises:
+            HubError: The repo or manifest is missing, the local tree differs without `force`, or verification fails.
+        """
+        path = Path(path)
+        if path.exists() and not path.is_dir():
+            raise HubError(f"`{path}` is a file, not a folder")
+        repo = self.repo_id
+        self.hub.whoami()
+        self.hub.require_repo(repo, self.repo_type)
+        remote = self.hub.repo_files(repo, self.repo_type)
+        manifest = self._fetch_manifest(remote)
+        if manifest is None:
+            raise HubError(f"{self.manifest_in_repo} not in {repo}; run `upload-encoder-input` first")
+        remote_files = [f for f in remote if f.startswith(self.prefix + "/")]
+        if len(remote_files) != len(manifest):
+            raise HubError(
+                f"repo has {len(remote_files)} files under {self.prefix}/ but the manifest lists {len(manifest)}"
+            )
+        if is_non_empty_dir(path):
+            problems = verify_manifest(path, manifest, check_hashes=check_hashes)
+            if not problems:
+                self.log(f"`{path}` already matches the repo ({len(manifest):,} files); nothing to do")
+                return path
+            if not force:
+                raise HubError(
+                    f"`{path}` exists and differs from the repo ({problems[0]}); refusing to overwrite "
+                    "(pass --force to replace it)"
+                )
+        staging = path.parent / f".{path.name}.hf-download"
+        staging.mkdir(parents=True, exist_ok=True)
+        self.log(f"downloading {len(manifest):,} files from {repo}/{self.prefix} via {staging} ...")
+        self.hub.snapshot_download(
+            repo, repo_type=self.repo_type, local_dir=str(staging), allow_patterns=[f"{self.prefix}/*"]
+        )
+        source = staging / self.prefix
+        problems = verify_manifest(source, manifest, check_hashes=check_hashes) if source.is_dir() else ["no files"]
+        if problems:
+            raise HubError(
+                "download verification failed: " + "; ".join(problems[:5]) + f" (partial download kept in {staging})"
+            )
+        if path.exists():
+            shutil.rmtree(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(source), str(path))
+        shutil.rmtree(staging, ignore_errors=True)
+        self.log(f"verified ({len(manifest):,} files, sha256{'' if check_hashes else ' skipped'}): {path}")
+        return path
 
 
 class ModelTransfer:
@@ -493,11 +700,37 @@ Each run sits in `runs/<run_id>/` with the same layout as a local run folder: `c
                 raise HubError(f"sha256 mismatch for {name}")
 
 
+def run_encoder_input(args: argparse.Namespace, config: HubConfig, hub: Hub) -> None:
+    """Upload or download one encoder-input tree (`--input`) or all of them (`--all`)."""
+    upload = args.command == "upload-encoder-input"
+    if args.all and args.path is not None:
+        raise HubError("--path works with one --input, not with --all")
+    if args.all:
+        prefixes = local_input_trees() if upload else EncoderInputTransfer(config, hub).remote_prefixes()
+        if not prefixes:
+            raise HubError(
+                f"no encoder-input trees found ({INPUT_ROOT}/<name>/<T>/metadata.json)"
+                if upload
+                else f"no trees in {config.input_repo}; upload first"
+            )
+        print(f"{'uploading' if upload else 'downloading'} {len(prefixes)} tree(s): {', '.join(prefixes)}")
+    else:
+        prefixes = [args.input.strip("/")]
+    for prefix in prefixes:
+        transfer = EncoderInputTransfer(config, hub, prefix=prefix)
+        path = args.path if args.path is not None else INPUT_ROOT / prefix
+        if upload:
+            transfer.upload(path)
+        else:
+            transfer.download(path, force=args.force, check_hashes=not args.no_hash)
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Command line."""
     p = argparse.ArgumentParser(description="Hugging Face Hub transfers for RoadFM-Lite (private repos)")
     p.add_argument("--dataset-repo", help=f"dataset repo id (env HF_DATASET_REPO; default {DEFAULT_DATASET_REPO})")
     p.add_argument("--model-repo", help=f"model repo id (env HF_MODEL_REPO; default {DEFAULT_MODEL_REPO})")
+    p.add_argument("--input-repo", help=f"encoder-input repo id (env HF_INPUT_REPO; default {DEFAULT_INPUT_REPO})")
     sub = p.add_subparsers(dest="command", required=True)
     sub.add_parser("whoami", help="logged-in Hugging Face user (no token printed)")
     up = sub.add_parser("upload-dataset", help="upload the raw VeReMi tree to the private dataset repo")
@@ -506,6 +739,21 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     down.add_argument("--path", type=Path, default=DEFAULT_DATASET_PATH)
     down.add_argument("--force", action="store_true", help="download into a non-empty folder")
     down.add_argument("--no-hash", action="store_true", help="verify file list + sizes only (skip sha256)")
+    upi = sub.add_parser(
+        "upload-encoder-input", help=f"upload encoder-input trees from {INPUT_ROOT}/ to the input repo"
+    )
+    downi = sub.add_parser("download-encoder-input", help="restore encoder-input trees exactly and verify them")
+    for cmd in (upi, downi):
+        which = cmd.add_mutually_exclusive_group()
+        which.add_argument(
+            "--input", default=DEFAULT_INPUT_PREFIX, help=f"tree under {INPUT_ROOT}/ (default {DEFAULT_INPUT_PREFIX})"
+        )
+        which.add_argument(
+            "--all", action="store_true", help=f"every tree (upload: under {INPUT_ROOT}/; download: in the repo)"
+        )
+        cmd.add_argument("--path", type=Path, help=f"local tree for one --input (default {INPUT_ROOT}/<input>)")
+    downi.add_argument("--force", action="store_true", help="replace a local tree that differs from the repo")
+    downi.add_argument("--no-hash", action="store_true", help="verify file list + sizes only (skip sha256)")
     upm = sub.add_parser("upload-model", help="upload one run folder to runs/<run_id>/ of the model repo")
     upm.add_argument("run_dir", type=Path)
     upm.add_argument("--name", help="run id in the repo (default: the folder name)")
@@ -521,7 +769,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None, hub: Hub | None = None) -> int:
     """Entry point; returns the exit code."""
     args = parse_args(argv)
-    config = HubConfig.resolve(args.dataset_repo, args.model_repo)
+    config = HubConfig.resolve(args.dataset_repo, args.model_repo, input_repo=args.input_repo)
     try:
         hub = hub or Hub()
         if args.command == "whoami":
@@ -530,6 +778,8 @@ def main(argv: list[str] | None = None, hub: Hub | None = None) -> int:
             DatasetTransfer(config, hub).upload(args.path)
         elif args.command == "download-dataset":
             DatasetTransfer(config, hub).download(args.path, force=args.force, check_hashes=not args.no_hash)
+        elif args.command in ("upload-encoder-input", "download-encoder-input"):
+            run_encoder_input(args, config, hub)
         elif args.command == "upload-model":
             ModelTransfer(config, hub).upload(args.run_dir, name=args.name, include_last=args.include_last)
         elif args.command == "download-model":

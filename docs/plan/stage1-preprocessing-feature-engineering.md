@@ -1,4 +1,4 @@
-# Stage 1 — preprocessing and feature engineering
+# Self-supervised pretraining — preprocessing and feature engineering
 
 > Status: measured on the full local data, 2026-10-06. Audience: thesis chapter and advisor review.
 > Related: [stage1-ssl-wbs.md](stage1-ssl-wbs.md) (decisions D1–D9), [clarification.md](clarification.md)
@@ -7,8 +7,8 @@
 
 ## Purpose
 
-This document describes how raw VeReMi-Extension receiver logs become the tensors the Stage 1 TimesNet encoder
-reads. It covers what one sample is, which 13 features describe each message, how variable-length message
+This document describes how raw VeReMi-Extension receiver logs become the tensors the TimesNet encoder reads during
+self-supervised pretraining. It covers what one sample is, which 13 features describe each message, how variable-length message
 sequences are cut, bucketed and masked, how the data is split, and what the encoder must do with the result.
 No attack labels are used to build the inputs. Labels are stored next to them for evaluation only.
 
@@ -201,11 +201,11 @@ kept).
   Option: a floor (`min_messages`, e.g. 4). Not yet decided.
 - **DataReplay and DoS are not captured per link.** These attacks rotate pseudonyms every 1–2 messages (69–88%
   of their links are single messages), so a per-link window sees almost nothing (F11). A receiver time window
-  (all senders one car hears in 10–20 s) is the documented later option; it is outside the current Stage 1
+  (all senders one car hears in 10–20 s) is the documented later option; it is outside the current pretraining
   scope.
 - **Ghost pseudonym 1:** GridSybil ghosts share pseudonym 1 in every GridSybil run; these messages are grouped
   by sender id (`split_by_sender`). Whether to keep this or drop them is open (F13).
-- **Class imbalance:** about 35% benign / 65% GridSybil. Stage 1 does not use labels, but probes and metrics must
+- **Class imbalance:** about 35% benign / 65% GridSybil. Pretraining does not use labels, but probes and metrics must
   account for it.
 - **Outliers:** normalisation is mean/std, which is sensitive to extreme values (e.g. long Δτ gaps or far
   ranges). Whether to clip or switch to robust scaling is open.

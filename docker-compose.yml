@@ -1,0 +1,38 @@
+# RoadFM-Lite on Ubuntu 24.04 (see docs/ec2-training.md). The repo is bind-mounted; the HF token comes from the
+# mounted Hugging Face cache (or `hf auth login` inside the container, which writes to that mount).
+x-common: &common
+  working_dir: /workspace
+  volumes:
+    - .:/workspace
+    - ${HF_HOME_HOST:-~/.cache/huggingface}:/root/.cache/huggingface
+  environment:
+    PY: /opt/venv/bin/python
+  shm_size: 8gb
+  stdin_open: true
+  tty: true
+
+services:
+  gpu:
+    <<: *common
+    image: roadfm-lite:gpu
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        TORCH_VARIANT: cu126
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  cpu:
+    <<: *common
+    image: roadfm-lite:cpu
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        TORCH_VARIANT: cpu

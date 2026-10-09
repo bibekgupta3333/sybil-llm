@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Stage 1 SSL Plan</title>
+<title>Pretraining SSL Plan</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -717,11 +717,12 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Stage 1 — TimesNet self-supervised pretraining</h1>
+  <h1>TimesNet self-supervised pretraining</h1>
   <p class="subtitle">
-    Work breakdown for <b>Stage 1 (now)</b>: the advisor's steps 1–3 (input representation, TimesNet encoder, label-free pretraining with
-    masked reconstruction, physical-constraint heads and contrastive learning). <b>Stage 2 (deferred)</b> — few-shot supervised
-    contrastive fine-tuning and memory-bank anomaly scoring — is planned below and starts after Stage 1.
+    Work breakdown for <b>self-supervised pretraining (now)</b>: the advisor's steps 1–3 (input representation, TimesNet encoder, label-free pretraining with
+    masked reconstruction, physical-constraint heads and contrastive learning). <b>Few-shot fine-tuning and detection (deferred)</b> — supervised
+    contrastive fine-tuning and memory-bank anomaly scoring — is planned below and starts after pretraining.
+    (These two phases were formerly called Stage 1 and Stage 2; task IDs S1.x / S2.x are unchanged.)
     Plan text: <code>docs/plan/clarification.md</code> · task detail: <code>docs/plan/stage1-ssl-wbs.md</code>. Ticks and decision status are saved in this browser only.
   </p>
 
@@ -763,7 +764,7 @@
     <article class="plan-card" id="plan-part-1" data-view="adopted">
       <div class="plan-card-head">
         <span class="plan-num">1</span><h3>Input Representation</h3>
-        <span class="plan-badge plan-s1">Stage 1 · now</span>
+        <span class="plan-badge plan-s1">Pretraining · now</span>
         <button type="button" class="plan-flip">Compare</button>
       </div>
       <div class="plan-cols">
@@ -816,14 +817,14 @@
     <article class="plan-card" id="plan-part-2" data-view="adopted">
       <div class="plan-card-head">
         <span class="plan-num">2</span><h3>Architecture</h3>
-        <span class="plan-badge plan-s1">Stage 1 · now</span>
+        <span class="plan-badge plan-s1">Pretraining · now</span>
         <button type="button" class="plan-flip">Compare</button>
       </div>
       <div class="plan-cols">
         <div class="plan-col plan-adopted">
           <div class="plan-col-tag">Adopted</div>
           <ul>
-            <li><b>Encoder:</b> TimesNet with four stacked TimesBlocks (<mark class="plan-new">inner width d_ff = 64, 3 Inception
+            <li><b>Encoder:</b> TimesNet with four stacked TimesBlocks (<mark class="plan-new">d = 128, inner width d_ff = 64 (128 → 64 → 128 bottleneck, D12), 3 Inception
               kernel sizes, top-k = 3 periods</mark>) and <mark class="plan-new">no time-of-day embedding</mark>.</li>
             <li><b>Periods:</b> <mark class="plan-new">chosen per sample</mark> from FFT frequencies f ≥ 2.</li>
             <li><b>Outputs:</b> <mark class="plan-new">per-timestep states H (T × d)</mark>, and an embedding z (dimension
@@ -850,8 +851,8 @@
     <!-- 3 -->
     <article class="plan-card" id="plan-part-3" data-view="adopted">
       <div class="plan-card-head">
-        <span class="plan-num">3</span><h3>Stage 1: Self-Supervised Pretraining (no attack labels)</h3>
-        <span class="plan-badge plan-s1">Stage 1 · now</span>
+        <span class="plan-num">3</span><h3>Self-Supervised Pretraining (no attack labels)</h3>
+        <span class="plan-badge plan-s1">Pretraining · now</span>
         <button type="button" class="plan-flip">Compare</button>
       </div>
       <div class="plan-cols">
@@ -933,14 +934,14 @@
     <!-- 4 -->
     <article class="plan-card" id="plan-part-4" data-view="adopted">
       <div class="plan-card-head">
-        <span class="plan-num">4</span><h3>Stage 2: Supervised Contrastive Fine-Tuning (few-shot)</h3>
-        <span class="plan-badge plan-s2">Stage 2 · deferred</span>
+        <span class="plan-num">4</span><h3>Few-Shot Fine-Tuning (supervised contrastive)</h3>
+        <span class="plan-badge plan-s2">Fine-tuning · deferred</span>
         <button type="button" class="plan-flip">Compare</button>
       </div>
       <div class="plan-cols">
         <div class="plan-col plan-adopted">
           <div class="plan-col-tag">Adopted</div>
-          <p>We initialize from the Stage 1 checkpoint and fine-tune with a 10× lower learning rate.</p>
+          <p>We initialize from the pretrained checkpoint and fine-tune with a 10× lower learning rate.</p>
           <ul>
             <li><b>Training classes (local data):</b> <mark class="plan-new">A16 GridSybil, A18 DoSRandomSybil,
               A19 DoSDisruptiveSybil, plus benign</mark>.</li>
@@ -967,7 +968,7 @@
     <article class="plan-card" id="plan-part-5" data-view="adopted">
       <div class="plan-card-head">
         <span class="plan-num">5</span><h3>Memory Bank and Anomaly Scoring</h3>
-        <span class="plan-badge plan-s2">Stage 2 · deferred</span>
+        <span class="plan-badge plan-s2">Fine-tuning · deferred</span>
         <button type="button" class="plan-flip">Compare</button>
       </div>
       <div class="plan-cols">
@@ -1001,8 +1002,8 @@
     <article class="plan-card" id="plan-part-6" data-view="adopted">
       <div class="plan-card-head">
         <span class="plan-num">6</span><h3>Hyperparameters to Sweep</h3>
-        <span class="plan-badge plan-s1">Stage 1 · now</span>
-        <span class="plan-badge plan-s2">Stage 2 · deferred</span>
+        <span class="plan-badge plan-s1">Pretraining · now</span>
+        <span class="plan-badge plan-s2">Fine-tuning · deferred</span>
         <button type="button" class="plan-flip">Compare</button>
       </div>
       <div class="plan-cols">
@@ -1040,14 +1041,14 @@
       <li id="plan-change-3"><a href="#sec-review"><b>Time of day removed, range and bearing added:</b> <span>time of day perfectly separates the two scenario groups (shortcut). The vector stays 13-dimensional.</span></a></li>
       <li id="plan-change-4"><a href="#sec-review"><b>T = 64 with fixed-length, length-matched samples:</b> <span>attackers send longer histories, so length would leak the class.</span></a></li>
       <li id="plan-change-5"><a href="#sec-review"><b>New vehicle-grouped split:</b> <span>89.7% of benign test vehicles currently have a near-copy in train.</span></a></li>
-      <li id="plan-change-6"><a href="#sec-review"><b>TimesNet details fixed:</b> <span>d_ff = 64 keeps it at 2.3–9.2M parameters instead of 37.5–600M; per-sample periods; no time embedding.</span></a></li>
+      <li id="plan-change-6"><a href="#sec-review"><b>TimesNet details fixed:</b> <span>d = 128, d_ff = 64 with 3 kernels (D12, the professor's plan): 2.30M parameters instead of 37.5M with d_ff = d and 6 kernels; per-sample periods; no time embedding.</span></a></li>
       <li id="plan-change-7"><a href="#sec-review"><b>Block length = ratio × T:</b> <span>a 20–40-step block doesn't fit the 20–30% mask ratio at T = 64.</span></a></li>
       <li id="plan-change-8"><a href="#sec-review"><b>The decoder reads H, not z:</b> <span>reconstructing individual timesteps needs the per-step states.</span></a></li>
       <li id="plan-change-9"><a href="#sec-review"><b>Physics heads detect injected violations:</b> <span>the original rules leaked the label (H1), were empty (H2) or caught simulator quirks (H3). The heads are renamed P1–P3 to avoid clashing with the thesis hypotheses.</span></a></li>
       <li id="plan-change-10"><a href="#sec-review"><b>Augmentations made physically consistent:</b> <span>jitter and speed scaling resembled attack artifacts. The timestamp offset is dropped because time of day is no longer a feature.</span></a></li>
       <li id="plan-change-11"><a href="#sec-review"><b>Road-segment negatives become grid-cell negatives within the same group:</b> <span>there is no map, and "other time of day" means the other scenario group.</span></a></li>
       <li id="plan-change-12"><a href="#sec-review"><b>Small λ sweep and label-free checkpoint selection instead of a full grid:</b> <span>a full grid is 243 configs × 3 seeds, and choosing by accuracy uses labels.</span></a></li>
-      <li id="plan-change-13"><a href="#sec-review"><b>Stage 2 uses the attack codes we have:</b> <span>A1–A9 are not in our data, and data replay is A17, not A16.</span></a></li>
+      <li id="plan-change-13"><a href="#sec-review"><b>Fine-tuning uses the attack codes we have:</b> <span>A1–A9 are not in our data, and data replay is A17, not A16.</span></a></li>
       <li id="plan-change-14"><a href="#sec-review"><b>Memory bank built from unlabeled training data:</b> <span>choosing only "legitimate" trajectories needs labels. FL is treated as the deployment motivation only.</span></a></li>
     </ol>
     <p class="plan-foot">Hyperparameter values and when each is chosen: <a href="#sec-sweep">see the sweep plan</a>.</p>
@@ -1055,7 +1056,7 @@
 </section>
 
   <h2 id="sec-review">Plan review — issues in the professor's plan, explained simply</h2>
-  <p class="lead">The professor's Stage 1 plan checked against our actual VeReMi data. Each issue has a one-line summary; open a card for the reasoning, the measured numbers, a fix, and a question to bring to the meeting.</p>
+  <p class="lead">The professor's pretraining plan checked against our actual VeReMi data. Each issue has a one-line summary; open a card for the reasoning, the measured numbers, a fix, and a question to bring to the meeting.</p>
   <section id="review">
   <div class="rv-intro">
     <div class="rv-box rv-how">
@@ -1076,7 +1077,7 @@
         <li><b>Message timing (Δτ) as a feature.</b> Useful: GridSybil sends bursts, 15% of its gaps are under 0.5 s.</li>
         <li><b>Masked reconstruction + contrastive learning.</b> A standard, well-tested self-supervised recipe.</li>
         <li><b>Training heads are thrown away after pretraining.</b> Clean "foundation model" design: only the encoder is kept.</li>
-        <li><b>Stage 1 before Stage 2.</b> Builds and checks the encoder before spending labels.</li>
+        <li><b>Pretraining before fine-tuning.</b> Builds and checks the encoder before spending labels.</li>
       </ul>
     </div>
   </div>
@@ -1097,14 +1098,14 @@
 
   <h2 id="sec-deck">Presentation — steps 1 and 2 in 12 slides</h2>
   <p class="lead">Use ← / → while the pointer is over the slides, or press Fullscreen to present.</p>
-  <section id="deck" aria-label="Stage 1 slide presentation">
+  <section id="deck" aria-label="Pretraining slide presentation">
   <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
     <g id="deck-car"><rect x="-30" y="-14" width="60" height="28" rx="9"/><rect x="-14" y="-10" width="22" height="20" rx="4" fill="#fff" opacity=".55"/></g>
   </defs></svg>
-  <p class="deck-intro">Stage 1, steps 1–2 in 12 slides, written for someone new to the project. Use the buttons, or the
+  <p class="deck-intro">Pretraining, input and encoder in 12 slides, written for someone new to the project. Use the buttons, or the
     ← → keys while the pointer is over the deck (or it has focus). Your place is remembered in this browser.</p>
 
-  <div class="deck-shell" id="deck-shell" tabindex="0" role="region" aria-roledescription="slide deck" aria-label="Stage 1, steps 1–2 in 12 slides">
+  <div class="deck-shell" id="deck-shell" tabindex="0" role="region" aria-roledescription="slide deck" aria-label="Pretraining, input and encoder in 12 slides">
     <div class="deck-bar">
       <button type="button" class="deck-btn" data-deck-act="prev" title="Previous slide (←)" aria-label="Previous slide">← Prev</button>
       <span class="deck-counter" id="deck-counter" aria-live="polite">1 / 12</span>
@@ -1120,7 +1121,7 @@
 
         <!-- 1 -->
         <div class="deck-slide deck-hero is-active" data-title="Title">
-          <div class="deck-kicker">RoadFM-Lite · Stage 1 · steps 1–2</div>
+          <div class="deck-kicker">RoadFM-Lite · self-supervised pretraining · input and encoder</div>
           <h3>Teaching a model what normal driving looks like — with no attack labels</h3>
           <div class="deck-body">
             <p>Before the model ever sees the word “attack”, it practises on unlabeled driving data until it understands
@@ -1401,9 +1402,9 @@
         </div>
 
         <!-- 10 -->
-        <div class="deck-slide" data-title="Keep it small">
+        <div class="deck-slide" data-title="Model size">
           <div class="deck-kicker">Step 2 · model size</div>
-          <h3>Keep it small: 2.3M–9.2M parameters, not 37.5M–600M</h3>
+          <h3>d_ff = 64, 3 kernels: 2.30M–9.20M parameters, not 37.5M–600M</h3>
           <div class="deck-body">
             <div class="deck-two even">
               <div class="deck-bars" role="img" aria-label="Parameter counts. Reference setting: 37.5 million, 150 million, 600 million for d 128, 256, 512. Ours: 2.30, 4.60, 9.20 million.">
@@ -1418,7 +1419,8 @@
               </div>
               <ul class="deck-pts">
                 <li>We have only <strong>~18k vehicle identities</strong> to learn from.</li>
-                <li>A narrower inner layer and 3 filter sizes (instead of 6) cut the size <strong>16×–65×</strong>.</li>
+                <li>Main model (D12, the professor's plan): d = 128 with a d_ff = 64 bottleneck (128 → 64 → 128) and 3 filter sizes instead of 6: <strong>2.30M</strong> parameters, about <strong>16×</strong> smaller than the reference at d = 128.</li>
+                <li>Half the convolution weights of d_ff = 128 (2.30M vs 4.60M): less overfitting risk with ~5.7k sender vehicles and faster. d_ff = 128 is the first ablation if the model underfits; d = 256 / 512 only on evidence.</li>
               </ul>
             </div>
           </div>
@@ -1515,7 +1517,7 @@
     <b>Benign + GridSybil is the first trial of the whole pipeline</b>; all attack types come later (DataReplay / DoS links are
     1–2 messages, so they need a per-receiver time window). Code lives inside notebooks under <code>src/</code>
     (<code>src/README.md</code> explains the layout): <code>pipeline/input_representation.ipynb</code> (all scenarios),
-    <code>pipeline/benign_gridsybil/encoder_input_T64.ipynb</code>, <code>model/benign_gridsybil/timesnet_encoder_T64.ipynb</code>,
+    <code>pipeline/benign_gridsybil/encoder_input_T64.ipynb</code>, <code>model/benign_gridsybil/encoder_T64.ipynb</code>,
     <code>eda/eda_window_size.ipynb</code>, <code>eda/benign_gridsybil/eda_encoder_input_T64.ipynb</code>. Outputs go to
     <code>src/data/</code> (never under <code>data/</code>).</p>
 
@@ -1815,7 +1817,7 @@
   <div class="viz-gap"></div>
   <section id="s1data" aria-labelledby="s1data-title">
   <h3 class="s1data-h" id="s1data-title">Step 1: what the data tells us</h3>
-  <p class="s1data-intro">Four measurements from the raw VeReMi logs that shape how we build the model's input. All numbers are measured (see the Stage 1 WBS). Anything schematic is marked "illustrative".</p>
+  <p class="s1data-intro">Four measurements from the raw VeReMi logs that shape how we build the model's input. All numbers are measured (see the pretraining WBS). Anything schematic is marked "illustrative".</p>
   <div class="s1data-grid">
 
     <div class="panel s1data-card">
@@ -1902,10 +1904,12 @@
   </style>
 
   <p class="enc-lead">Status 2026-10-07: the encoder is <b>built and checked, not trained</b>. It lives in
-    <code>src/model/benign_gridsybil/timesnet_encoder_T64.ipynb</code> and runs in the pinned training environment
+    <code>src/model/benign_gridsybil/encoder_T64.ipynb</code> and runs in the pinned training environment
     (<code>.venv-train</code>: Python 3.14.5, torch 2.14.1, Apple MPS; pinned in <code>requirements-train.txt</code>; Jupyter kernel
     <code>roadfm-train</code>). It reads the encoder input above (64 × 13 + mask) and returns <b>H</b>, one vector per message, and
-    <b>z</b>, one vector per window. No training runs until the student says so.</p>
+    <b>z</b>, one vector per window. The pretraining code (heads, views, losses, monitors, trainer) lives in the package
+    <code>src/model/benign_gridsybil/timesnet/</code>; TimesNet only (D11), d = 128, d_ff = 64 (D12); input split 90 / 10 train / test by
+    sender vehicle (D8′). Nothing is trained yet; no training runs until the student says so.</p>
 
   <div class="enc-card">
     <h3>What the encoder does with one window</h3>
@@ -1956,7 +1960,7 @@
       <!-- params -->
       <rect class="enc-info" x="10" y="160" width="300" height="56" rx="8"/>
       <text x="160" y="184" text-anchor="middle" font-size="13" font-weight="600">2,301,312 parameters (encoder)</text>
-      <text x="160" y="203" text-anchor="middle" font-size="11" class="enc-t-sec">2,377,488 with the untrained heads</text>
+      <text x="160" y="203" text-anchor="middle" font-size="11" class="enc-t-sec">2,402,448 with the untrained heads</text>
       <!-- heads -->
       <path class="enc-arrow" d="M650 120 V230 H435 V258" stroke-dasharray="4 3" marker-end="url(#enc-ah)"/>
       <path class="enc-arrow" d="M800 216 V242 H640 V258" stroke-dasharray="4 3" marker-end="url(#enc-ah)"/>
@@ -1997,7 +2001,7 @@
       <text x="160" y="519" text-anchor="middle" font-size="12" class="enc-t-sec">projection 128 on z (NT-Xent)</text>
       <rect class="enc-info" x="20" y="559" width="280" height="56" rx="8"/>
       <text x="160" y="584" text-anchor="middle" font-size="13" font-weight="600">2,301,312 parameters</text>
-      <text x="160" y="603" text-anchor="middle" font-size="12" class="enc-t-sec">2,377,488 with the heads</text>
+      <text x="160" y="603" text-anchor="middle" font-size="12" class="enc-t-sec">2,402,448 with the heads</text>
       <line class="enc-arrow" x1="160" y1="67" x2="160" y2="88" marker-end="url(#enc-ah2)"/>
       <line class="enc-arrow" x1="160" y1="152" x2="160" y2="173" marker-end="url(#enc-ah2)"/>
       <line class="enc-arrow" x1="160" y1="255" x2="160" y2="276" marker-end="url(#enc-ah2)"/>
@@ -2015,8 +2019,10 @@
     <div class="enc-card">
       <h3>What was built (S1.2.1–S1.2.3)</h3>
       <ul>
-        <li><b>TimesNet:</b> 4 TimesBlocks, d = 128, d_ff = 64, 3 Inception kernels, top-3 periods per window. <b>2,301,312
-          parameters</b>, within 0.06% of the planned 2.30M (finding F9).</li>
+        <li><b>TimesNet:</b> 4 TimesBlocks, d = 128, d_ff = 64 (128 → 64 → 128 bottleneck, D12, the professor's plan), 3 Inception kernels,
+          top-3 periods per window. <b>2,301,312 parameters</b> (exact; one TimesBlock 574,016). Half the convolution weights of
+          d_ff = 128 (was 4,595,840 under D10): less overfitting risk with ~5.7k sender vehicles and faster. d_ff = 128 is the first
+          ablation if the model underfits; d = 256 / 512 only on evidence.</li>
         <li><b>Embedding:</b> a 1-D convolution over the 13 features with zero padding (not circular, so the end of a window never
           leaks into its start) plus a sinusoidal position code. No time of day.</li>
         <li><b>Periods from real rows only:</b> each window's FFT ignores its padding. On a synthetic test this found the true
@@ -2025,7 +2031,7 @@
         <li><b>The mask everywhere:</b> every block output is multiplied by the mask; z is the mean of H over real rows only.
           Output: H (B, 64, 128) and z (B, 128).</li>
         <li><b>Untrained heads and loss definitions</b> (preview of S1.3): a masker that hides exactly 25% of real rows, a 2-layer
-          MLP reconstruction head, physics heads P1 speed jump / P2 speed scaled / P3 sharp turn (the injectors that create these
+          MLP reconstruction head, physics heads P1 speed jump / P2 speed scaled / P3 sharp turn (each Linear 128 → 128 → 1; the injectors that create these
           violations are not built yet), a projection head (128, L2-normalised, NT-Xent τ = 0.1).</li>
       </ul>
       <p class="enc-note">The notebook prints the untrained losses only as a demo. They mean nothing and are not results.</p>
@@ -2037,12 +2043,12 @@
         <thead><tr><th>Check</th><th>Result</th></tr></thead>
         <tbody>
           <tr><td>Random garbage written into padding rows</td><td class="enc-res">output unchanged (Δ = 0)</td></tr>
-          <tr><td>Same window alone vs inside a batch</td><td class="enc-res">|Δz| 7e-7</td></tr>
+          <tr><td>Same window alone vs inside a batch</td><td class="enc-res">|Δz| ≤ 1e-6</td></tr>
           <tr><td>NaN or Inf in H or z</td><td class="enc-res">none</td></tr>
           <tr><td>Same seed, run twice</td><td class="enc-res">same output</td></tr>
-          <tr><td>CPU vs Apple MPS</td><td class="enc-res">|Δz| 1.7e-6</td></tr>
-          <tr><td>Parameters vs plan (F9: 2.30M)</td><td class="enc-res">2,301,312 (+0.06%)</td></tr>
-          <tr><td>Forward pass, 256 windows</td><td class="enc-res">CPU ~1.4 s · MPS ~0.3 s</td></tr>
+          <tr><td>CPU vs Apple MPS</td><td class="enc-res">|Δz| ~1.4e-6</td></tr>
+          <tr><td>Parameters vs plan (D12: 2,301,312)</td><td class="enc-res">2,301,312 (exact)</td></tr>
+          <tr><td>Forward pass, 256 windows</td><td class="enc-res">CPU ~1.4 s · MPS ~0.3 s (measured with d_ff = 64)</td></tr>
         </tbody>
       </table>
       </div>
@@ -2073,7 +2079,7 @@
 
   <!-- 1. Architecture -->
   <div class="panel">
-    <div class="panel-head"><span class="title">TimesNet encoder and its Stage-1 training heads</span></div>
+    <div class="panel-head"><span class="title">TimesNet encoder and its pretraining heads</span></div>
     <div class="s2a-body s2a-grid">
       <svg class="s2a-arch" viewBox="0 0 470 612" role="img" aria-labelledby="s2arch-arch-t">
         <title id="s2arch-arch-t">Encoder: input (B, T, 13) to embedding to four TimesBlocks to per-timestep states H (B, T, d) to global average pooling to window vector z (B, d). Dashed heads (decoder on H, physics heads and SimCLR head on z) are discarded after pretraining.</title>
@@ -2248,7 +2254,7 @@
         <text class="s2a-shape" x="240" y="537" text-anchor="middle">out (B, T, d)</text>
       </svg>
     </div>
-    <p class="s2a-cap">Folding by the period stacks "one cycle per row", so the same phase of each cycle lines up in a column (dark cells) and a 2-D kernel can compare cycles. Periods are picked per window; 32 / 16 / 8 are examples. Vehicle motion is mostly not periodic, so whether this helps is tested against the Transformer, and a null result gets reported.</p>
+    <p class="s2a-cap">Folding by the period stacks "one cycle per row", so the same phase of each cycle lines up in a column (dark cells) and a 2-D kernel can compare cycles. Periods are picked per window; 32 / 16 / 8 are examples. Vehicle motion is mostly not periodic, so whether this helps is tested against a Transformer (removed from the code for now, D11; can return as an ablation), and a null result gets reported.</p>
   </div>
 
   <!-- 3. Model size -->
@@ -2258,23 +2264,23 @@
       <div class="s2a-chart" id="s2arch-chart">
         <div class="s2a-legend">
           <span><i class="ref"></i>Reference style (d_ff = d, 6 kernels)</span>
-          <span><i class="rec"></i>Recommended (d_ff = 64, 3 kernels)</span>
+          <span><i class="rec"></i>Chosen (d_ff = 64, 3 kernels, D12)</span>
           <span><i class="pil"></i>Current Transformer pilot ≈ 1.19M</span>
         </div>
         <svg viewBox="0 0 480 290" role="img" aria-labelledby="s2arch-ch-t" id="s2arch-chsvg">
-          <title id="s2arch-ch-t">Parameter counts. Reference style: 37.5M, 150M, 600M for d = 128, 256, 512. Recommended: 2.30M, 4.60M, 9.20M. Transformer pilot about 1.19M.</title>
+          <title id="s2arch-ch-t">Parameter counts. Reference style: 37.5M, 150M, 600M for d = 128, 256, 512. Chosen: 2.30M, 4.60M, 9.20M. Transformer pilot about 1.19M.</title>
         </svg>
         <div class="s2a-tip" id="s2arch-tip"></div>
       </div>
       <details>
         <summary>Show as a table</summary>
         <table class="s2a-tbl">
-          <thead><tr><th>d</th><th>Reference style</th><th>Recommended</th><th>Ratio</th></tr></thead>
+          <thead><tr><th>d</th><th>Reference style</th><th>Chosen</th><th>Ratio</th></tr></thead>
           <tbody id="s2arch-tbody"></tbody>
         </table>
       </details>
     </div>
-    <p class="s2a-cap">The data hold only ~18k vehicle identities, so keep the model small: the recommended bottleneck is 16–65× smaller than the reference style at the same width d.</p>
+    <p class="s2a-cap">Chosen (D12, 2026-10-08, the professor's plan): d = 128, d_ff = 64 with 3 kernels, 2.30M parameters, about 16× smaller than the reference style at d = 128. Half the convolution weights of d_ff = 128: less overfitting risk with ~5.7k sender vehicles and faster. d_ff = 128 (4.60M) is the first ablation if the model underfits; d = 256 / 512 only on evidence. (D10 d_ff = d and D11 d = 512 are superseded.)</p>
   </div>
 
   <!-- 4. Decisions -->
@@ -2285,8 +2291,8 @@
       <div class="s2a-d"><div class="w">Frequencies start at f = 2</div><div class="y">f = 1 means period = T, a one-row "grid" with nothing 2-D to compare. Starting at f = 2 guarantees at least two rows.</div></div>
       <div class="s2a-d"><div class="w">No time-of-day embedding <span class="tag">D3</span></div><div class="y">Time of day alone tells the 07–09 h group from the 14–16 h group (no overlap), which would break the 0709 ↔ 1416 transfer test.</div></div>
       <div class="s2a-d"><div class="w">Global average pooling, not flatten <span class="tag adv">advisor's choice</span></div><div class="y">The reference flattens all T × d values. Averaging gives one d-sized vector whatever T is and can skip padded steps. Recorded as a deliberate deviation from the reference.</div></div>
-      <div class="s2a-d"><div class="w">Small bottleneck: d_ff = 64, 3 kernels <span class="tag">F9</span></div><div class="y">Keeps the model at 2.3–9.2M parameters instead of 37.5–600M (chart above).</div></div>
-      <div class="s2a-d"><div class="w">Transformer kept as an ablation</div><div class="y">Same inputs and the same (H, z) outputs (≈1.19M params at d = 128), so we can measure whether TimesNet's rhythm-finding actually helps on this data.</div></div>
+      <div class="s2a-d"><div class="w">Bottleneck: d = 128, d_ff = 64, 3 kernels <span class="tag">D12</span></div><div class="y">The professor's plan: each Inception goes 128 → 64 → 128, 2,301,312 parameters instead of 37.5M with d_ff = d and 6 kernels (chart above). Half the convolution weights of d_ff = 128, less overfitting risk with ~5.7k sender vehicles, faster. d_ff = 128 (4.60M) is the first ablation if the model underfits.</div></div>
+      <div class="s2a-d"><div class="w">Transformer ablation removed from the code for now <span class="tag">D11</span></div><div class="y">TimesNet only in the code. A Transformer with the same inputs and (H, z) outputs (≈1.19M params at d = 128) was built and can return later to measure whether TimesNet's rhythm-finding actually helps on this data.</div></div>
     </div>
   </div>
 </section>
@@ -2375,7 +2381,7 @@
   <div id="wbs"></div>
 
   <h2 id="sec-sweep">Hyperparameter sweep plan (§6)</h2>
-  <p class="lead">Staged: Stage 1 settings are chosen label-free first; K, θ and n are chosen on val in Stage 2. Test data is never used to choose anything.</p>
+  <p class="lead">Staged: pretraining settings are chosen label-free first; K, θ and n are chosen on val during fine-tuning. Test data is never used to choose anything.</p>
   <div class="panel"><div class="table-scroll"><table id="sweep"></table></div></div>
 
   <h2>Mapping and next stage</h2>
@@ -2385,7 +2391,7 @@
       <div class="table-scroll"><table id="mapping"></table></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><span class="title">Stage 2 · deferred — where it lives</span></div>
+      <div class="panel-head"><span class="title">Few-shot fine-tuning · deferred — where it lives</span></div>
       <ul class="list" id="stage2"></ul>
       <div class="panel-head"><span class="title">Out of scope unless the advisor signs off</span></div>
       <ul class="list" id="oos"></ul>
@@ -2411,7 +2417,7 @@
       cons: "Current results are effectively MTR-only pretraining, not MTR+TCP." },
     { id: "F3", sev: "critical", title: "Local data has only A0 + A16–A19",
       body: "A16 = GridSybil, A17 = DataReplaySybil, A18 = DoSRandomSybil, A19 = DoSDisruptiveSybil. No A1–A15 files.",
-      cons: "Stage 2 as written needs the full 19-type dataset (new data, RULE 7). The held-out replay class is A17, not A16." },
+      cons: "Fine-tuning as written needs the full 19-type dataset (new data, RULE 7). The held-out replay class is A17, not A16." },
     { id: "F8", sev: "critical", title: "Physical heads as specified are label proxies or empty",
       body: "H1 kinematic rule flags 0.00% benign, 0.00% DataReplay, 84–88% DoS/Grid: P(attack | flag) = 1.000. H2 > 70/90 km/h flags 0% (max ~18.8 m/s). H3 a_lat > 8 m/s² flags 33% of benign.",
       cons: "H1 would train on an attack-label proxy. Needs an advisor decision (D4); no map for H2." },
@@ -2432,7 +2438,7 @@
       cons: "Keep log-Δτ; it captures attack mechanics and reception loss." },
     { id: "F9", sev: "info", title: "TimesNet size explodes if d_ff = d",
       body: "d = 128/256/512 with d_ff = d: 37.5M / 150M / 600M params. With d_ff = 64 and 3 kernels: 2.30M / 4.60M / 9.20M.",
-      cons: "~18k identities: use a fixed d_ff = 64 bottleneck." }
+      cons: "~18k identities: use a fixed d_ff = 64 bottleneck, 3 kernels. In force again since D12 (2026-10-08): d = 128, d_ff = 64 → 2,301,312 (D10's d_ff = d, 4.60M, superseded)." }
   ];
 
   var DECISIONS = [
@@ -2444,15 +2450,18 @@
     ["D6", "Contrastive hard negatives", "Same road segment, other time of day · map-free", "Adopted: 50 m grid cell, same group, other pseudonym, |Δt| ≥ 10 min, β = 0.5, ablated"],
     ["D7", "Loss weights λ1–λ5", "Full grid (243 × 3 seeds) · reduced", "Adopted: normalised losses, λ1 = 1, λ3–λ5 = 0.3, λ2 ∈ {0.1, 0.3, 1} + one uncertainty-weighting run; label-free checkpoint selection"],
     ["D8", "New split (F1)", "Re-split · keep", "Adopted and in force (RULE 3 split change): split by (scenario group, physical vehicle) across the 4 scenarios; 0 sender vehicles in two splits in the encoder input"],
-    ["D9", "Deviation from proposal/main.tex", "Revise main.tex · accept the deviation", "Decided 2026-10-05: deviation accepted — the advisor's plan supersedes the proposal method; no main.tex revision needed. Transformer kept as an encoder ablation."]
+    ["D9", "Deviation from proposal/main.tex", "Revise main.tex · accept the deviation", "Decided 2026-10-05: deviation accepted — the advisor's plan supersedes the proposal method; no main.tex revision needed. Transformer kept as an encoder ablation (removed from the code for now, D11)."],
+    ["D10", "TimesNet inner width d_ff", "d_ff = 64 bottleneck (F9) · d_ff = d", "Width part superseded by D12. Was: decided 2026-10-08 (student): d_ff = d = 128, no bottleneck, 4,595,840 params; P1–P3 heads use hidden width d (Linear 128 → 128 → 1), still in force"],
+    ["D11", "Model width d and encoder scope", "d ∈ {128, 256, 512} · Transformer ablation kept", "d = 512 superseded by D12. Was: decided 2026-10-08 (student): d = 512 with d_ff = d (73,433,600 params). Still in force: TimesNet only in the code (Transformer ablation removed for now)"],
+    ["D12", "Main model width d and inner width d_ff", "d = 128 / d_ff = 64 (professor's plan) · d_ff = d (D10) · d = 512 (D11)", "Decided 2026-10-08 (student): d = 128, d_ff = 64 — the professor's plan. Encoder 2,301,312 params (one TimesBlock 574,016), heads 101,136, encoder + heads 2,402,448. Half the convolution weights of d_ff = 128, less overfitting risk with ~5.7k sender vehicles, faster. d_ff = 128 and d = 256 / 512 are ablations chosen only by evidence"]
   ];
 
   // [id, task, deliverable, acceptance, deps, days, flags, status?]  flags: data | split | decision | stage2; status (2026-10-07): done | built | partly | not started — text only, ticks stay in localStorage
-  // Groups with stage: 2 are Stage 2 · deferred (excluded from the critical path and Stage 1 KPIs).
+  // Groups with stage: 2 are few-shot fine-tuning · deferred (excluded from the critical path and pretraining KPIs).
   var WBS = [
     { id: "S1.0", title: "Scope, decisions, environment", tasks: [
       ["S1.0.1", "Share the adopted corrected plan with the professor", "docs/plan/clarification.md", "professor has seen it; any objection recorded as a change", "—", 1, []],
-      ["S1.0.2", "Decision record + hypotheses remap", "research-plan.md “Stage 1 plan” section", "each changed task ID cross-referenced", "—", 0.5, []],
+      ["S1.0.2", "Decision record + hypotheses remap", "research-plan.md pretraining plan section (formerly “Stage 1 plan”)", "each changed task ID cross-referenced", "—", 0.5, []],
       ["S1.0.4", "Pin the training environment (RULE 4)", "requirements-train.txt (pinned) · .venv-train · Jupyter kernel roadfm-train", "Python 3.14.5, torch 2.14.1, Apple MPS; torch version, device, seeds in every run config", "—", 0.5, [], "done"],
       ["S1.0.5", "Rename physics heads P1–P3", "all docs", "no clash with hypotheses H1–H4", "—", 0.1, []]
     ]},
@@ -2466,37 +2475,37 @@
       ["S1.1.7", "Manifest", "src/data/prepared_data/index.json + src/data/encoder_input/benign_gridsybil/T64/metadata.json", "features, T, seeds, train-only normalisation recorded", "S1.1.3–6", 0.5, []]
     ]},
     { id: "S1.2", title: "Encoder — TimesNet (step 2)", tasks: [
-      ["S1.2.1", "Embedding: token conv + positional, no temporal path", "src/model/benign_gridsybil/timesnet_encoder_T64.ipynb", "Conv1d token embedding with zero (not circular) padding + sinusoidal position; (B, 64, 13) → (B, 64, 128); no time of day", "S1.0.4", 0.5, [], "built"],
-      ["S1.2.2", "Inception + TimesBlock, per-sample top-k periods, f ≥ 2", "same notebook", "top-3 periods from an FFT over each window's real rows only (synthetic test: true period 10/10 vs 9/10 with zero-padded FFT); < 4 real rows → period 1 (24% of choices); same window alone vs in batch |Δz| 7e-7", "S1.2.1", 2, [], "built"],
-      ["S1.2.3", "TimesNetEncoder: 4 blocks, LayerNorm, masked mean over real rows → (H, z)", "same notebook", "2,301,312 params at d = 128, d_ff = 64 (F9 2.30M, +0.06%); every block output × mask; H (B, 64, 128), z (B, 128)", "S1.2.2", 1, [], "built"],
-      ["S1.2.4", "Unit tests", "checks in the notebook (no tests/ file yet)", "padding garbage changes nothing (Δ = 0); no NaN/Inf; same seed → same output; CPU vs MPS |Δz| 1.7e-6", "S1.2.3", 1, [], "partly"],
-      ["S1.2.5", "Transformer encoder, same (H, z) API (ablation)", "models/roadfm/transformer.py", "≈ 1.19M params at d = 128; same tests pass", "S1.2.4", 1, [], "not started"],
+      ["S1.2.1", "Embedding: token conv + positional, no temporal path", "src/model/benign_gridsybil/encoder_T64.ipynb", "Conv1d token embedding with zero (not circular) padding + sinusoidal position; (B, 64, 13) → (B, 64, 128); no time of day", "S1.0.4", 0.5, [], "built"],
+      ["S1.2.2", "Inception + TimesBlock, per-sample top-k periods, f ≥ 2", "same notebook", "top-3 periods from an FFT over each window's real rows only (synthetic test: true period 10/10 vs 9/10 with zero-padded FFT); < 4 real rows → period 1 (24% of choices); same window alone vs in batch |Δz| 8.3e-7 (re-run 2026-10-08 at d_ff = 128; D12 back to d_ff = 64)", "S1.2.1", 2, [], "built"],
+      ["S1.2.3", "TimesNetEncoder: 4 blocks, LayerNorm, masked mean over real rows → (H, z)", "same notebook", "2,301,312 params at d = 128, d_ff = 64 (D12, exact; was 4,595,840 with d_ff = 128 under D10); every block output × mask; H (B, 64, 128), z (B, 128)", "S1.2.2", 1, [], "built"],
+      ["S1.2.4", "Unit tests", "checks in src/model/benign_gridsybil/encoder_T64.ipynb (no tests/ file)", "T ∈ {50, 64, 100, 128}, params exact (2,301,312), padding Δ = 0, batch |Δz| ≤ 1e-6, no NaN/Inf, seed, CPU vs MPS ~1.4e-6 (d = 128, d_ff = 64, D12)", "S1.2.3", 1, [], "done"],
+      ["S1.2.5", "Transformer encoder, same (H, z) API (ablation)", "src/model/benign_gridsybil/encoder_T64.ipynb", "built 2026-10-07 (1,194,624 params at d = 128); removed from the code 2026-10-08 (D11: TimesNet only), can return later", "S1.2.4", 1, [], "not started"],
       ["S1.2.6", "Period diagnostic on train only", "notebook cell + figure", "histogram of chosen periods per block (one untrained batch so far)", "S1.2.3", 0.5, [], "partly"]
     ]},
     { id: "S1.3.A", title: "Pretraining — masked reconstruction", tasks: [
-      ["S1.3.A1", "Random (exactly 25%) or block (L = round(r·T), r ~ U(0.2, 0.3)) masking, chosen 50/50 per sample", "models/roadfm/masking.py + tests", "ratio exact ±1 step; seeded; per sample", "S1.1.7", 1, []],
+      ["S1.3.A1", "Random (exactly 25%) or block (L = round(r·T), r ~ U(0.2, 0.3)) masking, chosen 50/50 per sample", "src/model/benign_gridsybil/timesnet/views.py (ReconMasker)", "ratio exact ±1 step; seeded; per sample", "S1.1.7", 1, []],
       ["S1.3.A2", "Learned mask token (input stays 13 features)", "encoder patch + test", "no zero-fill; gradient reaches the token", "S1.3.A1, S1.2.3", 1, []],
-      ["S1.3.A3", "2-layer MLP decoder, masked MSE (window-relative pos, vel, acl, log-Δτ)", "losses.py::MaskedRecLoss", "loss on masked steps only; per-feature MSE logged", "S1.3.A2", 1, []],
-      ["S1.3.A4", "Linear-interpolation baseline", "scripts/baseline_interp.py", "model beats interpolation on block masks", "S1.3.A3", 0.5, []]
+      ["S1.3.A3", "2-layer MLP decoder, masked MSE (window-relative pos, vel, acl, log-Δτ)", "src/model/benign_gridsybil/timesnet/heads.py (ReconstructionHead) + losses.py", "loss on masked steps only; per-feature MSE logged", "S1.3.A2", 1, []],
+      ["S1.3.A4", "Linear-interpolation baseline", "src/model/benign_gridsybil/timesnet/monitors.py (interpolation_baseline)", "model beats interpolation on block masks", "S1.3.A3", 0.5, []]
     ]},
     { id: "S1.3.P", title: "Pretraining — physical-constraint heads P1–P3 (subject to D4)", tasks: [
-      ["S1.3.P1", "Violation injectors: spike / jump (P1), speed without matching positions (P2), impossible turn (P3); p = 0.5", "models/roadfm/injections.py + tests", "each injector changes only its target; labels 50% ± 2 pp; seeded", "S1.1.7", 1.5, []],
+      ["S1.3.P1", "Violation injectors: spike / jump (P1), speed without matching positions (P2), impossible turn (P3); p = 0.5", "src/model/benign_gridsybil/timesnet/views.py (ViolationInjector)", "each injector changes only its target; labels 50% ± 2 pp; seeded", "S1.1.7", 1.5, []],
       ["S1.3.P2", "Diagnostic audit of the original H1–H3 rules (reporting only)", "docs/research-notes/physics-heads-audit.md", "reproduces F8 rates ±1 pp; per-family flag rate + AUROC on train", "S1.1.7", 1, []],
       ["S1.3.P3", "Optional: LuST map alignment test (not needed by P1–P3)", "note: source, netOffset check", "lanes overlay positions within ~5 m, or recorded as not aligned", "download OK", 1.5, ["data"]],
       ["S1.3.P4", "MLP heads on z, BCE on injected labels", "loss module + config", "per-head pretrain-val AUROC logged", "S1.3.P1, S1.2.3", 1, []]
     ]},
     { id: "S1.3.C", title: "Pretraining — contrastive (SimCLR / InfoNCE)", tasks: [
-      ["S1.3.C1", "Physically consistent augmentations: common 3–5 m shift, time stretch s ∈ [0.95, 1.05], crop by subsampling", "models/roadfm/augment.py + tests", "shift keeps Δpos and range; stretch keeps ‖Δpos − vΔτ‖; crop keeps true Δτ", "S1.1.7", 2, []],
+      ["S1.3.C1", "Physically consistent augmentations: common 3–5 m shift, time stretch s ∈ [0.95, 1.05], crop by subsampling", "src/model/benign_gridsybil/timesnet/views.py (Augmenter)", "shift keeps Δpos and range; stretch keeps ‖Δpos − vΔτ‖; crop keeps true Δτ", "S1.1.7", 2, []],
       ["S1.3.C3", "Identity-level sampler, pseudonym de-dup", "models/roadfm/sampler.py + test", "no pseudonym twice per batch; physical sender never read", "S1.1.5", 1, []],
-      ["S1.3.C4", "NT-Xent (τ = 0.1, batch 256), projection head, grid-cell hard negatives", "losses.py::InfoNCE, negatives.py", "hard negatives: same 50 m cell, same group, different pseudonym, |Δt| ≥ 10 min; β configurable", "S1.3.C1, C3", 1.5, []],
+      ["S1.3.C4", "NT-Xent (τ = 0.1, batch 256), projection head, grid-cell hard negatives", "src/model/benign_gridsybil/timesnet/losses.py (nt_xent) + heads.py (ProjectionHead)", "hard negatives: same 50 m cell, same group, different pseudonym, |Δt| ≥ 10 min; β configurable", "S1.3.C1, C3", 1.5, []],
       ["S1.3.C5", "Attack-artifact sensitivity probe", "scripts/sensitivity_probe.py", "attack-edit vs augmentation cosine-shift ratio ≫ 1", "S1.3.C4", 1, []]
     ]},
     { id: "S1.3.J", title: "Pretraining — joint training", tasks: [
-      ["S1.3.J1", "Joint loss λ1–λ5, EMA normalisation + Kendall option", "losses.py::JointLoss + test", "all heads dropped at export", "A3, C4, P4", 1, []],
-      ["S1.3.J2", "Label-free checkpoint selector", "models/roadfm/select.py", "masked MSE, alignment/uniformity, effective rank; no labels, no idx_val", "S1.3.J1", 1, []],
+      ["S1.3.J1", "Joint loss λ1–λ5, EMA normalisation + Kendall option", "src/model/benign_gridsybil/timesnet/losses.py (LossScales, Objective)", "all heads dropped at export", "A3, C4, P4", 1, []],
+      ["S1.3.J2", "Label-free checkpoint selector", "src/model/benign_gridsybil/timesnet/monitors.py (Evaluator)", "masked MSE, alignment/uniformity, effective rank; no labels, no idx_val", "S1.3.J1", 1, []],
       ["S1.3.J3", "Weight sweep (D7), ≥ 3 seeds", "models/results/s1_sweep/*.json", "every run reproducible from its JSON", "S1.3.J2, S1.0.4", 3, ["decision"]]
     ]},
-    { id: "S1.4", title: "Stage 1 evaluation (frozen encoder; labels for evaluation only)", tasks: [
+    { id: "S1.4", title: "Pretraining evaluation (frozen encoder; labels for evaluation only)", tasks: [
       ["S1.4.1", "Linear + kNN probes on frozen z", "models/results/s1_probe.json", "binary + 4-family macro-F1, AUROC; ≥ 3 seeds", "S1.3.J3", 2, []],
       ["S1.4.2", "Per-family recall, incl. nulls", "table", "all 4 families + benign reported", "S1.4.1", 0.5, []],
       ["S1.4.3", "0709 ↔ 1416 transfer", "2×2 matrix + Δ", "source-group train only; no time-of-day", "S1.4.1", 1.5, []],
@@ -2504,37 +2513,37 @@
       ["S1.4.5", "Controls: TimesNet from scratch; Transformer under same SSL", "paired comparison", "same config, splits, seeds", "S1.4.1, S1.2.5", 1.5, []],
       ["S1.4.6", "Objective ablations: −P heads, −InfoNCE, −hard negatives", "results JSON", "same splits and seeds as S1.4.1", "S1.4.1", 2, []]
     ]},
-    { id: "S2.0", stage: 2, title: "Stage 2 · deferred — prerequisites", tasks: [
-      ["S2.0.1", "Confirm Stage 2 class set with the professor: train A16 GridSybil, A18 DoSRandom, A19 DoSDisruptive (+ benign); hold out A17 DataReplay for zero-shot. Full 19-attack download stays optional (needs OK)", "note in research-plan.md", "class set confirmed in writing", "S1.4.1", 0.5, ["stage2"]],
+    { id: "S2.0", stage: 2, title: "Fine-tuning · deferred — prerequisites", tasks: [
+      ["S2.0.1", "Confirm the fine-tuning class set with the professor: train A16 GridSybil, A18 DoSRandom, A19 DoSDisruptive (+ benign); hold out A17 DataReplay for zero-shot. Full 19-attack download stays optional (needs OK)", "note in research-plan.md", "class set confirmed in writing", "S1.4.1", 0.5, ["stage2"]],
       ["S2.0.2", "Few-shot support-set sampler: n ∈ {10, 20, 30, 50} per class, ≥ 5 resampled sets per n, train split only", "models/roadfm/fewshot.py + tests", "seeded; sets disjoint from val/test; A17 never sampled", "S2.0.1", 1, ["stage2"]]
     ]},
-    { id: "S2.1", stage: 2, title: "Stage 2 · deferred — supervised contrastive fine-tuning", tasks: [
-      ["S2.1.1", "Supervised contrastive fine-tuning from the Stage 1 checkpoint, LR = Stage 1 LR / 10", "models/roadfm/supcon.py, scripts/train_stage2.py", "loads the chosen S1 checkpoint (heads already dropped); config + seed + pip freeze saved", "S2.0.2, S1.3.J3", 2, ["stage2"]],
+    { id: "S2.1", stage: 2, title: "Fine-tuning · deferred — supervised contrastive fine-tuning", tasks: [
+      ["S2.1.1", "Supervised contrastive fine-tuning from the pretrained checkpoint, LR = pretraining LR / 10", "models/roadfm/supcon.py, scripts/train_stage2.py", "loads the chosen S1 checkpoint (heads already dropped); config + seed + pip freeze saved", "S2.0.2, S1.3.J3", 2, ["stage2"]],
       ["S2.1.2", "Fine-tuning runs: every n × 5 support sets × 3 seeds, for the pretrained encoder and the from-scratch control", "models/results/s2_finetune/*.json", "every run reproducible from its JSON", "S2.1.1", 3, ["stage2"]]
     ]},
-    { id: "S2.2", stage: 2, title: "Stage 2 · deferred — memory bank and anomaly scoring", tasks: [
+    { id: "S2.2", stage: 2, title: "Fine-tuning · deferred — memory bank and anomaly scoring", tasks: [
       ["S2.2.1", "Memory bank: L2-normalised embeddings of training-split trajectories, built without labels; FAISS cosine index", "models/roadfm/memory_bank.py + tests", "asserts no label read; index size = number of training windows", "S2.1.1", 1, ["stage2"]],
       ["S2.2.2", "kNN anomaly score = mean cosine similarity to the K nearest neighbours; choose K ∈ {5, 10, 20} and θ on val", "models/results/s2_threshold.json", "K, θ chosen on val only; test untouched", "S2.2.1", 1, ["stage2"]],
       ["S2.2.3", "Evaluation, test used once: per-class recall, AUROC, FPR at θ; zero-shot result on held-out A17", "models/results/s2_eval.json", "test read exactly once; nulls reported", "S2.2.2, S2.1.2", 1.5, ["stage2"]]
     ]},
-    { id: "S2.3", stage: 2, title: "Stage 2 · deferred — sweeps and label-efficiency", tasks: [
-      ["S2.3.1", "Hyperparameter sweep (§6), staged: Stage 1 settings chosen label-free first; K, θ, n on val", "configs/s2_sweep.json + results", "every config logged with seed", "S2.2.3", 3, ["stage2"]],
+    { id: "S2.3", stage: 2, title: "Fine-tuning · deferred — sweeps and label-efficiency", tasks: [
+      ["S2.3.1", "Hyperparameter sweep (§6), staged: pretraining settings chosen label-free first; K, θ, n on val", "configs/s2_sweep.json + results", "every config logged with seed", "S2.2.3", 3, ["stage2"]],
       ["S2.3.2", "Label-efficiency curves (score vs n) vs from-scratch and Transformer; report nulls", "figure + table in models/results/", "≥ 3 seeds; error bars", "S2.3.1", 1.5, ["stage2"]]
     ]}
   ];
 
   // Hyperparameter sweep plan (§6): [hyperparameter, values, chosen when, how (no test data)]
   var SWEEP = [
-    ["T", "64 (primary), 128 (sensitivity)", "Stage 1", "report both; 64 is default"],
-    ["d", "128, 256, 512", "Stage 1", "label-free checkpoint score, then probe on val"],
-    ["Mask ratio r", "block 20–30% of T; random 25%", "Stage 1", "label-free (held-out reconstruction error)"],
-    ["λ2 + weighting", "λ2 ∈ {0.1, 0.3, 1} + one automatic-weighting run (λ1 = 1, λ3–λ5 = 0.3)", "Stage 1", "label-free checkpoint selection"],
-    ["Augmentation strengths", "shift 3–5 m; time stretch ±5%; crop 80–100%", "Stage 1", "label-free + sensitivity probe (S1.3.C5)"],
-    ["Hard-negative weight β", "0.5 default (ablate 0)", "Stage 1", "label-free"],
-    ["Temperature τ", "0.1 default", "Stage 1", "label-free"],
-    ["K", "5, 10, 20", "Stage 2", "val"],
-    ["θ", "threshold on the anomaly score", "Stage 2", "val"],
-    ["Few-shot n", "10, 20, 30, 50 per class", "Stage 2", "all reported (label-efficiency curve)"]
+    ["T", "64 (primary), 128 (sensitivity)", "Pretraining", "report both; 64 is default"],
+    ["d", "128 main (D12, d_ff = 64); 256 / 512 and d_ff = 128 only as ablations on evidence", "Pretraining", "label-free checkpoint score, then probe"],
+    ["Mask ratio r", "block 20–30% of T; random 25%", "Pretraining", "label-free (held-out reconstruction error)"],
+    ["λ2 + weighting", "λ2 ∈ {0.1, 0.3, 1} + one automatic-weighting run (λ1 = 1, λ3–λ5 = 0.3)", "Pretraining", "label-free checkpoint selection"],
+    ["Augmentation strengths", "shift 3–5 m; time stretch ±5%; crop 80–100%", "Pretraining", "label-free + sensitivity probe (S1.3.C5)"],
+    ["Hard-negative weight β", "0.5 default (ablate 0)", "Pretraining", "label-free"],
+    ["Temperature τ", "0.1 default", "Pretraining", "label-free"],
+    ["K", "5, 10, 20", "Fine-tuning", "val"],
+    ["θ", "threshold on the anomaly score", "Fine-tuning", "val"],
+    ["Few-shot n", "10, 20, 30, 50 per class", "Fine-tuning", "all reported (label-efficiency curve)"]
   ];
 
   var CRITICAL = ["S1.1.2", "S1.1.3", "S1.1.4", "S1.1.5", "S1.3.A1", "S1.3.C1", "S1.3.P1", "S1.3.J1", "S1.3.J2", "S1.3.J3", "S1.4.1"];
@@ -2543,13 +2552,13 @@
     ["Superseded", "2.2 features · 3.1 Transformer spec · 3.3 TCP (ablation only)"],
     ["Modified", "2.1 · 2.3 · 2.4 · 2.5 · 3.2 · 3.4 · 3.6 · 4.4 · 5.5 · hypothesis H4"],
     ["Kept", "2.6 · 2.7 (re-verified) · 3.7 · 4.1–4.3 · 5.4 · 5.6 · 5.7 · Phases 6–8"],
-    ["Deferred to Stage 2", "3.5 · 5.2 · 5.3 · hypothesis H2"],
+    ["Deferred to fine-tuning", "3.5 · 5.2 · 5.3 · hypothesis H2"],
     ["Invalid until re-split", "v1 pilot numbers in models/results/ (F1, F2)"]
   ];
 
   var STAGE2 = [
-    "Stage 2 tasks are tracked in the work breakdown above: S2.0 prerequisites · S2.1 supervised contrastive fine-tuning · S2.2 memory bank and anomaly scoring · S2.3 sweeps and label-efficiency (14.5 d).",
-    "Starts after Stage 1: S2.0.1 waits on S1.4.1, S2.1.1 on the chosen Stage 1 checkpoint (S1.3.J3).",
+    "Fine-tuning tasks (S2.x) are tracked in the work breakdown above: S2.0 prerequisites · S2.1 supervised contrastive fine-tuning · S2.2 memory bank and anomaly scoring · S2.3 sweeps and label-efficiency (14.5 d).",
+    "Starts after pretraining: S2.0.1 waits on S1.4.1, S2.1.1 on the chosen pretrained checkpoint (S1.3.J3).",
     "“FL round” is the deployment motivation only; federated learning is not simulated (no task).",
     "Hyperparameters K, θ and n are listed in the sweep plan (§6) above."
   ];
@@ -2606,7 +2615,7 @@
     if (flags.indexOf("data") >= 0) out += '<span class="chip data">writes data/ — ask first</span>';
     if (flags.indexOf("split") >= 0) out += '<span class="chip split">split change — RULE 3</span>';
     if (flags.indexOf("decision") >= 0) out += '<span class="chip decision">needs a decision</span>';
-    if (flags.indexOf("stage2") >= 0) out += '<span class="chip stage2">Stage 2 · deferred</span>';
+    if (flags.indexOf("stage2") >= 0) out += '<span class="chip stage2">Fine-tuning · deferred</span>';
     if (CRITICAL.indexOf(id) >= 0) out += '<span class="chip crit">critical path</span>';
     return out;
   }
@@ -2626,7 +2635,7 @@
           ' aria-label="Mark ' + t[0] + ' done"></td><td class="id">' + t[0] + '</td><td class="task">' + esc(t[1]) + "<div>" + status(t[7]) + chips(t[6], t[0]) +
           '</div></td><td><code>' + esc(t[2]) + "</code></td><td>" + esc(t[3]) + '</td><td class="dep">' + esc(t[4]) + '</td><td class="days">' + t[5] + "</td></tr>";
       }).join("");
-      var sep = (g.stage === 2 && g.id === "S2.0") ? '<div class="stage-sep">Stage 2 · deferred — starts after Stage 1 (not on the critical path)</div>' : "";
+      var sep = (g.stage === 2 && g.id === "S2.0") ? '<div class="stage-sep">Few-shot fine-tuning (S2.x) · deferred — starts after pretraining (not on the critical path)</div>' : "";
       return sep + '<div class="panel' + (g.stage === 2 ? " stage2" : "") + '"><div class="panel-head"><span class="title">' + g.id + " · " + esc(g.title) + '</span><span class="meta" data-meta="' + g.id +
         '"></span><div class="bar"><span data-bar="' + g.id + '"></span></div></div><div class="table-scroll"><table><tr><th></th><th>ID</th><th>Task</th><th>Deliverable</th><th>Acceptance</th><th>Depends</th><th>Days</th></tr>' +
         rows + "</table></div></div>";
@@ -2674,12 +2683,12 @@
     var s1 = st[1], s2 = st[2];
     var pct1 = s1.n ? Math.round(100 * s1.done / s1.n) : 0, pct2 = s2.n ? Math.round(100 * s2.done / s2.n) : 0;
     document.getElementById("kpis").innerHTML =
-      kpi("Stage 1 tasks done", s1.done + " / " + s1.n, pct1 + "% of Stage 1 tasks", pct1) +
-      kpi("Stage 1 effort done", fmtDays(s1.daysDone) + " / " + fmtDays(s1.days) + " d", "working days (+~15% integration)", s1.days ? 100 * s1.daysDone / s1.days : 0) +
-      kpi("Stage 2 (deferred)", fmtDays(s2.daysDone) + " / " + fmtDays(s2.days) + " d", s2.done + " / " + s2.n + " tasks done · starts after Stage 1", s2.days ? 100 * s2.daysDone / s2.days : 0) +
+      kpi("Pretraining tasks done", s1.done + " / " + s1.n, pct1 + "% of pretraining tasks (S1.x)", pct1) +
+      kpi("Pretraining effort done", fmtDays(s1.daysDone) + " / " + fmtDays(s1.days) + " d", "working days (+~15% integration)", s1.days ? 100 * s1.daysDone / s1.days : 0) +
+      kpi("Fine-tuning (deferred)", fmtDays(s2.daysDone) + " / " + fmtDays(s2.days) + " d", s2.done + " / " + s2.n + " tasks done · starts after pretraining", s2.days ? 100 * s2.daysDone / s2.days : 0) +
       kpi("Decisions adopted", decided + " / " + DECISIONS.length, "corrected plan adopted 2026-10-05", 100 * decided / DECISIONS.length) +
       kpi("Blocking findings", "4", "F1 leak · F2 TCP bug · F3 attack codes · F8 heads", null) +
-      kpi("Stage", "1 of 2", "Stage 2 deferred", null);
+      kpi("Phase", "Pretraining", "fine-tuning deferred", null);
   }
   function kpi(label, value, note, pct) {
     return '<div class="kpi"><div class="label">' + label + '</div><div class="value">' + value + '</div><div class="note">' + note + "</div>" +
@@ -2703,7 +2712,7 @@
     document.getElementById("sweep").innerHTML = "<tr><th>Hyperparameter</th><th>Values</th><th>Chosen when</th><th>How (no test data)</th></tr>" +
       SWEEP.map(function (r) {
         return '<tr><td class="id">' + esc(r[0]) + "</td><td>" + esc(r[1]) + "</td><td>" +
-          (r[2] === "Stage 2" ? '<span class="chip stage2">Stage 2 · deferred</span>' : esc(r[2])) + "</td><td>" + esc(r[3]) + "</td></tr>";
+          (r[2] === "Fine-tuning" ? '<span class="chip stage2">Fine-tuning · deferred</span>' : esc(r[2])) + "</td><td>" + esc(r[3]) + "</td></tr>";
       }).join("");
     document.getElementById("stage2").innerHTML = STAGE2.map(function (s) { return "<li>" + esc(s) + "</li>"; }).join("");
     document.getElementById("oos").innerHTML = OOS.map(function (s) { return "<li>" + esc(s) + "</li>"; }).join("");
@@ -2714,7 +2723,7 @@
     try { localStorage.removeItem(KEY); } catch (e) {} state = load(); save(); renderDecisions(); renderWbs(); renderProgress();
   });
   document.getElementById("export").addEventListener("click", function () {
-    var lines = ["Stage 1 + Stage 2 (deferred) progress"];
+    var lines = ["Pretraining + few-shot fine-tuning (deferred) progress"];
     allTasks.forEach(function (t) { lines.push((state.done[t[0]] ? "[x] " : "[ ] ") + t[0] + " " + t[1]); });
     DECISIONS.forEach(function (d) { lines.push(d[0] + " " + d[1] + ": " + (state.dec[d[0]] || "pending")); });
     var text = lines.join("\n");
@@ -3247,7 +3256,7 @@
       "The last T messages heard from one vehicle identity (T = 64 recommended), with 13 numbers per message: the position it claims, the receiving car's own position, both velocities, acceleration, the time gap since the previous message (Δτ), and range + bearing between the two cars.",
       "B is how many windows go through together. No labels are used here: pretraining never sees whether a window is an attack."],
     embed: ["Embedding", "From 13 numbers to d numbers per step",
-      "A small 1-D convolution looks at each step and its two neighbours (kernel 3) and maps the 13 raw features to a d-sized vector (d = 128, 256 or 512).",
+      "A small 1-D convolution looks at each step and its two neighbours (kernel 3) and maps the 13 raw features to a d-sized vector (d = 128, D12; 256 / 512 only as ablations).",
       "A fixed sine/cosine position code is added so the model knows where in the window each step sits."],
     tod: ["Removed", "Time-of-day embedding",
       "The TimesNet reference adds a clock-time embedding. We leave it out (decision D3): sin(time of day) is 0.70–0.97 for the 07–09 h group and −0.87 to −0.50 for the 14–16 h group, with no overlap.",
@@ -3317,7 +3326,7 @@
     cols.appendChild(el("text", { "class": "s2a-s", x: c.cx, y: 375, "text-anchor": "middle" }, "trim back to T"));
   });
 
-  /* ---- 3. Parameter-count chart (values from WBS F9) ---- */
+  /* ---- 3. Parameter-count chart (values from WBS F9 and D12) ---- */
   var DATA = [
     { d: 128, ref: 37.5e6, rec: 2.30e6 },
     { d: 256, ref: 150e6, rec: 4.60e6 },
@@ -3343,7 +3352,7 @@
   var tbody = root.querySelector("#s2arch-tbody");
   DATA.forEach(function (g, i) {
     var cx = X0 + gW * (i + 0.5);
-    [["ref", cx - gap / 2 - bw, "Reference style"], ["rec", cx + gap / 2, "Recommended"]].forEach(function (b) {
+    [["ref", cx - gap / 2 - bw, "Reference style"], ["rec", cx + gap / 2, "Chosen"]].forEach(function (b) {
       var v = g[b[0]], p = bar(b[1], bw, v, b[0]);
       p.appendChild(el("title", {}, "d = " + g.d + " · " + b[2] + ": " + fmt(v) + " parameters"));
       p.addEventListener("mousemove", function (e) {
@@ -3658,7 +3667,7 @@
 
   var GROUPS = {
     must: "Must fix first", data: "Data mismatch", contrastive: "Contrastive learning",
-    practical: "Practical", ours: "Our own issue", stage2: "Stage 2 (later)"
+    practical: "Practical", ours: "Our own issue", stage2: "Fine-tuning (later)"
   };
 
   var TERMS = [
@@ -3679,7 +3688,7 @@
     ["Contrastive learning (SimCLR / InfoNCE)", "Make two slightly altered copies of the same trajectory; teach the model they are “the same” and different from other trajectories."],
     ["Augmentation", "The small alteration used to make those copies (e.g. add GPS noise). The model learns to ignore whatever the augmentation changes."],
     ["TimesNet / FFT", "An encoder that uses FFT to find repeating rhythms in a signal, folds time into a 2-D grid, and applies image-style filters."],
-    ["Embedding z", "The model's summary vector of one window (d = 128, 256 or 512 numbers)."],
+    ["Embedding z", "The model's summary vector of one window (d = 128 numbers, D12)."],
     ["Physical-constraint head", "A small extra classifier trained to say “does this window break physics?” using rules, not attack labels."],
     ["Hyperparameter / λ", "A setting chosen by us, not learned (T, d, mask ratio). λ = how much each training loss counts."]
   ];
@@ -3782,11 +3791,11 @@
     { g: "practical", step: "Step 2", dec: "—", title: "TimesNet gets huge if its inner width follows d",
       short: "With the reference settings the model has 37.5M–600M parameters for only ~18k vehicles.",
       plan: "TimesNet: four stacked TimesBlocks … embedding z of dimension d ∈ {128, 256, 512}.",
-      measured: ["Reference style (inner width = d, 6 conv kernels): 37.5M / 150M / 600M parameters (2.4B with inner width 4d).", "Small bottleneck (inner width 64, 3 kernels): 2.3M / 4.6M / 9.2M.", "Current Transformer pilot: ≈1.19M."],
+      measured: ["Reference style (inner width = d, 6 conv kernels): 37.5M / 150M / 600M parameters (2.4B with inner width 4d).", "Chosen (D12, the professor's plan: inner width 64, 3 kernels): 2.3M / 4.6M / 9.2M; main model d = 128 → 2,301,312.", "Inner width = d with 3 kernels (D10, superseded): 4.6M / 18.4M / 73.4M.", "Current Transformer pilot: ≈1.19M."],
       why: "A model far bigger than the data memorises instead of learning, and is slow to train. The plan didn't specify the inner width, so this is a gap rather than an error.",
-      fix: "Fix the inner width (d_ff) at 64 and use 3 kernel sizes, so only d changes across the sweep.",
-      ask: "OK to fix d_ff = 64 for all d?",
-      viz: bars("Parameters (millions): reference style vs. recommended", [["d=128 ref", 37.5, C.dosd], ["d=128 rec", 2.3, C.pri], ["d=512 ref", 600, C.dosd], ["d=512 rec", 9.2, C.pri]], 600, "M", "Linear scale: the recommended bars are tiny next to the reference style.") },
+      fix: "Use 3 kernel sizes and fix the inner width (d_ff) at 64. Decided 2026-10-08 (D12): d = 128, d_ff = 64, the professor's plan (D10's d_ff = d and D11's d = 512 superseded); d_ff = 128 is the first ablation if the model underfits.",
+      ask: "OK with d = 128, d_ff = 64 and 3 kernels (D12)?",
+      viz: bars("Parameters (millions): reference style vs. recommended", [["d=128 ref", 37.5, C.dosd], ["d=128 rec", 2.3, C.pri], ["d=512 ref", 600, C.dosd], ["d=512 rec", 9.2, C.pri]], 600, "M", "Linear scale: the chosen bars (d_ff = 64, 3 kernels) are small next to the reference style.") },
 
     { g: "practical", step: "Step 2", dec: "—", title: "TimesNet's “rhythm” idea may not suit car motion",
       short: "TimesNet looks for repeating cycles; most car trajectories don't repeat.",
@@ -3794,7 +3803,7 @@
       measured: ["Kinematics are mostly aperiodic (stop-and-go is not regular). At T = 64 the detectable periods are 32, 21, 16, … 2 seconds."],
       why: "This is not a mistake, it's a risk. If there are no real rhythms, TimesNet's main trick adds nothing, and we must be able to say so honestly (a null result is still a result).",
       fix: "Keep a Transformer encoder with the same inputs and training as a comparison, so we can measure whether TimesNet helps.",
-      ask: "Agree to keep the Transformer as a comparison (ablation)?" },
+      ask: "Agree to keep the Transformer as a comparison (ablation)? (Since D11 it is removed from the code for now; TimesNet only.)" },
 
     { g: "practical", step: "Step 3", dec: "D7", title: "Grid-searching all loss weights is too expensive and can leak labels",
       short: "Five weights × 3 values each = 243 trainings × 3 seeds; picking them by accuracy uses labels.",
@@ -3818,7 +3827,7 @@
       measured: ["The 4 attack scenarios reuse the same simulated traffic: a car's copies differ by only 0.21 m (median).", "<b>89.7%</b> of honest test cars (2,283 of 2,546) have a near-copy in the training set.", "Our split check passed because it only looked within one scenario."],
       why: "The final exam contains the same cars the model studied. Any accuracy we report now is too optimistic.",
       fix: "Re-split by (recording hour, physical car) across all 4 scenarios, so every copy of a car lands in the same set.",
-      ask: "Approve the re-split before any Stage 1 numbers are reported?" },
+      ask: "Approve the re-split before any pretraining numbers are reported?" },
 
     { g: "ours", step: "Model", dec: "D5", title: "The old TCP objective never did anything",
       short: "In the current notebook every TCP label is “clean” and no corruption is applied.",
@@ -3828,15 +3837,15 @@
       fix: "Adopted (D5): TCP is dropped; corruption detection is covered by the injected-violation heads P1–P3. The pilot stays a pilot.",
       ask: "Confirm: TCP dropped." },
 
-    { g: "stage2", step: "Stage 2", dec: "later", title: "Stage 2 needs attacks we don't have",
+    { g: "stage2", step: "Fine-tuning", dec: "later", title: "Fine-tuning needs attacks we don't have",
       short: "Our data has only the 4 Sybil attacks (codes A16–A19); A1–A9 are not in it, and “A16 data replay” is really A17.",
       plan: "Training classes A1, A2, A3, A4, A9 … held out for zero-shot: A16 data replay Sybil.",
       measured: ["Attack codes in our files: A0 (honest), A16 GridSybil, A17 DataReplay, A18 DoSRandom, A19 DoSDisruptive. No A1–A15."],
-      why: "Stage 2 as written needs the full 19-attack VeReMi-Extension: a new, large download, outside the current proposal.",
+      why: "Fine-tuning as written needs the full 19-attack VeReMi-Extension: a new, large download, outside the current proposal.",
       fix: "Adopted default: train on A16 GridSybil, A18 DoSRandom, A19 DoSDisruptive (+ benign), hold out A17 DataReplay for zero-shot. The full 19-attack dataset stays optional (needs a download OK).",
-      ask: "Confirm the local-attack Stage 2, or ask for the full dataset download?" },
+      ask: "Confirm the local-attack fine-tuning, or ask for the full dataset download?" },
 
-    { g: "stage2", step: "Stage 2", dec: "later", title: "Memory bank of “legitimate” cars uses labels; FL is a new area",
+    { g: "stage2", step: "Fine-tuning", dec: "later", title: "Memory bank of “legitimate” cars uses labels; FL is a new area",
       short: "Choosing only honest cars for the bank needs labels, and “federated learning rounds” are not part of the thesis.",
       plan: "Memory bank of legitimate validation trajectories … that vehicle's update is excluded from the FL round.",
       measured: ["Picking “legitimate” trajectories requires the benign/attack label.", "The proposal mentions federated learning only as future work."],
@@ -3884,7 +3893,7 @@
         '<span class="rv-num">' + (i + 1) + "</span>" +
         '<span class="rv-title">' + esc(it.title) + "</span>" +
         '<span class="rv-chips"><span class="rv-chip ' + it.g + '">' + GROUPS[it.g] + '</span><span class="rv-chip">' + esc(it.step) + "</span>" +
-        (it.dec && it.dec !== "—" ? '<span class="rv-chip dec">' + (it.dec === "later" ? "Stage 2" : "Decision " + it.dec) + "</span>" : "") + "</span>" +
+        (it.dec && it.dec !== "—" ? '<span class="rv-chip dec">' + (it.dec === "later" ? "Fine-tuning" : "Decision " + it.dec) + "</span>" : "") + "</span>" +
         '<span class="rv-short">' + esc(it.short) + "</span>" +
         '<span class="rv-more">Open for the explanation ▸</span></summary>' +
         '<div class="rv-body">' +
@@ -3929,7 +3938,7 @@
     var html = "<tr><th>#</th><th>Issue (one line)</th><th>Type</th><th>Fixed by</th></tr>";
     ISSUES.forEach(function (it, i) {
       html += '<tr><td class="id">' + (i + 1) + "</td><td>" + esc(it.title) + '</td><td><span class="rv-chip ' + it.g + '">' + GROUPS[it.g] + "</span></td><td>" +
-        (it.dec === "—" ? "WBS task" : it.dec === "later" ? "Stage 2 planning" : "Decision " + it.dec) + "</td></tr>";
+        (it.dec === "—" ? "WBS task" : it.dec === "later" ? "Fine-tuning planning" : "Decision " + it.dec) + "</td></tr>";
     });
     document.getElementById("review-table").innerHTML = html;
   }

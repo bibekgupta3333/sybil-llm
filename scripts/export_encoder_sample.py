@@ -49,9 +49,19 @@ SPLITS: tuple[str, ...] = ("train", "pretrain_val", "val", "test")
 CLASSES: tuple[str, ...] = ("Benign", "GridSybil")
 N_FEATURES = 13
 UNITS: dict[str, str] = {
-    "claimed_pos_x": "m", "claimed_pos_y": "m", "rx_pos_x": "m", "rx_pos_y": "m",
-    "claimed_vel_x": "m/s", "claimed_vel_y": "m/s", "rx_vel_x": "m/s", "rx_vel_y": "m/s",
-    "claimed_acl_x": "m/s²", "claimed_acl_y": "m/s²", "range": "m", "bearing": "rad", "log_dtau": "log s",
+    "claimed_pos_x": "m",
+    "claimed_pos_y": "m",
+    "rx_pos_x": "m",
+    "rx_pos_y": "m",
+    "claimed_vel_x": "m/s",
+    "claimed_vel_y": "m/s",
+    "rx_vel_x": "m/s",
+    "rx_vel_y": "m/s",
+    "claimed_acl_x": "m/s²",
+    "claimed_acl_y": "m/s²",
+    "range": "m",
+    "bearing": "rad",
+    "log_dtau": "log s",
 }
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -146,8 +156,15 @@ class WindowRecord:
 
     def sort_key(self) -> tuple[Any, ...]:
         """Manifest order: split, scenario, run, receiver file, sender, pseudonym, crop index."""
-        return (SPLITS.index(self.split), self.scenario, self.run, self.receiver_file, self.sender,
-                self.sender_pseudo, self.k)
+        return (
+            SPLITS.index(self.split),
+            self.scenario,
+            self.run,
+            self.receiver_file,
+            self.sender,
+            self.sender_pseudo,
+            self.k,
+        )
 
 
 def _load_json(path: pathlib.Path) -> Any:
@@ -195,12 +212,24 @@ class ShardReader:
             n = int(meta["n_messages"])
             rows = self.real_rows(win, n)
             rng_m = rows[:, self._range_index].astype(np.float64) * self._std + self._mean
-            out.append(WindowRecord(
-                id=meta["id"], split=split, scenario=meta["scenario"], run=meta["run"],
-                receiver_file=meta["receiver_file"], receiver=int(meta["receiver"]), sender=int(meta["sender"]),
-                sender_pseudo=int(meta["sender_pseudo"]), k=int(meta["link_window_index"]), n=n,
-                label=int(meta["label"]), label_name=meta["label_name"], shard=shard,
-                max_range_m=float(rng_m.max()) if n else float("nan")))
+            out.append(
+                WindowRecord(
+                    id=meta["id"],
+                    split=split,
+                    scenario=meta["scenario"],
+                    run=meta["run"],
+                    receiver_file=meta["receiver_file"],
+                    receiver=int(meta["receiver"]),
+                    sender=int(meta["sender"]),
+                    sender_pseudo=int(meta["sender_pseudo"]),
+                    k=int(meta["link_window_index"]),
+                    n=n,
+                    label=int(meta["label"]),
+                    label_name=meta["label_name"],
+                    shard=shard,
+                    max_range_m=float(rng_m.max()) if n else float("nan"),
+                )
+            )
         return out
 
     def rows_for(self, shard: str, ids: Iterable[str]) -> dict[str, np.ndarray]:
@@ -362,8 +391,12 @@ class StratifiedSampler:
                 chosen.extend(ws)
                 count += len(ws)
                 taken += 1
-            stats["/".join(key)] = {"windows": count, "senders": taken, "skipped_large_senders": skipped,
-                                    "senders_available": len(order)}
+            stats["/".join(key)] = {
+                "windows": count,
+                "senders": taken,
+                "skipped_large_senders": skipped,
+                "senders_available": len(order),
+            }
         return chosen, stats
 
 
@@ -379,23 +412,51 @@ class CuratedSelector:
         out = []
         valid = [r for r in self._sorted if not np.isnan(r.max_range_m)]
         far = max(valid, key=lambda r: r.max_range_m)  # max() keeps the first (smallest id) on ties
-        out.append(({"name": f"Farthest claimed position ({far.max_range_m / 1000:.1f} km ghost)"
-                     if far.max_range_m >= 1000 else "Farthest claimed position",
-                     "rule": "argmax over all windows of the largest real-row range (m); ties -> smallest id"}, far))
+        out.append(
+            (
+                {
+                    "name": (
+                        f"Farthest claimed position ({far.max_range_m / 1000:.1f} km ghost)"
+                        if far.max_range_m >= 1000
+                        else "Farthest claimed position"
+                    ),
+                    "rule": "argmax over all windows of the largest real-row range (m); ties -> smallest id",
+                },
+                far,
+            )
+        )
         longest = max(self._sorted, key=lambda r: self._index.link_size(r))
         first = self._index.links[longest.link][0]
-        out.append(({"name": "Longest link, cropped",
-                     "rule": "link with the most windows K over the full dataset (ties -> smallest id); its first crop"},
-                    first))
+        out.append(
+            (
+                {
+                    "name": "Longest link, cropped",
+                    "rule": "link with the most windows K over the full dataset (ties -> smallest id); its first crop",
+                },
+                first,
+            )
+        )
         single = next((r for r in self._sorted if r.split == "test" and r.n == 1), None)
         if single is not None:
-            out.append(({"name": "Single-message window",
-                         "rule": "first test window (sorted id) with n = 1"}, single))
-        ghost = next((r for r in self._sorted if r.split == "test" and r.label_name == "GridSybil"
-                      and r.sender_pseudo == 1 and r.n >= 20), None)
+            out.append(({"name": "Single-message window", "rule": "first test window (sorted id) with n = 1"}, single))
+        ghost = next(
+            (
+                r
+                for r in self._sorted
+                if r.split == "test" and r.label_name == "GridSybil" and r.sender_pseudo == 1 and r.n >= 20
+            ),
+            None,
+        )
         if ghost is not None:
-            out.append(({"name": "Ghost under shared pseudonym 1",
-                         "rule": "first GridSybil test window (sorted id) with sender_pseudo = 1 and n >= 20"}, ghost))
+            out.append(
+                (
+                    {
+                        "name": "Ghost under shared pseudonym 1",
+                        "rule": "first GridSybil test window (sorted id) with sender_pseudo = 1 and n >= 20",
+                    },
+                    ghost,
+                )
+            )
         return out
 
     @staticmethod
@@ -408,10 +469,17 @@ class CuratedSelector:
         both = [(f, c) for f, c in per_file.items() if c["Benign"] and c["GridSybil"]]
         if not both:
             return []
-        best_file, cls = max(sorted(both), key=lambda fc: (min(len(fc[1]["Benign"]), len(fc[1]["GridSybil"])),
-                                                           len(fc[1]["Benign"]) + len(fc[1]["GridSybil"])))
-        rule = ("test receiver file with the most sampled windows of both classes (score = min(benign, gridsybil), "
-                "then total, ties -> smallest path); its largest-n window of each class (ties -> smallest id)")
+        best_file, cls = max(
+            sorted(both),
+            key=lambda fc: (
+                min(len(fc[1]["Benign"]), len(fc[1]["GridSybil"])),
+                len(fc[1]["Benign"]) + len(fc[1]["GridSybil"]),
+            ),
+        )
+        rule = (
+            "test receiver file with the most sampled windows of both classes (score = min(benign, gridsybil), "
+            "then total, ties -> smallest path); its largest-n window of each class (ties -> smallest id)"
+        )
         out = []
         for name in CLASSES:
             pick = sorted(cls[name], key=lambda r: (-r.n, r.id))[0]
@@ -447,8 +515,9 @@ class BundleWriter:
 
 def _git_commit() -> str:
     try:
-        return subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True,
-                              check=True).stdout.strip()
+        return subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True, check=True
+        ).stdout.strip()
     except (OSError, subprocess.CalledProcessError):
         return "unknown"
 
@@ -461,11 +530,13 @@ class ManifestBuilder:
         self._data = data
         self._index = index
         self._full = index.summary(int(data.metadata["max_seq_len"]))
-        self._full.update({"length_only_auc_val": cfg.length_only_auc_val,
-                           "length_only_auc_source": cfg.length_only_auc_source})
+        self._full.update(
+            {"length_only_auc_val": cfg.length_only_auc_val, "length_only_auc_source": cfg.length_only_auc_source}
+        )
 
-    def window_records(self, sample: Sequence[WindowRecord], curated: Sequence[tuple[dict[str, str], WindowRecord]]
-                       ) -> list[WindowRecord]:
+    def window_records(
+        self, sample: Sequence[WindowRecord], curated: Sequence[tuple[dict[str, str], WindowRecord]]
+    ) -> list[WindowRecord]:
         """Sample plus every crop of each curated window's link, deduplicated, in manifest order."""
         ids = {r.id: r for r in sample}
         for _, rec in curated:
@@ -473,25 +544,48 @@ class ManifestBuilder:
                 ids[w.id] = w
         return sorted(ids.values(), key=WindowRecord.sort_key)
 
-    def build(self, windows: Sequence[WindowRecord], curated: Sequence[tuple[dict[str, str], WindowRecord]],
-              target: int, stratum_stats: Mapping[str, Any], created_utc: str, git_commit: str) -> dict[str, Any]:
+    def build(
+        self,
+        windows: Sequence[WindowRecord],
+        curated: Sequence[tuple[dict[str, str], WindowRecord]],
+        target: int,
+        stratum_stats: Mapping[str, Any],
+        created_utc: str,
+        git_commit: str,
+    ) -> dict[str, Any]:
         per_split_class = {s: {c: 0 for c in CLASSES} for s in SPLITS}
         rows, entries = 0, []
         for i, r in enumerate(windows):
             per_split_class[r.split][r.label_name] += 1
-            entries.append({
-                "i": i, "id": r.id, "split": r.split, "scenario": r.scenario, "run": r.run,
-                "receiver_file": r.receiver_file, "receiver": r.receiver, "sender": r.sender,
-                "sender_pseudo": r.sender_pseudo, "link": r.link, "k": r.k, "K": self._index.link_size(r),
-                "n": r.n, "label": r.label, "label_name": r.label_name, "row": rows,
-                "sender_splits_full": self._index.splits_of_sender(r),
-                "raw_trace": f"data/VeReMi-Dataset/{r.receiver_file}",
-            })
+            entries.append(
+                {
+                    "i": i,
+                    "id": r.id,
+                    "split": r.split,
+                    "scenario": r.scenario,
+                    "run": r.run,
+                    "receiver_file": r.receiver_file,
+                    "receiver": r.receiver,
+                    "sender": r.sender,
+                    "sender_pseudo": r.sender_pseudo,
+                    "link": r.link,
+                    "k": r.k,
+                    "K": self._index.link_size(r),
+                    "n": r.n,
+                    "label": r.label,
+                    "label_name": r.label_name,
+                    "row": rows,
+                    "sender_splits_full": self._index.splits_of_sender(r),
+                    "raw_trace": f"data/VeReMi-Dataset/{r.receiver_file}",
+                }
+            )
             rows += r.n
-        rule = (f"seed {self._cfg.seed}; per split x scenario x class stratum, sender vehicles (<group>:<sender>) "
-                f"shuffled and added with ALL their windows in the stratum until it holds >= {target} windows; "
-                f"senders with > {self._cfg.max_sender_windows} windows in the stratum skipped; plus every crop of "
-                f"each curated window's link")
+        rule = (
+            f"seed {self._cfg.seed}; per split x scenario x class stratum, sender vehicles (<group>:<sender>) "
+            f"shuffled and added with ALL their windows in the stratum until it holds >= {target} windows; "
+            f"senders with > {self._cfg.max_sender_windows} windows in the stratum skipped; plus every crop of "
+            f"each curated window's link"
+        )
         return {
             "version": 1,
             "created_utc": created_utc,
@@ -501,11 +595,20 @@ class ManifestBuilder:
             "seq_len": int(self._data.metadata["max_seq_len"]),
             "features": self._data.features,
             "units": [UNITS[f] for f in self._data.features],
-            "norm": {"mean": self._data.mean, "std": self._data.std,
-                     "fitted_on": self._data.metadata["normalisation"].get("fitted_on", "")},
+            "norm": {
+                "mean": self._data.mean,
+                "std": self._data.std,
+                "fitted_on": self._data.metadata["normalisation"].get("fitted_on", ""),
+            },
             "full_dataset": self._full,
-            "sample": {"rule": rule, "per_stratum_target": target, "n_windows": len(windows), "n_rows": rows,
-                       "per_split_class": per_split_class, "strata": dict(stratum_stats)},
+            "sample": {
+                "rule": rule,
+                "per_stratum_target": target,
+                "n_windows": len(windows),
+                "n_rows": rows,
+                "per_split_class": per_split_class,
+                "strata": dict(stratum_stats),
+            },
             "curated": [{**meta, "window_id": rec.id} for meta, rec in curated],
             "windows": entries,
         }
@@ -555,7 +658,7 @@ class BundleVerifier:
                 raise ExportError(f"link {link}: not every crop included")
         source = self._data.rows([self._index.by_id[w["id"]] for w in ws])
         for w in ws:
-            if not np.array_equal(x[w["row"]: w["row"] + w["n"]], source[w["id"]]):
+            if not np.array_equal(x[w["row"] : w["row"] + w["n"]], source[w["id"]]):
                 raise ExportError(f"window {w['id']}: rows differ from the shard")
         size = (self._out / "x.f32").stat().st_size + (self._out / "manifest.json").stat().st_size
         if size > self._budget:
@@ -586,8 +689,13 @@ class Exporter:
             windows = builder.window_records(sample, curated)
             manifest = builder.build(windows, curated, target, stats, created, commit)
             size = len(encode_manifest(manifest)) + manifest["sample"]["n_rows"] * N_FEATURES * 4
-            _LOG.info("target %d: %d windows, %d rows, %.2f MB", target, len(windows),
-                      manifest["sample"]["n_rows"], size / 1e6)
+            _LOG.info(
+                "target %d: %d windows, %d rows, %.2f MB",
+                target,
+                len(windows),
+                manifest["sample"]["n_rows"],
+                size / 1e6,
+            )
             if size <= self._cfg.budget_bytes:
                 return manifest, self._matrix(windows)
             target -= self._cfg.target_step
@@ -626,8 +734,15 @@ def _parse_args(argv: Sequence[str] | None) -> ExportConfig:
     parser.add_argument("--budget-bytes", type=int, default=d.budget_bytes)
     parser.add_argument("--workers", type=int, default=d.workers)
     a = parser.parse_args(argv)
-    return ExportConfig(source_dir=a.source, out_dir=a.out, seed=a.seed, per_stratum=a.per_stratum,
-                        max_sender_windows=a.max_sender_windows, budget_bytes=a.budget_bytes, workers=a.workers)
+    return ExportConfig(
+        source_dir=a.source,
+        out_dir=a.out,
+        seed=a.seed,
+        per_stratum=a.per_stratum,
+        max_sender_windows=a.max_sender_windows,
+        budget_bytes=a.budget_bytes,
+        workers=a.workers,
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:

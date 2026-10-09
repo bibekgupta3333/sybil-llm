@@ -1,0 +1,1925 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pretraining Explained</title>
+<style>
+:root {
+  --bg: #fafaf9; --card: #ffffff; --ink: #1c1917; --muted: #57534e; --line: #e7e5e4;
+  --accent: #2563eb; --accent-soft: #dbeafe; --real: #16a34a; --real-soft: #dcfce7;
+  --pad: #a8a29e; --pad-soft: #f5f5f4; --warn-soft: #fef3c7; --warn: #b45309;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c0a09; --card: #1c1917; --ink: #f5f5f4; --muted: #a8a29e; --line: #292524;
+    --accent: #60a5fa; --accent-soft: #1e3a5f; --real: #4ade80; --real-soft: #14532d;
+    --pad: #78716c; --pad-soft: #292524; --warn-soft: #422006; --warn: #fbbf24;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c0a09; --card: #1c1917; --ink: #f5f5f4; --muted: #a8a29e; --line: #292524;
+  --accent: #60a5fa; --accent-soft: #1e3a5f; --real: #4ade80; --real-soft: #14532d;
+  --pad: #78716c; --pad-soft: #292524; --warn-soft: #422006; --warn: #fbbf24;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+header h1 { font-size: 1.7rem; margin: 0 0 6px; }
+header p { color: var(--muted); margin: 0 0 18px; }
+nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 24px; }
+nav a { font-size: .85rem; text-decoration: none; color: var(--accent); background: var(--accent-soft);
+  padding: 3px 10px; border-radius: 999px; }
+.stage { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px;
+  margin: 0 0 18px; }
+.stage h2 { margin: 0 0 4px; font-size: 1.25rem; }
+.stage h3 { margin: 18px 0 6px; font-size: 1.02rem; }
+.lead { color: var(--muted); margin: 0 0 14px; }
+.m { display: inline-block; font: 600 .9rem ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent);
+  background: var(--accent-soft); padding: 1px 8px; border-radius: 6px; white-space: nowrap; }
+.ar { color: var(--muted); margin: 0 4px; }
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0 14px; line-height: 2; }
+.calc { border-left: 3px solid var(--accent); background: var(--pad-soft); padding: 10px 14px; border-radius: 0 8px 8px 0;
+  margin: 10px 0; overflow-x: auto; }
+.calc code { display: block; font: .92rem ui-monospace, SFMono-Regular, Menlo, monospace; margin: 2px 0; white-space: pre-wrap; }
+.calc-row { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-bottom: 1px dashed var(--line); }
+.calc-row:last-child { border-bottom: 0; }
+.params { font-size: .92rem; margin: 8px 0; color: var(--muted); }
+.params b { color: var(--ink); }
+.t { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: .92rem; }
+.t th, .t td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.t th { color: var(--muted); font-weight: 600; }
+.table-wrap { overflow-x: auto; }
+.note { background: var(--warn-soft); border-radius: 8px; padding: 8px 12px; margin: 12px 0 0; font-size: .92rem; }
+.mask { background: var(--real-soft); border-radius: 8px; padding: 8px 12px; margin: 12px 0 0; font-size: .92rem; }
+svg { width: 100%; max-height: 180px; display: block; margin: 10px 0; }
+.dg { max-height: none; height: auto; margin: 14px 0; }
+.dg text { fill: var(--ink); font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+.dg .mut { fill: var(--muted); font-size: 12px; }
+.dg .sz { fill: var(--accent); font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.dg .b { font-weight: 600; }
+.dg .box { fill: var(--card); stroke: var(--line); stroke-width: 1.5; }
+.dg .acc { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+.dg .real { fill: var(--real); } .dg .pad { fill: var(--pad); opacity: .45; }
+.dg .cell { fill: var(--accent-soft); fill-opacity: .35; stroke: var(--muted); stroke-opacity: .6; }
+.dg .hl { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+.dg .arr { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+.dg .ah { fill: var(--muted); }
+.tf { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: .94rem; }
+.tf b.k { color: var(--accent); display: block; margin-bottom: 4px; font-size: .8rem; letter-spacing: .04em; text-transform: uppercase; }
+.tf ul { margin: 4px 0 0; padding-left: 18px; } .tf li { margin: 2px 0; }
+.dg .rf3 { fill: var(--accent); } .dg .rf5 { fill: var(--accent); fill-opacity: .35; } .dg .tok { fill: var(--pad-soft); stroke: var(--line); }
+.dg .me { fill: var(--warn); }
+details.qa { border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; background: var(--card); }
+details.qa > summary { cursor: pointer; padding: 10px 14px; font-weight: 600; list-style: none; }
+details.qa > summary::-webkit-details-marker { display: none; }
+details.qa > summary::before { content: "+"; display: inline-block; width: 1.2em; color: var(--accent); font-weight: 700; }
+details.qa[open] > summary::before { content: "−"; }
+details.qa .ans { padding: 0 16px 12px 34px; font-size: .95rem; }
+details.qa .ans p { margin: 6px 0; } details.qa .ans ul { margin: 6px 0; padding-left: 18px; }
+#faq h3 { margin-top: 22px; }
+.code { background: #0f172a; color: #e2e8f0; border-radius: 10px; padding: 12px 14px; margin: 12px 0; overflow-x: auto;
+  font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+.code .c { color: #7dd3fc; } .code .k { color: #c4b5fd; }
+.code-title { font-size: .8rem; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 16px 0 -6px; }
+.anim { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px 12px; margin: 14px 0; background: var(--card); }
+.anim-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.anim-title { font-size: .8rem; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.anim-ctrl { display: flex; gap: 6px; }
+.anim-ctrl button { font: 600 .8rem -apple-system, sans-serif; color: var(--accent); background: var(--accent-soft);
+  border: 1px solid var(--accent); border-radius: 999px; padding: 3px 10px; cursor: pointer; }
+.anim svg { max-height: none; width: 100%; height: auto; }
+.anim svg text { fill: var(--ink); font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+.anim .cap { font-size: .9rem; color: var(--muted); min-height: 2.6em; margin-top: 6px; }
+footer { color: var(--muted); font-size: .85rem; margin-top: 24px; }
+@media (max-width: 640px) { .t { display: block; overflow-x: auto; } .stage { padding: 16px 14px; } header h1 { font-size: 1.4rem; } }
+
+/* pretraining-explained additions */
+a { color: var(--accent); }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; overflow-wrap: anywhere; }
+.code code, .calc code { overflow-wrap: normal; }
+.stage ul { padding-left: 20px; } .stage li { margin: 4px 0; }
+.dg .lrline { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+.dg .lrgrid { stroke: var(--line); stroke-dasharray: 4 3; }
+.dg .lrdot { fill: var(--warn); }
+header .note a { font-weight: 600; }
+.missing { border: 1px dashed var(--line); border-radius: 10px; padding: 10px 14px; color: var(--muted); font-size: .9rem; margin: 14px 0; }
+footer a { color: var(--accent); }
+.lrwrap { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: flex-end; } .lrl { flex: 1 1 220px; max-width: 280px; } .lrr { flex: 2 1 340px; }
+@media (max-width: 640px) { .anim .m, .stage p .m, .stage li .m { white-space: normal; } }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>Pretraining explained: what happens when you run it</h1>
+  <p>When you type <code>npm run train:full</code>, a TimesNet encoder learns from about 304,000 unlabeled windows
+  (benign + GridSybil, 64 messages × 13 features each). It never sees an attack label. Each training step takes 256 windows and builds three versions of them: one with
+  rows hidden, one shifted / stretched / cropped, and one with a physics violation we inject. The encoder makes three forward passes, five losses are
+  computed, scaled and summed, and one AdamW update follows. After every pass over the data (an epoch), a label-free check set
+  decides whether to save <code>best.pt</code> and whether to stop. This page follows that loop from data to
+  checkpoint, with the real settings from <code>src/model/benign_gridsybil/timesnet/</code>.</p>
+  <div class="flow"><span class="m">338,001 train windows</span><span class="ar">→ −10% vehicles →</span>
+    <span class="m">≈ 304k</span><span class="ar">→</span><span class="m">≈ 1,190 batches × 256</span><span class="ar">→ 3 passes →</span>
+    <span class="m">5 losses</span><span class="ar">→</span><span class="m">1 joint loss</span><span class="ar">→ AdamW →</span><span class="m">best.pt</span></div>
+  <div class="note"><b>Nothing is trained yet.</b> Every setting on this page comes from the code. The few measured numbers are
+  labelled <i>at initialisation</i> or <i>from a stopped test run (batch 128, steps 1–400)</i>. They show how the code behaves, not results.
+  How the encoder itself works (embedding, TimesBlocks, H and z) is on <a href="encoder-shapes.html">Encoder Shapes</a>.</div>
+</header>
+<nav>
+  <a href="#data">Data</a><a href="#batches">Batches</a><a href="#step">One step</a><a href="#losses">Losses</a>
+  <a href="#joint">Joint loss</a><a href="#update">Update</a><a href="#epoch">End of epoch</a><a href="#outputs">Outputs</a>
+  <a href="#health">Healthy run</a><a href="#run">Run it</a><a href="#faq">Q&amp;A</a>
+</nav>
+
+<section class="stage" id="data">
+  <h2>What goes in</h2>
+  <p class="lead">Only feature windows from the <b>train</b> split. No label file is opened and the test split is never read.</p>
+  <table class="t">
+    <tr><th>Item</th><th>Value</th><th>Where</th></tr>
+    <tr><td>Train windows (benign + GridSybil, T = 64)</td><td><b>338,001</b>, each <span class="m">64 × 13</span> + mask <span class="m">64</span></td><td><code>src/data/encoder_input/benign_gridsybil/T64/train/</code></td></tr>
+    <tr><td>Test windows (never opened in pretraining)</td><td>38,426</td><td><code>…/T64/test/</code></td></tr>
+    <tr><td>Split rule</td><td>90 / 10 by <b>sender vehicle</b> (D8′, seed 0). A vehicle's windows sit in one split only</td><td>built by the encoder-input notebook</td></tr>
+    <tr><td>Check set (label-free validation)</td><td><b>10% of train vehicles</b> (seed 0) ≈ 33k windows</td><td><code>FeatureShards.hold_out</code></td></tr>
+    <tr><td>Windows that train the model</td><td><b>≈ 304k</b></td><td></td></tr>
+  </table>
+  <h3>The label firewall</h3>
+  <p><code>LabelFirewall</code> checks every file path before it is opened. It allows only <code>train/</code> (or a
+  <code>pretrain_val/</code> folder, if one exists) and only feature shards named <code>part-NNNNN.json</code>. A request for an
+  <code>_info</code> file (which holds labels) or anything under <code>test/</code> raises <code>PermissionError</code> and the run stops.
+  <code>env.json</code> records <code>"label_files_opened": 0</code>.</p>
+  <h3>Why the check set comes from train vehicles</h3>
+  <p>Early stopping needs a validation number, but the test split is reserved for the final evaluation. So 10% of the
+  <i>train</i> vehicles are set aside. They are chosen by vehicle, not by window: all windows of one sender land on the same side,
+  so the check set measures what the model does on vehicles it has not seen.</p>
+  <h3>Scaling at load time (D13)</h3>
+  <p>The stored files hold train z-scores. Three features have a very long tail because GridSybil ghosts can sit kilometres away:
+  <code>claimed_pos_x</code>, <code>claimed_pos_y</code> and <code>range</code>. When the data is loaded they are re-scaled
+  with the median and the IQR (interquartile range) of the train real rows. Above |z| = 5 the values are squeezed with a logarithm. Their order is kept and the step can be undone exactly.</p>
+  <div class="calc">
+    <code>z = (raw − median) / IQR                   (median, IQR from train real rows only)</code>
+    <code>z' = z                         if |z| ≤ 5</code>
+    <code>z' = sign(z) · (5 + log1p(|z| − 5))   if |z| > 5   (soft tail)</code>
+  </div>
+  <table class="t">
+    <tr><th>Example</th><th>Old z-score</th><th>Robust + soft tail</th></tr>
+    <tr><td>range 388 m (typical far benign copy)</td><td>0.65</td><td>1.00</td></tr>
+    <tr><td>12.8 km ghost position</td><td>36.4</td><td>8.8</td></tr>
+  </table>
+  <p>The other 10 features keep their train z-scores. The stored files are not changed. The median, IQR and soft-tail
+  setting go into <code>env.json → scaling</code>.</p>
+</section>
+
+<section class="stage" id="batches">
+  <h2>From windows to batches</h2>
+  <p class="lead">One epoch = every training window exactly once, in batches of <b>256</b> → ≈ <b>1,190 steps</b>.</p>
+  <h3>Length-bucketed batches (D14)</h3>
+  <p>A TimesBlock runs its FFT and period folding once for each distinct window length in a batch. A random batch of 256 holds about 60 different lengths. A
+  length-bucketed batch holds 2–3. The batches of one epoch are built like this:</p>
+  <div class="flow"><span class="m">shuffle all ≈ 304k</span><span class="ar">→</span><span class="m">stable sort by real rows</span>
+    <span class="ar">→</span><span class="m">cut into 256s</span><span class="ar">→</span><span class="m">shuffle batch order</span></div>
+  <p>Shuffling first and using a stable sort means windows of the same length are still in random order. Shuffling the batch order then
+  mixes short and long batches through the epoch. The random generator is seeded with <code>seed + epoch</code>, so the order is the same
+  every time. A resumed run picks up exactly where it stopped.</p>
+  <p>Side effect: inside a batch, the contrastive negatives have almost the same length as the anchor, so length cannot help tell
+  them apart. That is good: the encoder should not learn window length as a shortcut.</p>
+  <h3>The prefetch thread</h3>
+  <p><code>BatchPrefetcher</code> runs a background thread that copies the next batches (indices → <span class="m">256 × 64 × 13</span>
+  + mask) out of memory while the Apple GPU (MPS) trains on the current one. It keeps up to <code>prefetch_batches = 3</code> batches
+  ready in a queue, so the GPU does not wait for the CPU.</p>
+  <div class="anim" id="anim-epoch">
+  <style>
+    #anim-epoch .steps { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 4px; }
+    #anim-epoch .steps button { font: 600 .74rem -apple-system, BlinkMacSystemFont, sans-serif; color: var(--muted);
+      background: var(--pad-soft); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; cursor: pointer; }
+    #anim-epoch .steps button span { opacity: .6; margin-right: 2px; }
+    #anim-epoch .steps button.done { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+    #anim-epoch .steps button.cur { color: var(--card); background: var(--accent); border-color: var(--accent); }
+    #anim-epoch .cap { min-height: 7.4em; }
+    #anim-epoch .cap .m { white-space: normal; }
+    #anim-epoch .cap .ct { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; color: var(--ink); margin-bottom: 2px; }
+    #anim-epoch .cap .wk { display: inline-block; margin-top: 5px; font: .82rem ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--ink); background: var(--pad-soft); border-radius: 6px; padding: 2px 8px; }
+    #anim-epoch .bar { fill: var(--accent); transition: transform .9s cubic-bezier(.45,.05,.3,1), fill .5s ease, opacity .5s ease; }
+    #anim-epoch .bar.ck { fill: var(--warn); }
+    #anim-epoch .bar.used { opacity: .25; }
+    #anim-epoch .grp { transition: transform .9s cubic-bezier(.45,.05,.3,1), opacity .4s ease; }
+    #anim-epoch .brk { fill: none; stroke: var(--muted); stroke-width: 1.4; transition: stroke .3s ease; }
+    #anim-epoch .brk.gpu { stroke: var(--accent); stroke-width: 2.6; }
+    #anim-epoch .brk.q { stroke: var(--warn); stroke-width: 2; }
+    #anim-epoch .pn { opacity: 0; transition: opacity .45s ease; }
+    #anim-epoch .pn.on { opacity: 1; }
+    #anim-epoch .ckbox { fill: var(--warn-soft); stroke: var(--warn); stroke-width: 1.2; stroke-dasharray: 4 3; }
+    #anim-epoch .ok { fill: var(--real); font-weight: 700; } #anim-epoch .no { fill: var(--warn); font-weight: 700; }
+    #anim-epoch .nl { stroke: var(--muted); stroke-width: 1.2; }
+    #anim-epoch .lin { fill: var(--real-soft); }
+    #anim-epoch .old { fill: var(--pad); }
+    #anim-epoch .new { fill: var(--accent); transition: transform 1.2s cubic-bezier(.45,.05,.3,1) .4s; }
+    #anim-epoch .slot { fill: var(--pad-soft); stroke: var(--line); stroke-width: 1.2; }
+    #anim-epoch .slot.full { fill: var(--warn-soft); stroke: var(--warn); }
+    #anim-epoch .gpu { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; transition: stroke-width .2s ease; }
+    #anim-epoch .gpu.flash { stroke-width: 3.5; }
+    #anim-epoch .flow { stroke: var(--accent); stroke-width: 2; fill: none; stroke-dasharray: 6 5; animation: anim-epoch-dash 1s linear infinite; }
+    #anim-epoch .cnt { font: 600 15px ui-monospace, SFMono-Regular, Menlo, monospace; fill: var(--accent); }
+    #anim-epoch .sz2 { font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace; fill: var(--accent); }
+    @keyframes anim-epoch-dash { to { stroke-dashoffset: -11; } }
+    @media (prefers-reduced-motion: reduce) { #anim-epoch * { transition: none !important; animation: none !important; } }
+  </style>
+  <div class="anim-head"><span class="anim-title">Animation · from 338,001 windows to batches on the GPU</span>
+    <span class="anim-ctrl"><button data-act="play">Play</button><button data-act="prev" aria-label="Previous step">◀</button><button data-act="next" aria-label="Next step">▶</button><button data-act="restart">Restart</button></span></div>
+  <div class="steps" role="group" aria-label="Steps"></div>
+  <svg class="dg" viewBox="0 0 860 330" role="img"><title>Windows (bars, height = number of real rows) are split into a check set, scaled, shuffled, sorted by length, cut into batches, the batch order shuffled, and a background thread feeds the batches to the GPU</title></svg>
+  <div class="cap" aria-live="polite"></div>
+</div>
+<script>
+(() => {
+  const root = document.getElementById("anim-epoch");
+  if (!root) return;
+  const svg = root.querySelector("svg");
+  const NS = "http://www.w3.org/2000/svg";
+  const mk = (tag, a, parent, txt) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in a) e.setAttribute(k, a[k]);
+    if (txt !== undefined) e.textContent = txt;
+    (parent || svg).appendChild(e); return e;
+  };
+  const defs = mk("defs", {});
+  const mkr = mk("marker", { id: "anim-epoch-ah", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto" }, defs);
+  mk("path", { class: "ah", d: "M0,0 L10,5 L0,10 z" }, mkr);
+
+  // Illustrative windows: 18 vehicles × 3 windows; height = real rows (most windows are short).
+  let seed = 7;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  const N = 54, BOT = 170, HMAX = 100, BW = 9, GAP = 12, BS = 6;
+  const W = Array.from({ length: N }, (_, i) => ({ i, veh: Math.floor(i / 3), len: Math.max(4, Math.round(4 + 60 * Math.pow(rnd(), 2.1))) }));
+  const CHECK_VEH = [4, 13];
+  W.forEach(w => { w.ck = CHECK_VEH.includes(w.veh); });
+  const main = W.filter(w => !w.ck), chk = W.filter(w => w.ck);
+  const shuffle = (arr) => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const shuffled = shuffle(main);
+  const sorted = shuffled.slice().sort((a, b) => a.len - b.len); // stable: random order within one length
+  const NB = main.length / BS;
+  const batchPerm = shuffle([...Array(NB).keys()]);               // batch g goes to slot batchPerm[g]
+  const slotX = (i, gaps) => 20 + i * GAP + (gaps ? Math.floor(i / BS) * 8 : 0);
+
+  mk("text", { class: "b", x: 20, y: 22 }, null, "train/ feature shards · 338,001 windows (64 × 13 + mask)");
+  mk("text", { class: "mut", x: 20, y: 40 }, null, "each bar = one window, height = its real rows (illustrative); a batch here = 6 bars, really 256");
+  mk("line", { class: "nl", x1: 14, y1: BOT + 0.5, x2: 660, y2: BOT + 0.5 });
+
+  const pCheck = mk("g", { class: "pn" });
+  mk("rect", { class: "ckbox", x: 684, y: 56, width: 166, height: 122, rx: 8 }, pCheck);
+  mk("text", { class: "b", x: 767, y: 74, "text-anchor": "middle" }, pCheck, "check set");
+  mk("text", { class: "mut", x: 767, y: 90, "text-anchor": "middle" }, pCheck, "10% of vehicles · ~33k");
+
+  // Bars live in batch groups so a whole batch can move at once.
+  const groups = [], bars = {};
+  for (let g = 0; g < NB; g++) groups.push(mk("g", { class: "grp" }));
+  const loose = mk("g", {});
+  W.forEach(w => {
+    const h = w.len / 64 * HMAX;
+    bars[w.i] = mk("rect", { class: "bar", x: 0, y: BOT - h, width: BW, height: h, rx: 1 }, loose);
+  });
+  const brk = [];
+  for (let g = 0; g < NB; g++) {
+    const x1 = slotX(g * BS, true) - 1, x2 = slotX(g * BS + BS - 1, true) + BW + 1;
+    const b = mk("g", { class: "pn" }, groups[g]);
+    brk.push(mk("path", { class: "brk", d: `M${x1},${BOT + 6} V${BOT + 12} H${x2} V${BOT + 6}` }, b));
+    b.lab = mk("text", { class: "mut", x: (x1 + x2) / 2, y: BOT + 27, "text-anchor": "middle" }, b, "256");
+    groups[g].br = b;
+  }
+
+  // Lower panels.
+  const pFw = mk("g", { class: "pn" });
+  mk("text", { class: "b", x: 20, y: 222 }, pFw, "LabelFirewall: what pretraining may open");
+  [["✓", "ok", "train/b64/part-*.json", "features x (64 × 13) + mask"],
+   ["✗", "no", "train/b64/part-*_info.json", "labels, never read"],
+   ["✗", "no", "test/", "held out for evaluation, never read"]].forEach((r, i) => {
+    const y = 248 + i * 24;
+    mk("text", { class: r[1], x: 24, y }, pFw, r[0]);
+    mk("text", { class: "sz2", x: 44, y }, pFw, r[2]);
+    mk("text", { class: "mut", x: 270, y }, pFw, r[3]);
+  });
+
+  const pCk = mk("g", { class: "pn" });
+  mk("text", { class: "b", x: 20, y: 222 }, pCk, "Carved by sender vehicle (seed 0): every window of a vehicle lands on one side");
+  mk("text", { class: "sz2", x: 20, y: 250 }, pCk, "338,001 = ~304k train the model + ~33k check set");
+  mk("text", { class: "mut", x: 20, y: 274 }, pCk, "the check set is evaluated label-free at each epoch end (losses, monitors);");
+  mk("text", { class: "mut", x: 20, y: 292 }, pCk, "it never produces a gradient");
+
+  const pSc = mk("g", { class: "pn" });
+  mk("text", { class: "b", x: 20, y: 222 }, pSc, "Robust scaling (D13): claimed_pos_x/y, range → (raw − median) / IQR, soft tail beyond |z| = 5");
+  const X0 = 210, U = 11; // 1 unit = 11 px, axis 0..40
+  const rowsSc = [
+    { y: 262, l1: "range 388 m", old: 0.65, nw: 1.00, lab: "0.65 → 1.00" },
+    { y: 304, l1: "12.8 km ghost", old: 36.4, nw: 8.8, lab: "36.4 → 8.8" },
+  ];
+  const newDots = [];
+  rowsSc.forEach(r => {
+    mk("rect", { class: "lin", x: X0, y: r.y - 9, width: 5 * U, height: 18 }, pSc);
+    mk("line", { class: "nl", x1: X0, y1: r.y, x2: X0 + 40 * U, y2: r.y }, pSc);
+    mk("text", { class: "b", x: 20, y: r.y + 4 }, pSc, r.l1);
+    mk("circle", { class: "old", cx: X0 + r.old * U, cy: r.y, r: 5 }, pSc);
+    mk("text", { class: "mut", x: X0 + r.old * U + (r.old > 20 ? 8 : 8), y: r.y - 10 }, pSc, `z-score ${r.old}`);
+    const d = mk("circle", { class: "new", cx: X0 + r.old * U, cy: r.y, r: 6 }, pSc);
+    d.dx = (r.nw - r.old) * U; newDots.push(d);
+    mk("text", { class: "sz2", x: X0 + 40 * U + 12, y: r.y + 4 }, pSc, r.lab);
+  });
+  mk("text", { class: "mut", x: X0 + 2, y: 286 }, pSc, "|z| ≤ 5: unchanged");
+  mk("text", { class: "mut", x: 20, y: 284 }, pSc, "grey = old, blue = new");
+
+  const pOr = mk("g", { class: "pn" });
+  const orT1 = mk("text", { class: "b", x: 20, y: 228 }, pOr, "");
+  const orT2 = mk("text", { class: "mut", x: 20, y: 252 }, pOr, "");
+  const orT3 = mk("text", { class: "sz2", x: 20, y: 280 }, pOr, "");
+
+  const pPre = mk("g", { class: "pn" });
+  mk("rect", { class: "box", x: 20, y: 214, width: 300, height: 100, rx: 8 }, pPre);
+  mk("text", { class: "b", x: 32, y: 234 }, pPre, "CPU thread · BatchPrefetcher");
+  mk("text", { class: "mut", x: 32, y: 302 }, pPre, "gathers + pads the next 3 batches");
+  const slots = [0, 1, 2].map(i => {
+    const r = mk("rect", { class: "slot", x: 40 + i * 92, y: 248, width: 76, height: 36, rx: 6 }, pPre);
+    const t = mk("text", { class: "sz2", x: 78 + i * 92, y: 271, "text-anchor": "middle" }, pPre, "");
+    return { r, t };
+  });
+  mk("path", { class: "flow", d: "M322,266 H418", "marker-end": "url(#anim-epoch-ah)" }, pPre);
+  const gpu = mk("rect", { class: "gpu", x: 420, y: 214, width: 210, height: 100, rx: 8 }, pPre);
+  mk("text", { class: "b", x: 525, y: 238, "text-anchor": "middle" }, pPre, "GPU (MPS) · one training step");
+  const gpuT = mk("text", { class: "sz2", x: 525, y: 266, "text-anchor": "middle" }, pPre, "");
+  mk("text", { class: "mut", x: 525, y: 294, "text-anchor": "middle" }, pPre, "3 forward + 1 backward");
+  const cnt = mk("text", { class: "cnt", x: 745, y: 258, "text-anchor": "middle" }, pPre, "");
+  mk("text", { class: "mut", x: 745, y: 282, "text-anchor": "middle" }, pPre, "≈ 304k ÷ 256 steps / epoch");
+
+  const PANELS = { fw: pFw, ck: pCk, sc: pSc, or: pOr, pre: pPre };
+
+  // Layouts: where every bar sits in each step.
+  function layout(n) {
+    const pos = {};
+    if (n === 0) { W.forEach((w, i) => pos[w.i] = { x: slotX(i, false), g: null }); return pos; }
+    chk.forEach((w, j) => pos[w.i] = { x: 712 + j * 20, g: null });
+    if (n <= 2) { main.forEach((w, i) => pos[w.i] = { x: slotX(i, false), g: null }); return pos; }
+    if (n === 3) { shuffled.forEach((w, i) => pos[w.i] = { x: slotX(i, false), g: null }); return pos; }
+    if (n === 4) { sorted.forEach((w, i) => pos[w.i] = { x: slotX(i, false), g: null }); return pos; }
+    sorted.forEach((w, i) => pos[w.i] = { x: slotX(i, true), g: Math.floor(i / BS) }); return pos;
+  }
+  function shiftOf(g, n) { return n >= 6 ? (batchPerm[g] - g) * (BS * GAP + 8) : 0; }
+
+  let tick = null, t = 0;
+  function feed(reduce) {
+    const order = [...Array(NB).keys()].sort((a, b) => batchPerm[a] - batchPerm[b]); // groups in epoch order
+    const show = () => {
+      const k = t % NB;
+      order.forEach((g, s) => {
+        brk[g].classList.toggle("gpu", s === k);
+        brk[g].classList.toggle("q", s > k && s <= k + 3);
+        groups[g].querySelectorAll("rect.bar").forEach(b => b.classList.toggle("used", s < k));
+      });
+      slots.forEach((sl, i) => {
+        const s = k + 1 + i, has = s < NB;
+        sl.r.classList.toggle("full", has); sl.t.textContent = has ? `step ${t + 2 + i}` : "…";
+      });
+      gpuT.textContent = `batch (256, 64, 13) · step ${t + 1}`;
+      cnt.textContent = `step ${(t + 1).toLocaleString("en-US")} / ≈1,190`;
+      gpu.classList.add("flash"); setTimeout(() => gpu.classList.remove("flash"), 220);
+    };
+    t = 0; show();
+    if (!reduce) tick = setInterval(() => { t = (t + 1) % NB; show(); }, 1100);
+  }
+  function stopFeed() {
+    clearInterval(tick); tick = null;
+    brk.forEach(b => b.classList.remove("gpu", "q"));
+    svg.querySelectorAll("#anim-epoch rect.bar.used").forEach(b => b.classList.remove("used"));
+  }
+
+  const STEPS = [
+    { chip: "Train shards", title: "The training split", shape: "338,001 windows · x (64, 13) + mask (64)", panel: "fw",
+      text: "Pretraining opens only the feature shards of train/. The firewall refuses the _info label files and the whole test/ split, so no attack label can reach the model.",
+      work: "90 / 10 train / test split by sender vehicle (D8′)" },
+    { chip: "Check set", title: "10% of vehicles become the check set", shape: "~304k train + ~33k check", panel: "ck",
+      text: "All windows of 10% of the train vehicles (seed 0) are set aside. They are never trained on; at the end of each epoch they measure the losses and monitors without labels.",
+      work: "split by vehicle, so a vehicle's windows never sit on both sides" },
+    { chip: "Scaling", title: "Robust scaling at load time", shape: "13 features per row, scaled in place", panel: "sc",
+      text: "claimed_pos_x/y and range use (raw − median) / IQR of the train real rows, with a soft tail beyond |z| = 5: sign·(5 + log1p(|z| − 5)). Huge ghost values no longer dominate. The other features keep their train z-scores.",
+      work: "range 388 m: 0.65 → 1.00 · 12.8 km ghost: 36.4 → 8.8" },
+    { chip: "Shuffle", title: "Shuffle the windows", shape: "random permutation of ~304k indices", panel: "or",
+      o: ["Shuffled: neighbours have very different lengths", "A batch cut here would mix ~60 different lengths:", "most of the GPU work would be padding rows"],
+      text: "Each epoch starts with a new random order (seeded). If we cut batches now, every batch would mix short and long windows.",
+      work: "the seed makes the order repeatable on --resume" },
+    { chip: "Sort by length", title: "Sort by number of real rows", shape: "stable sort by real rows", panel: "or",
+      o: ["Sorted by length (stable)", "Windows with the same length keep their random order,", "so batches are still random inside one length"],
+      text: "A stable sort puts windows of similar length next to each other. Because the sort is stable, the random order from the shuffle survives within each length.",
+      work: "length = number of real rows, 1–64" },
+    { chip: "Cut into 256", title: "Cut into batches of 256", shape: "≈ 1,190 batches of (256, 64, 13)", panel: "or",
+      o: ["Cut into batches of 256", "≈ 2–3 distinct lengths per batch instead of ~60", "(256, 64, 13) + mask (256, 64) each"],
+      text: "Consecutive windows form one batch, so a batch holds windows of almost the same length. Every window appears in exactly one batch per epoch.",
+      work: "≈ 304k ÷ 256 ≈ 1,190 steps per epoch" },
+    { chip: "Shuffle batches", title: "Shuffle the batch order", shape: "random permutation of ≈ 1,190 batches", panel: "or",
+      o: ["Batch order shuffled", "Short and long batches now alternate through the epoch,", "so the loss does not drift with window length"],
+      text: "Without this, the epoch would run from all-short batches to all-long ones. Shuffling whole batches keeps each batch uniform in length but the sequence of batches random.",
+      work: "still every window once per epoch" },
+    { chip: "Prefetch → GPU", title: "A background thread feeds the GPU", shape: "prefetch_batches = 3", panel: "pre", ms: 6200,
+      text: "While the GPU (MPS) runs one training step, a CPU thread gathers the next 3 batches from RAM. The GPU rarely waits for data. When the last batch is done, the epoch ends and the evaluation on the check set runs.",
+      work: "blue bracket = on the GPU · orange = waiting in the queue" },
+  ];
+
+  function render(n, prev, reduce) {
+    stopFeed();
+    const pos = layout(n);
+    W.forEach(w => {
+      const p = pos[w.i], b = bars[w.i];
+      const parent = p.g === null ? loose : groups[p.g];
+      if (b.parentNode !== parent) parent.appendChild(b);
+      b.style.transition = reduce ? "none" : "";
+      b.style.transform = `translate(${p.x}px, 0px)`;
+      b.classList.toggle("ck", n >= 1 && w.ck);
+    });
+    groups.forEach((g, i) => {
+      g.style.transform = `translate(${shiftOf(i, n)}px, 0px)`;
+      g.br.classList.toggle("on", n >= 5);
+      g.br.lab.textContent = n >= 6 ? `step ${batchPerm[i] + 1}` : "256";
+    });
+    pCheck.classList.toggle("on", n >= 1);
+    const s = STEPS[n];
+    for (const k in PANELS) PANELS[k].classList.toggle("on", k === s.panel);
+    newDots.forEach(d => { d.style.transform = n === 2 ? `translate(${d.dx}px, 0px)` : "translate(0px, 0px)"; });
+    if (s.o) { orT1.textContent = s.o[0]; orT2.textContent = s.o[1]; orT3.textContent = s.o[2]; }
+    if (n === 7) feed(reduce);
+  }
+
+  /* Step controller: chips, caption, Play/Pause, prev/next, restart, autoplay on scroll-in. */
+  (function control(STEPS, render) {
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const cap = root.querySelector(".cap"), bar = root.querySelector(".steps"), btn = root.querySelector('[data-act="play"]');
+    let k = 0, prev = -1, playing = false, timer = null, userPaused = reduce;
+    const chips = STEPS.map((s, i) => {
+      const b = document.createElement("button"); b.type = "button";
+      b.innerHTML = `<span>${i + 1}</span>${s.chip}`;
+      b.addEventListener("click", () => { stop(); go(i); }); bar.appendChild(b); return b;
+    });
+    function go(n) {
+      k = (n + STEPS.length) % STEPS.length; const s = STEPS[k];
+      chips.forEach((c, i) => { c.className = i === k ? "cur" : i < k ? "done" : ""; c.setAttribute("aria-pressed", String(i === k)); });
+      cap.innerHTML = `<div class="ct"><b>${s.title}</b><span class="m">${s.shape}</span></div><div>${s.text}</div>` +
+        (s.work ? `<div class="wk">${s.work}</div>` : "");
+      render(k, prev, reduce); prev = k;
+    }
+    function schedule() {
+      clearTimeout(timer); if (!playing) return;
+      timer = setTimeout(() => { go(k + 1); schedule(); }, (STEPS[k].ms || 2800) + (k === STEPS.length - 1 ? 1600 : 0));
+    }
+    function setPlay(p) { playing = p; btn.textContent = p ? "Pause" : "Play"; schedule(); }
+    function stop() { userPaused = true; setPlay(false); }
+    root.querySelector(".anim-ctrl").addEventListener("click", e => {
+      const b = e.target.closest("button"); if (!b) return;
+      const a = b.getAttribute("data-act");
+      if (a === "play") { userPaused = playing; setPlay(!playing); }
+      else if (a === "prev") { stop(); go(k - 1); }
+      else if (a === "next") { stop(); go(k + 1); }
+      else if (a === "restart") { userPaused = false; go(0); setPlay(true); }
+    });
+    const q = new URLSearchParams(location.search).get(root.id);
+    if (q !== null) { userPaused = true; go(Math.min(STEPS.length, Math.max(1, parseInt(q, 10) || 1)) - 1); } else go(0);
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(es => es.forEach(e => {
+        if (e.isIntersecting) { if (!userPaused && !playing) setPlay(true); } else if (playing) setPlay(false);
+      }), { threshold: 0.3 }).observe(root);
+    } else if (!userPaused) setPlay(true);
+  })(STEPS, render);
+  root.setAttribute("data-ok", "1");
+})();
+</script>
+</section>
+
+<section class="stage" id="step">
+  <h2>One training step</h2>
+  <p class="lead">One batch of 256 windows, three forward passes through the same encoder, five losses, one backward pass.</p>
+  <table class="t">
+    <tr><th>Pass</th><th>Input</th><th>Encoder output used</th><th>Head</th><th>Loss</th></tr>
+    <tr><td>1</td><td>view v1, with 25% of real rows hidden (mask token)</td><td>H <span class="m">256 × 64 × 128</span> and z₁ <span class="m">256 × 128</span></td><td>reconstruction (on H)</td><td>MSE on hidden rows</td></tr>
+    <tr><td>2</td><td>view v2, nothing hidden</td><td>z₂ <span class="m">256 × 128</span></td><td>projection (on z₁ and z₂)</td><td>NT-Xent</td></tr>
+    <tr><td>3</td><td>the clean window with an injected violation in half the windows</td><td>zᵢ <span class="m">256 × 128</span></td><td>P1, P2, P3 (on zᵢ)</td><td>3 × BCE</td></tr>
+  </table>
+  <h3>The two views</h3>
+  <p>Both v1 and v2 come from the same window, each with its own random draw of three changes. Each change keeps the motion physically possible:</p>
+  <ul>
+    <li><b>Common shift</b> 3–5 m: sender and receiver positions move together, so range and bearing stay the same.</li>
+    <li><b>Time stretch</b> s ∈ [0.95, 1.05]: velocity × s, acceleration × s², Δτ ÷ s. Positions stay put, so Δposition = v·Δτ still holds.</li>
+    <li><b>Contiguous crop</b>: keep one unbroken run of 80–100% of the real rows. It is moved to the start and the rest becomes padding.</li>
+  </ul>
+  <h3>Hiding rows on v1</h3>
+  <p>For each window, a coin flip picks one of two ways to hide rows: <b>exactly 25% of the real rows at random</b>, or <b>one block of 20–30%</b>.
+  The hidden rows are replaced by the <b>mask token</b>, a learned vector of 13 numbers (<code>model.mask_token</code>). Padding rows are never hidden.</p>
+  <h3>The injected copy</h3>
+  <p>Only windows with at least 4 real rows are eligible. In half of them, one violation is injected from a random row to the end:</p>
+  <ul>
+    <li><b>P1 position jump</b>: the claimed position jumps 50–150 m and stays shifted. Range and bearing are recomputed to match.</li>
+    <li><b>P2 speed scaled</b>: the claimed velocity is multiplied by 2–3 or by 0.2–0.5, but the positions do not change. Needs a mean speed ≥ 2 m/s.</li>
+    <li><b>P3 sharp turn</b>: the claimed velocity and acceleration are rotated by 90–180°. Needs speed ≥ 2 m/s.</li>
+  </ul>
+  <p>For a slow window, a draw of P2 or P3 becomes P1. The target "was violation k injected?" comes from our own injection.
+  It is never an attack label (D4).</p>
+  <div class="anim" id="anim-step">
+  <style>
+    #anim-step .steps { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 4px; }
+    #anim-step .steps button { font: 600 .74rem -apple-system, BlinkMacSystemFont, sans-serif; color: var(--muted);
+      background: var(--pad-soft); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; cursor: pointer; }
+    #anim-step .steps button span { opacity: .6; margin-right: 2px; }
+    #anim-step .steps button.done { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+    #anim-step .steps button.cur { color: var(--card); background: var(--accent); border-color: var(--accent); }
+    #anim-step .cap { min-height: 7.4em; }
+    #anim-step .cap .m { white-space: normal; }
+    #anim-step .cap .ct { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; color: var(--ink); margin-bottom: 2px; }
+    #anim-step .cap .wk { display: inline-block; margin-top: 5px; font: .82rem ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--ink); background: var(--pad-soft); border-radius: 6px; padding: 2px 8px; }
+    #anim-step .it { opacity: .13; transition: opacity .5s ease; }
+    #anim-step .it.hid { opacity: 0; }
+    #anim-step .it.on { opacity: 1; }
+    #anim-step .it rect.box, #anim-step .it rect.acc { transition: stroke-width .4s ease, stroke .4s ease; }
+    #anim-step .it.now rect.box, #anim-step .it.now rect.acc { stroke: var(--accent); stroke-width: 2.6; }
+    #anim-step .gf { fill: none; stroke: var(--muted); stroke-width: 1; }
+    #anim-step .hid-row { fill: var(--accent); }
+    #anim-step .inj { fill: var(--warn); }
+    #anim-step .pos { fill: var(--real); }
+    #anim-step .neg { fill: var(--accent-soft); stroke: var(--line); stroke-width: .6; }
+    #anim-step .fn { fill: var(--pad-soft); stroke: var(--line); stroke-width: .6; }
+    #anim-step .x { stroke: var(--muted); stroke-width: 1.2; }
+    #anim-step .chip { fill: var(--warn-soft); stroke: var(--warn); stroke-width: 1.2; }
+    #anim-step .chipt { font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace; fill: var(--ink); }
+    #anim-step .sz2 { font: 600 11.5px ui-monospace, SFMono-Regular, Menlo, monospace; fill: var(--accent); }
+    #anim-step .shared { stroke: var(--accent); stroke-width: 1.2; stroke-dasharray: 3 3; fill: none; }
+    @media (prefers-reduced-motion: reduce) { #anim-step * { transition: none !important; } }
+  </style>
+  <div class="anim-head"><span class="anim-title">Animation · one training step: 3 forward passes, 5 losses</span>
+    <span class="anim-ctrl"><button data-act="play">Play</button><button data-act="prev" aria-label="Previous step">◀</button><button data-act="next" aria-label="Next step">▶</button><button data-act="restart">Restart</button></span></div>
+  <div class="steps" role="group" aria-label="Steps"></div>
+  <svg class="dg" viewBox="0 0 860 380" role="img"><title>One batch becomes two augmented views and an injected copy; three encoder passes feed the reconstruction head, the projection head with NT-Xent, and the three physics heads, giving five losses</title></svg>
+  <div class="cap" aria-live="polite"></div>
+</div>
+<script>
+(() => {
+  const root = document.getElementById("anim-step");
+  if (!root) return;
+  const svg = root.querySelector("svg");
+  const NS = "http://www.w3.org/2000/svg";
+  const mk = (tag, a, parent, txt) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in a) e.setAttribute(k, a[k]);
+    if (txt !== undefined) e.textContent = txt;
+    (parent || svg).appendChild(e); return e;
+  };
+  const defs = mk("defs", {});
+  const mkr = mk("marker", { id: "anim-step-ah", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto" }, defs);
+  mk("path", { class: "ah", d: "M0,0 L10,5 L0,10 z" }, mkr);
+
+  const items = [];
+  const at = (n, hideBefore) => { const g = mk("g", { class: "it" + (hideBefore ? " hid" : "") }); g.n = n; g.hb = !!hideBefore; items.push(g); return g; };
+  const arrow = (g, d) => mk("path", { class: "arr", d, "marker-end": "url(#anim-step-ah)" }, g);
+  const box = (g, x, y, w, h, l1, l2, cls) => {
+    mk("rect", { class: cls || "box", x, y, width: w, height: h, rx: 8 }, g);
+    mk("text", { class: "b", x: x + w / 2, y: y + (l2 ? h / 2 - 3 : h / 2 + 4), "text-anchor": "middle" }, g, l1);
+    if (l2) mk("text", { class: "sz2", x: x + w / 2, y: y + h / 2 + 13, "text-anchor": "middle" }, g, l2);
+  };
+  // A window glyph: 64 rows, real rows green on top, padding grey below.
+  const RH = 70 / 64;
+  const glyph = (g, x, y, w, nReal) => {
+    mk("rect", { class: "real", x, y, width: w, height: nReal * RH }, g);
+    mk("rect", { class: "pad", x, y: y + nReal * RH, width: w, height: (64 - nReal) * RH }, g);
+    mk("rect", { class: "gf", x, y, width: w, height: 70 }, g);
+  };
+  const L = [70, 190, 312]; // lane centres
+
+  // Batch.
+  const gB = at(0);
+  glyph(gB, 26, L[1] - 43, 36, 28); glyph(gB, 20, L[1] - 39, 36, 28); glyph(gB, 14, L[1] - 35, 36, 28);
+  mk("text", { class: "b", x: 38, y: L[1] - 52, "text-anchor": "middle" }, gB, "batch");
+  mk("text", { class: "sz2", x: 38, y: L[1] + 52, "text-anchor": "middle" }, gB, "256 windows");
+  mk("text", { class: "mut", x: 38, y: L[1] + 67, "text-anchor": "middle" }, gB, "+ masks");
+
+  // Two views.
+  const gV = at(1);
+  arrow(gV, `M64,${L[1] - 10} C 90,${L[1] - 10} 90,${L[0]} 118,${L[0]}`);
+  arrow(gV, `M64,${L[1]} H118`);
+  glyph(gV, 122, L[0] - 35, 34, 25);
+  glyph(gV, 122, L[1] - 35, 34, 27);
+  mk("text", { class: "b", x: 139, y: L[0] - 42, "text-anchor": "middle" }, gV, "view 1");
+  mk("text", { class: "mut", x: 139, y: L[0] + 50, "text-anchor": "middle" }, gV, "25 of 28 rows");
+  mk("text", { class: "b", x: 139, y: L[1] - 42, "text-anchor": "middle" }, gV, "view 2");
+  mk("text", { class: "mut", x: 139, y: L[1] + 50, "text-anchor": "middle" }, gV, "27 of 28 rows");
+  mk("text", { class: "mut", x: 8, y: 84 }, gV, "shift 3–5 m");
+  mk("text", { class: "mut", x: 8, y: 99 }, gV, "stretch ±5%");
+  mk("text", { class: "mut", x: 8, y: 114 }, gV, "crop 80–100%");
+
+  // Hidden rows on view 1.
+  const gH = at(2, true);
+  [2, 7, 8, 13, 19, 22].forEach(r => mk("rect", { class: "hid-row", x: 122, y: L[0] - 35 + r * RH, width: 34, height: RH * 1.6 }, gH));
+  mk("text", { class: "sz2", x: 162, y: L[0] - 20 }, gH, "6 hidden");
+  mk("text", { class: "mut", x: 162, y: L[0] - 6 }, gH, "→ mask");
+  mk("text", { class: "mut", x: 162, y: L[0] + 8 }, gH, "token");
+
+  // Encoder pass 1 → H, z1.
+  const gE1 = at(3);
+  arrow(gE1, `M158,${L[0] + 20} H213`); // from below the hidden-row label
+  box(gE1, 215, L[0] - 25, 90, 50, "encoder", "pass 1", "acc");
+  arrow(gE1, `M305,${L[0]} H328`);
+  box(gE1, 330, L[0] - 25, 72, 50, "H · z₁", "64×128 · 128");
+  // Recon head + MSE.
+  const gR = at(4);
+  arrow(gR, `M402,${L[0] - 10} H423`);
+  box(gR, 425, L[0] - 25, 104, 50, "recon head", "128→128→13");
+  arrow(gR, `M529,${L[0]} H548`);
+  box(gR, 550, L[0] - 25, 124, 50, "MSE", "hidden rows only");
+  // Encoder pass 2 → z2.
+  const gE2 = at(5);
+  arrow(gE2, `M158,${L[1]} H213`);
+  box(gE2, 215, L[1] - 25, 90, 50, "encoder", "pass 2", "acc");
+  arrow(gE2, `M305,${L[1]} H328`);
+  box(gE2, 330, L[1] - 25, 72, 50, "z₂", "128");
+  // Projection + NT-Xent matrix.
+  const gN = at(6);
+  arrow(gN, `M380,${L[0] + 25} C 395,${L[0] + 70} 430,${L[1] - 70} 450,${L[1] - 27}`);
+  mk("text", { class: "mut", x: 412, y: L[0] + 52 }, gN, "z₁");
+  arrow(gN, `M402,${L[1]} H423`);
+  box(gN, 425, L[1] - 25, 104, 50, "projection", "128→128→128");
+  arrow(gN, `M529,${L[1]} H548`);
+  mk("text", { class: "b", x: 612, y: L[1] - 44, "text-anchor": "middle" }, gN, "NT-Xent, τ = 0.1");
+  const C = 11, MX = 579, MY = L[1] - 33, FN = [[1, 4], [4, 1]];
+  for (let r = 0; r < 6; r++) for (let c = 0; c < 6; c++) {
+    const fn = FN.some(p => p[0] === r && p[1] === c);
+    mk("rect", { class: r === c ? "pos" : fn ? "fn" : "neg", x: MX + c * C, y: MY + r * C, width: C, height: C }, gN);
+    if (fn) { mk("path", { class: "x", d: `M${MX + c * C + 2},${MY + r * C + 2} l7,7 m0,-7 l-7,7` }, gN); }
+  }
+  mk("text", { class: "mut", x: MX - 4, y: MY + 36, "text-anchor": "end" }, gN, "z₁");
+  mk("text", { class: "mut", x: MX + 33, y: MY + 78, "text-anchor": "middle" }, gN, "z₂");
+  mk("rect", { class: "pos", x: 560, y: L[1] + 52, width: 9, height: 9 }, gN);
+  mk("text", { class: "mut", x: 573, y: L[1] + 61 }, gN, "positive");
+  mk("rect", { class: "fn", x: 630, y: L[1] + 52, width: 9, height: 9 }, gN);
+  mk("text", { class: "mut", x: 643, y: L[1] + 61 }, gN, "masked");
+  // Injected copy → pass 3.
+  const gI = at(7);
+  arrow(gI, `M64,${L[1] + 10} C 90,${L[1] + 10} 90,${L[2]} 118,${L[2]}`);
+  glyph(gI, 122, L[2] - 35, 34, 28);
+  mk("rect", { class: "inj", x: 122, y: L[2] - 35 + 12 * RH, width: 34, height: 16 * RH }, gI);
+  mk("text", { class: "b", x: 139, y: L[2] - 42, "text-anchor": "middle" }, gI, "injected copy");
+  mk("text", { class: "mut", x: 139, y: L[2] + 50, "text-anchor": "middle" }, gI, "P1 jump from row 13");
+  arrow(gI, `M158,${L[2]} H213`);
+  box(gI, 215, L[2] - 25, 90, 50, "encoder", "pass 3", "acc");
+  arrow(gI, `M305,${L[2]} H328`);
+  box(gI, 330, L[2] - 25, 72, 50, "z₃", "128");
+  mk("path", { class: "shared", d: `M260,${L[0] + 27} V${L[1] - 27} M260,${L[1] + 27} V${L[2] - 27}` }, gI);
+  mk("text", { class: "mut", x: 266, y: 130 }, gI, "same weights");
+  // Physics heads + BCE.
+  const gP = at(8);
+  arrow(gP, `M402,${L[2]} H423`);
+  box(gP, 425, L[2] - 25, 104, 50, "P1 · P2 · P3", "128→128→1 ×3");
+  arrow(gP, `M529,${L[2]} H548`);
+  box(gP, 550, L[2] - 25, 124, 50, "BCE × 3", "vs our injection");
+
+  // The five loss chips (faint placeholders until their step).
+  const chip = (n, y, label) => {
+    const g = at(n);
+    arrow(g, `M676,${y} H708`);
+    mk("rect", { class: "chip", x: 712, y: y - 12, width: 96, height: 24, rx: 12 }, g);
+    mk("text", { class: "chipt", x: 760, y: y + 4, "text-anchor": "middle" }, g, label);
+    return g;
+  };
+  chip(4, L[0], "L_rec");
+  chip(6, L[1], "L_nce");
+  const gP1 = chip(8, L[2] - 30, "L_P1"), gP2 = chip(8, L[2], "L_P2"), gP3 = chip(8, L[2] + 30, "L_P3");
+  mk("text", { class: "b", x: 760, y: 26, "text-anchor": "middle" }, null, "5 raw losses");
+  const gSum = at(8, true);
+  mk("text", { class: "mut", x: 760, y: 372, "text-anchor": "middle" }, gSum, "→ joint loss, 1 backward");
+  mk("text", { class: "mut", x: 370, y: 374, "text-anchor": "middle" }, gSum, "3 forward passes through the same encoder");
+
+  const STEPS = [
+    { chip: "Batch", title: "One batch arrives", shape: "x (256, 64, 13) + mask (256, 64)",
+      text: "256 windows of almost the same length (length-bucketed), already scaled. In the drawing one window has 28 real rows (green) and 36 padding rows (grey).",
+      work: "the step is seeded (seed · 1,000,003 + step), so a resume repeats it exactly" },
+    { chip: "Two views", title: "Two augmented views", shape: "v1, v2: (256, 64, 13) each",
+      text: "Each view moves sender and receiver together by 3–5 m, stretches time by s ∈ [0.95, 1.05] (v·s, a·s², Δτ/s) and keeps a contiguous crop of 80–100% of the real rows. The physics stays consistent; only the details differ.",
+      work: "crop: 28 rows → 25 (view 1) and 27 (view 2)" },
+    { chip: "Hide rows", title: "Hide rows in view 1", shape: "mask token: 13 learned numbers",
+      text: "Per window, a coin flip: hide exactly 25% of the real rows at random, or one block of 20–30%. Hidden rows are replaced by the learned mask token. Padding is never hidden.",
+      work: "25 real rows × 25% ≈ 6 hidden rows" },
+    { chip: "Pass 1", title: "Encoder, pass 1 (masked view 1)", shape: "H (256, 64, 128) · z₁ (256, 128)",
+      text: "The encoder (see Encoder Shapes) reads the masked view 1. H has one vector per row; z₁ is the masked mean over the real rows.",
+      work: "2,301,312 encoder parameters, shared by all three passes" },
+    { chip: "Recon → MSE", title: "Rebuild the hidden rows", shape: "H → (256, 64, 13) → L_rec",
+      text: "The reconstruction head (Linear 128→128, GELU, 128→13) predicts all 13 features of every row from H. The loss is the mean squared error on the hidden rows only, against view 1's true values.",
+      work: "≈ 6 rows × 13 features per window enter the MSE" },
+    { chip: "Pass 2", title: "Encoder, pass 2 (view 2, nothing hidden)", shape: "z₂ (256, 128)",
+      text: "View 2 goes through the same encoder without hiding anything, giving a second summary z₂ of every window.",
+      work: "same weights as pass 1" },
+    { chip: "NT-Xent", title: "Contrastive loss on z₁, z₂", shape: "p₁, p₂ (256, 128) → similarity (256, 256) / τ",
+      text: "The projection head (128→128, ReLU, 128, L2-normalised) maps z₁ and z₂. The two views of a window are positives (green diagonal), other windows are negatives. Windows of the same broadcasting pseudonym in the same run are copies or crops, so they are masked out (grey ×), not pushed apart.",
+      work: "only windows with ≥ 4 real rows in both views take part" },
+    { chip: "Inject → pass 3", title: "Injected copy, encoder pass 3", shape: "x_inj (256, 64, 13) → z₃ (256, 128)",
+      text: "A copy of the clean window gets one violation in half of the eligible windows (≥ 4 real rows): P1 position jump of 50–150 m, P2 claimed speed ×2–3 or ×0.2–0.5, or P3 heading turned 90–180°. The labels come from our injection, never from attack labels.",
+      work: "P2 and P3 need speed ≥ 2 m/s" },
+    { chip: "P1–P3 → BCE", title: "Physics heads, five losses", shape: "logits (256, 3) → L_P1, L_P2, L_P3",
+      text: "Three heads (128→128, GELU, 1 each) answer \"was this violation injected?\" with binary cross-entropy. Now the step has its five raw losses; they are combined into the joint loss and one backward pass updates the encoder and all heads.",
+      work: "L_rec · L_nce · L_P1 · L_P2 · L_P3 → joint loss" },
+  ];
+
+  function render(n) {
+    items.forEach(g => {
+      g.classList.toggle("on", g.n <= n);
+      g.classList.toggle("now", g.n === n);
+      g.classList.toggle("hid", g.hb && g.n > n);
+    });
+  }
+
+  /* Step controller: chips, caption, Play/Pause, prev/next, restart, autoplay on scroll-in. */
+  (function control(STEPS, render) {
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const cap = root.querySelector(".cap"), bar = root.querySelector(".steps"), btn = root.querySelector('[data-act="play"]');
+    let k = 0, prev = -1, playing = false, timer = null, userPaused = reduce;
+    const chips = STEPS.map((s, i) => {
+      const b = document.createElement("button"); b.type = "button";
+      b.innerHTML = `<span>${i + 1}</span>${s.chip}`;
+      b.addEventListener("click", () => { stop(); go(i); }); bar.appendChild(b); return b;
+    });
+    function go(n) {
+      k = (n + STEPS.length) % STEPS.length; const s = STEPS[k];
+      chips.forEach((c, i) => { c.className = i === k ? "cur" : i < k ? "done" : ""; c.setAttribute("aria-pressed", String(i === k)); });
+      cap.innerHTML = `<div class="ct"><b>${s.title}</b><span class="m">${s.shape}</span></div><div>${s.text}</div>` +
+        (s.work ? `<div class="wk">${s.work}</div>` : "");
+      render(k, prev, reduce); prev = k;
+    }
+    function schedule() {
+      clearTimeout(timer); if (!playing) return;
+      timer = setTimeout(() => { go(k + 1); schedule(); }, (STEPS[k].ms || 3200) + (k === STEPS.length - 1 ? 1600 : 0));
+    }
+    function setPlay(p) { playing = p; btn.textContent = p ? "Pause" : "Play"; schedule(); }
+    function stop() { userPaused = true; setPlay(false); }
+    root.querySelector(".anim-ctrl").addEventListener("click", e => {
+      const b = e.target.closest("button"); if (!b) return;
+      const a = b.getAttribute("data-act");
+      if (a === "play") { userPaused = playing; setPlay(!playing); }
+      else if (a === "prev") { stop(); go(k - 1); }
+      else if (a === "next") { stop(); go(k + 1); }
+      else if (a === "restart") { userPaused = false; go(0); setPlay(true); }
+    });
+    const q = new URLSearchParams(location.search).get(root.id);
+    if (q !== null) { userPaused = true; go(Math.min(STEPS.length, Math.max(1, parseInt(q, 10) || 1)) - 1); } else go(0);
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(es => es.forEach(e => {
+        if (e.isIntersecting) { if (!userPaused && !playing) setPlay(true); } else if (playing) setPlay(false);
+      }), { threshold: 0.3 }).observe(root);
+    } else if (!userPaused) setPlay(true);
+  })(STEPS, render);
+  root.setAttribute("data-ok", "1");
+})();
+</script>
+  <p class="code-title">The step, from <code>losses.py · Objective.__call__</code> (shortened)</p>
+<pre class="code"><span class="c"># x: (256, 64, 13) normalised windows, mask: (256, 64) bool real rows</span>
+v1, m1 = self.augment(x, mask, gen)          <span class="c"># view 1: shift, stretch, crop  (256, 64, 13)</span>
+v2, m2 = self.augment(x, mask, gen)          <span class="c"># view 2: its own random draw</span>
+hidden = self.masker(m1, gen)                <span class="c"># (256, 64) bool: 25% random or one 20-30% block</span>
+
+<span class="c"># pass 1: masked view -> reconstruction</span>
+h1, z1 = model.encoder(model.hide(v1, hidden), m1)   <span class="c"># H (256, 64, 128), z (256, 128)</span>
+pred = model.recon_head(h1)                          <span class="c"># (256, 64, 13)</span>
+losses["recon"] = MaskedOps.masked_mse(pred, v1, hidden)   <span class="c"># hidden rows only</span>
+
+<span class="c"># pass 2: clean view -> contrastive</span>
+_, z2 = model.encoder(v2, m2)                        <span class="c"># (256, 128)</span>
+keep = (m1.sum(1) >= 4) & (m2.sum(1) >= 4)          <span class="c"># windows with >= 4 real rows in both views</span>
+p1, p2 = model.proj_head(z1[keep]), model.proj_head(z2[keep])   <span class="c"># (m, 128), unit length</span>
+losses["nce"], n_masked = nt_xent(p1, p2, 0.1, groups[keep])
+
+<span class="c"># pass 3: injected copy -> physics heads</span>
+xi, targets, valid = self.inject(x, mask, gen)       <span class="c"># targets (256, 3) in {0, 1}</span>
+_, zi = model.encoder(xi, mask)                      <span class="c"># (256, 128)</span>
+logits = model.physics_heads(zi)                     <span class="c"># 3 × (256,)</span>
+for j, name in enumerate(("p1", "p2", "p3")):
+    losses[name] = F.binary_cross_entropy_with_logits(logits[KEY[j]][valid], targets[valid, j])</pre>
+  <div class="tf"><b class="k">Transformer view</b><ul>
+    <li>Pass 1 is BERT's masked-token objective for numbers: a learned [MASK] vector, then a regression loss on the masked positions only.</li>
+    <li>Pass 2 is SimCSE / SimCLR: two views of one window go through the same encoder and should land close together.</li>
+    <li>Pass 3 is a small multi-label classifier on the pooled vector. Its labels come from our own injections.</li>
+  </ul></div>
+</section>
+
+<section class="stage" id="losses">
+  <h2>The five losses</h2>
+  <p class="lead">What each loss asks of the encoder, its formula and what "good" looks like.</p>
+  <h3>Reconstruction (MSE on hidden rows)</h3>
+  <p>The loss asks: "Fill in the rows I hid." It is the mean squared error over the 13 features of the hidden rows only. Visible rows and padding do not count.</p>
+  <div class="calc"><code>L_rec = mean over hidden real rows r and features f of (pred[r, f] − v1[r, f])²</code></div>
+  <p><b>Good:</b> it falls well below the <b>linear-interpolation baseline</b>, which fills each hidden row with a straight line between the nearest visible rows.
+  At initialisation (measured) the check-set value is 1.03 and the interpolation baseline is 0.21. The model has to get below 0.21 to be doing more than drawing straight lines.</p>
+  <h3>Contrastive (NT-Xent, τ = 0.1)</h3>
+  <p>The loss asks: "Of all windows in this batch, which one is the other view of this window?" The m kept windows give 2m projections. For each one, the
+  other view is the positive and every other projection is a negative. It is a softmax cross-entropy over cosine similarities divided by τ.</p>
+  <div class="calc"><code>ℓ(i) = −log [ exp(cos(pᵢ, pᵢ⁺)/τ) / Σ_{k ≠ i, k not masked} exp(cos(pᵢ, p_k)/τ) ]     L_nce = mean over 2m</code></div>
+  <p><b>False negatives are masked (D13):</b> windows from the same broadcasting pseudonym in the same run are copies or crops of the same
+  broadcasts, so they are taken out of each other's negatives. All GridSybil ghosts use pseudonym 1, so they count as one group per run. The grouping uses only what a receiver can see (run + pseudonym), never the true sender.
+  <b>Good:</b> it falls steadily. <i>From a stopped test run (batch 128, steps 1–400):</i> 2.29 → 0.17. Very low
+  values early on can also mean the task is too easy, so read it together with the collapse monitors.</p>
+  <h3>Physics heads P1, P2, P3 (binary cross-entropy)</h3>
+  <p>Each head asks: "Was violation k injected into this window?" A head reads z of the injected copy and outputs one logit. The loss is
+  BCE-with-logits over the eligible windows. About 1 in 6 windows is positive for each head (half are injected, split over three types; P1 a bit more, because slow windows get P1).</p>
+  <div class="calc"><code>L_Pk = − mean over valid windows of [ y log σ(s) + (1 − y) log(1 − σ(s)) ]</code></div>
+  <p><b>Good:</b> AUROC on the check set rises well above 0.5. At initialisation (measured) it is ≈ 0.47–0.53, which is chance. <i>From a
+  stopped test run (batch 128, steps 1–400):</i> P2 / P3 losses fell to 0.15–0.27, while P1 stayed at ≈ 0.53–0.67 and was not yet learning.</p>
+</section>
+
+<section class="stage" id="joint">
+  <h2>From five losses to one number</h2>
+  <p class="lead">Each raw loss is divided by its own scale, multiplied by its weight λ, and the five results are added up.</p>
+  <div class="calc"><code>L = 1·L_rec/s_rec + 0.3·L_nce/s_nce + 0.3·L_P1/s_P1 + 0.3·L_P2/s_P2 + 0.3·L_P3/s_P3</code></div>
+  <ul>
+    <li><b>Scales s:</b> the running mean of each raw loss over the first <b>200 steps</b>. After that they are <b>frozen</b> for the rest of the run (and saved in the checkpoint).</li>
+    <li><b>Why divide:</b> the raw losses live on different scales (in the stopped test run, batch 128, the first values were MSE 1.18 and NT-Xent 2.29; a BCE head at chance gives log 2 ≈ 0.69). After dividing, each term is ≈ 1 at the start, so λ really sets the balance (D7).</li>
+    <li><b>Why freeze:</b> if the scales kept following the losses, every term would stay near 1 and the joint loss could not go down. Freezing turns L into a fixed yardstick. That
+    makes <code>val_joint</code> comparable across epochs, which early stopping needs.</li>
+    <li><b>λ:</b> reconstruction 1, the others 0.3 (λ_nce ∈ {0.1, 0.3, 1} is the planned sweep: <code>--lambda-nce</code>).</li>
+  </ul>
+  <div class="anim" id="anim-joint">
+  <style>
+    #anim-joint .steps { display: flex; flex-wrap: wrap; gap: 5px; margin: 2px 0 4px; }
+    #anim-joint .steps button { font: 600 .74rem -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--muted); background: var(--pad-soft); border: 1px solid var(--line); border-radius: 999px;
+      padding: 2px 9px; cursor: pointer; transition: background .3s ease, color .3s ease; }
+    #anim-joint .steps button.done { color: var(--accent); }
+    #anim-joint .steps button.on { background: var(--accent); border-color: var(--accent); color: var(--card); }
+    #anim-joint .cap { min-height: 6.2em; }
+    #anim-joint .cap .ct { color: var(--ink); font-weight: 600; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+    #anim-joint .cap .wn { display: inline-block; margin-top: 4px; font: .84rem ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--ink); background: var(--warn-soft); border-radius: 6px; padding: 1px 8px; }
+    #anim-joint .f { transition: opacity .6s ease; }
+    #anim-joint .mv { transition: transform .9s ease, opacity .6s ease; }
+    #anim-joint .bar { transform-box: fill-box; transform-origin: 0 100%; }
+    #anim-joint .c0 { fill: var(--accent); } #anim-joint .c1 { fill: var(--real); }
+    #anim-joint .c2 { fill: var(--warn); } #anim-joint .c3 { fill: var(--warn); fill-opacity: .7; }
+    #anim-joint .c4 { fill: var(--warn); fill-opacity: .45; }
+    #anim-joint .sc { stroke: var(--ink); stroke-width: 1.6; stroke-dasharray: 5 3; }
+    #anim-joint text.sl { fill: var(--muted); font-size: 11px; }
+    #anim-joint text.v { font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace; fill: var(--ink); }
+    #anim-joint text.op { fill: var(--warn); font: 600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    #anim-joint text.v.in { fill: var(--card); }
+    #anim-joint text.note { fill: var(--warn); font-weight: 600; }
+    #anim-joint .base { stroke: var(--line); stroke-width: 1.5; }
+    #anim-joint .ref { stroke: var(--warn); stroke-width: 1.5; stroke-dasharray: 4 3; }
+    @media (prefers-reduced-motion: reduce) { #anim-joint * { transition: none !important; } }
+  </style>
+  <div class="anim-head"><span class="anim-title">Animation · five losses → one joint loss</span>
+    <span class="anim-ctrl"><button data-act="play">Pause</button><button data-act="prev" aria-label="previous step">◀</button><button data-act="next" aria-label="next step">▶</button><button data-act="restart">Restart</button></span></div>
+  <div class="steps"></div>
+  <svg class="dg" viewBox="0 0 860 330" role="img"><title>Five raw losses are divided by frozen scales, weighted by lambda and summed into the joint loss</title>
+    <text class="sz hdr" x="20" y="24">raw losses of one batch</text>
+    <text class="mut ctr" x="560" y="24" text-anchor="end"></text>
+    <g class="f frm" style="opacity:0"><text class="mut" x="20" y="44">L = 1·L_rec/s_rec + 0.3·L_nce/s_nce + 0.3·L_P1/s_P1 + 0.3·L_P2/s_P2 + 0.3·L_P3/s_P3</text></g>
+    <g class="f lock" style="opacity:0"><text class="note" x="20" y="62">scales frozen at step 200 · stored in the checkpoint</text></g>
+    <line class="base" x1="40" y1="262" x2="610" y2="262"/>
+    <line class="base f sbase" x1="670" y1="262" x2="780" y2="262" style="opacity:0"/>
+    <g class="bars"></g>
+    <g class="f stk" style="opacity:0">
+      <text class="v jv" x="728" y="284" text-anchor="middle">joint L = 1.13</text>
+      <g class="leg"></g>
+    </g>
+    <g class="f why" style="opacity:0">
+      <line class="ref" x1="680" y1="42" x2="776" y2="42"/>
+      <text class="note" x="672" y="46" text-anchor="end">2.2 at step 1</text>
+      <text x="40" y="120">At step 1 each L/s = 1 exactly:</text>
+      <text class="sz" x="40" y="140">joint = 1 + 0.3 + 0.3 + 0.3 + 0.3 = 2.2</text>
+      <text x="40" y="172">Scales still moving → L/s stays near 1 → joint stays near 2.2,</text>
+      <text x="40" y="190">whatever the model learns.</text>
+      <text x="40" y="222">Scales frozen → joint falls only when the losses really fall,</text>
+      <text x="40" y="240">so val_joint is comparable across epochs → best.pt, early stopping.</text>
+    </g>
+    <g class="f sumt" style="opacity:0">
+      <text x="40" y="150">0.50 + 0.12 + 0.27 + 0.12 + 0.12</text>
+      <text class="sz" x="40" y="172">= 1.13 (illustrative numbers)</text>
+      <text class="mut" x="40" y="200">one number → loss.backward()</text>
+    </g>
+    <text class="mut ill" x="20" y="322">illustrative scales and later-step values · nothing is trained yet</text>
+  </svg>
+  <div class="cap"></div>
+</div>
+<script>
+(() => {
+  const root = document.getElementById("anim-joint");
+  if (!root) return;
+  const svg = root.querySelector("svg");
+  const NS = "http://www.w3.org/2000/svg";
+  const mk = (tag, attrs, parent, txt) => { const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]); if (txt !== undefined) e.textContent = txt;
+    parent.appendChild(e); return e; };
+  const op = (el, v) => { el.style.opacity = v; };
+  const player = (steps, render, ms) => {
+    const bar = root.querySelector(".steps"), cap = root.querySelector(".cap");
+    const btn = root.querySelector('[data-act="play"]');
+    const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let cur = 0, playing = !reduced, visible = false, timer = 0;
+    const chips = steps.map((s, i) => { const b = document.createElement("button"); b.type = "button";
+      b.textContent = (i + 1) + " " + s.k; bar.appendChild(b);
+      b.addEventListener("click", () => { playing = false; show(i); sync(); }); return b; });
+    const show = i => { cur = (i + steps.length) % steps.length; const s = steps[cur];
+      chips.forEach((c, k) => { c.className = k === cur ? "on" : (k < cur ? "done" : ""); });
+      cap.innerHTML = '<div class="ct"><span>' + (cur + 1) + "/" + steps.length + " · " + s.t +
+        '</span><span class="m">' + s.s + "</span></div><div>" + s.d + "</div>" + (s.n ? '<div class="wn">' + s.n + "</div>" : "");
+      render(cur, reduced); };
+    const sync = () => { clearInterval(timer); btn.textContent = playing ? "Pause" : "Play";
+      if (playing && visible) timer = setInterval(() => show(cur + 1), ms); };
+    root.querySelector(".anim-ctrl").addEventListener("click", e => {
+      const act = e.target.getAttribute && e.target.getAttribute("data-act"); if (!act) return;
+      if (act === "play") playing = !playing;
+      else if (act === "restart") { playing = true; show(0); }
+      else { playing = false; show(cur + (act === "next" ? 1 : -1)); }
+      sync(); });
+    const m = (location.hash || "").match(new RegExp("^#" + root.id + ":(\\d+)$"));
+    if (m) playing = false;
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(es => { visible = es[0].isIntersecting; sync(); }, { threshold: 0.3 }).observe(root);
+    } else { visible = true; }
+    show(m ? Math.min(+m[1], steps.length - 1) : 0); sync();
+  };
+
+  const q = s => svg.querySelector(s);
+  const BASE = 262, U = 80, U2 = 100, BX = [70, 180, 290, 400, 510], W = 56, SX = 700;
+  const NAMES = ["recon", "NT-Xent", "P1", "P2", "P3"], LAM = [1, 0.3, 0.3, 0.3, 0.3];
+  const R1 = [1.18, 2.29, 0.69, 0.69, 0.69];     // start: recon / NT-Xent from the test run, P ≈ ln 2
+  const S = [0.60, 0.90, 0.68, 0.50, 0.48];      // illustrative frozen scales
+  const R2 = [0.30, 0.36, 0.61, 0.20, 0.19];     // illustrative later step
+  const N = R2.map((v, i) => v / S[i]), WT = N.map((v, i) => v * LAM[i]);
+  const f2 = v => v.toFixed(2);
+  const names = [], bars = [], vals = [], lines = [], sls = [], ops = [];
+  BX.forEach((x, i) => {
+    const g = q(".bars");
+    bars.push(mk("rect", { class: "mv bar c" + i, x, y: BASE - 100, width: W, height: 100 }, g));
+    vals.push(mk("text", { class: "mv v", x: x + W / 2, y: BASE - 6, "text-anchor": "middle" }, g, ""));
+    lines.push(mk("line", { class: "mv sc", x1: x - 6, y1: BASE, x2: x + W + 6, y2: BASE }, g));
+    sls.push(mk("text", { class: "mv sl", x: x + W + 8, y: BASE + 4 }, g, ""));
+    names.push(mk("text", { class: "b f", x: x + W / 2, y: BASE + 18, "text-anchor": "middle" }, g, NAMES[i]));
+    ops.push(mk("text", { class: "op", x: x + W / 2, y: BASE + 36, "text-anchor": "middle" }, g, ""));
+  });
+  let cum = 0;
+  const ST = WT.map(v => { const b = cum; cum += v; return b; });
+  WT.forEach((v, i) => {
+    const y = BASE - 8 - i * 20;
+    mk("rect", { class: "c" + i, x: SX + 68, y: y - 9, width: 10, height: 10, rx: 2 }, q(".leg"));
+    mk("text", { class: "sl", x: SX + 82, y }, q(".leg"), NAMES[i] + " " + f2(v));
+  });
+  const setBar = (i, h, dx = 0, dy = 0, inside = false) => {
+    bars[i].style.transform = `translate(${dx}px, ${dy}px) scale(1, ${Math.max(h, 0.001) / 100})`;
+    vals[i].style.transform = `translate(0px, ${inside ? -h + 20 : -h}px)`;
+    vals[i].classList.toggle("in", inside); };
+  const setLine = (i, v) => {
+    lines[i].style.transform = `translate(0px, ${-v * U}px)`; sls[i].style.transform = `translate(0px, ${-v * U}px)`; };
+  let tick = 0;
+  const steps = [
+    { k: "Raw", t: "Five raw losses for one batch", s: "5 numbers",
+      d: "An MSE on hidden rows, an NT-Xent cross-entropy and three BCEs. They live on different scales: added as they are, NT-Xent would outweigh the rest.",
+      n: "from a stopped test run (batch 128, steps 1–400): recon 1.18, NT-Xent 2.29 at step 1 · P1–P3 start near ln 2 = 0.69 (a coin flip)" },
+    { k: "Mean", t: "Measure each loss's typical size", s: "s_i = mean of L_i over steps 1–200",
+      d: "During the first 200 steps every raw loss is added to a running mean. That mean is the loss's scale s (dashed line); it moves while the losses move.",
+      n: "the scale values drawn here are illustrative, not measured" },
+    { k: "Freeze", t: "Freeze the scales at step 200", s: "s_rec, s_nce, s_P1, s_P2, s_P3 fixed",
+      d: "From step 200 on the scales never change (they are saved in the checkpoint, so a resume keeps them). The losses keep falling below their dashed lines.",
+      n: "illustrative later step: recon 0.30 · NT-Xent 0.36 · P1 0.61 · P2 0.20 · P3 0.19" },
+    { k: "Divide", t: "Divide each loss by its scale", s: "L_i / s_i (no unit)",
+      d: "Now 1.0 means “as big as in the first 200 steps” and 0.5 means halved. Every loss is on the same footing.",
+      n: "0.30/0.60 = 0.50 · 0.36/0.90 = 0.40 · 0.61/0.68 = 0.90 · 0.20/0.50 = 0.40 · 0.19/0.48 = 0.40" },
+    { k: "λ", t: "Weight them: λ = 1, 0.3, 0.3, 0.3, 0.3", s: "λ_i · L_i / s_i",
+      d: "Reconstruction is the main task (λ = 1); contrastive and the three physics heads help (λ = 0.3 each, D7). The weights are fixed in config.py.",
+      n: "0.50 · 0.12 · 0.27 · 0.12 · 0.12" },
+    { k: "Sum", t: "Add them up: the joint loss", s: "L = Σ λ_i L_i / s_i → 1 number",
+      d: "One number per batch. loss.backward() starts from it, and its check-set twin (val_joint) decides best.pt and early stopping.",
+      n: "0.50 + 0.12 + 0.27 + 0.12 + 0.12 = 1.13 (illustrative)" },
+    { k: "Why", t: "Why the scales must stop moving", s: "step 1: joint = 2.2",
+      d: "If the scales kept following the losses, L/s would hover near 1 and the joint near 2.2 whatever the model learns. Frozen scales turn a lower joint into real progress, comparable from epoch to epoch.",
+      n: "frozen scales → val_joint of epoch 3 and epoch 9 mean the same thing" },
+  ];
+  const render = (i, reduced) => {
+    clearInterval(tick); const ctr = q(".ctr"); ctr.textContent = "";
+    const stack = i >= 5;
+    q(".hdr").textContent = i <= 2 ? "raw losses of one batch" : (i === 3 ? "divided by the scales" : (i === 4 ? "× λ" : ""));
+    BX.forEach((x, k) => {
+      const v = i <= 1 ? R1[k] : (i === 2 ? R2[k] : (i === 3 ? N[k] : WT[k]));
+      if (stack) setBar(k, WT[k] * U2, SX - x, -ST[k] * U2); else setBar(k, v * U, 0, 0, i === 3);
+      bars[k].style.opacity = i === 1 ? 0.35 : 1;
+      vals[k].textContent = f2(v); vals[k].style.opacity = stack ? 0 : 1;
+      const showLine = i >= 1 && i <= 3;
+      lines[k].style.opacity = showLine ? 1 : 0; sls[k].style.opacity = showLine ? 1 : 0;
+      sls[k].textContent = i === 3 ? "= 1" : "s " + f2(S[k]);
+      setLine(k, i === 0 ? R1[k] : (i === 3 ? 1 : S[k]));
+      names[k].style.opacity = stack ? 0.25 : 1;
+      ops[k].textContent = i === 3 ? "÷ " + f2(S[k]) : (i === 4 ? "× " + LAM[k] : "");
+    });
+    if (i === 1) {
+      let n = 1; ctr.textContent = "step 1 / 200";
+      if (reduced) ctr.textContent = "steps 1–200 · running mean";
+      else tick = setInterval(() => { n = Math.min(200, n + 3); ctr.textContent = "step " + n + " / 200 · running mean";
+        if (n >= 200) clearInterval(tick); }, 15);
+    } else if (i === 2) ctr.textContent = "step 2,000 (example)";
+    op(q(".frm"), i >= 3 && i <= 5 ? 1 : 0);
+    op(q(".lock"), i >= 2 && i <= 4 ? 1 : 0);
+    op(q(".stk"), stack ? 1 : 0); op(q(".sbase"), stack ? 1 : 0);
+    op(q(".sumt"), i === 5 ? 1 : 0);
+    op(q(".why"), i === 6 ? 1 : 0);
+  };
+  player(steps, render, 2800);
+  root.setAttribute("data-ok", "1");
+})();
+</script>
+  <p class="code-title">From <code>losses.py · LossScales</code> and <code>Objective.joint</code></p>
+<pre class="code"><span class="k">class</span> LossScales:
+    <span class="k">def</span> update(self, raw, step):            <span class="c"># raw: {"recon": 1.18, "nce": 2.29, ...} (floats)</span>
+        <span class="k">if</span> self.frozen: <span class="k">return</span>
+        <span class="k">for</span> k, v <span class="k">in</span> raw.items():
+            self.sum[k] += v; self.count[k] += 1
+        <span class="k">if</span> step + 1 >= self.warmup:             <span class="c"># warmup = 200 steps</span>
+            self.frozen = True
+
+    <span class="k">def</span> scale(self, name):                    <span class="c"># running mean, then frozen</span>
+        <span class="k">return</span> max(self.sum[name] / self.count[name], 1e-8)
+
+<span class="k">def</span> joint(self, losses, scales):              <span class="c"># losses: 5 scalar tensors</span>
+    weight = {"recon": 1.0, "nce": 0.3, "p1": 0.3, "p2": 0.3, "p3": 0.3}
+    <span class="k">return</span> sum(weight[k] * v / scales.scale(k) <span class="k">for</span> k, v <span class="k">in</span> losses.items())   <span class="c"># scalar</span></pre>
+</section>
+
+<section class="stage" id="update">
+  <h2>The update</h2>
+  <p class="lead">Backward pass, gradient clipping, one AdamW step and one learning-rate step. The encoder and the heads all change a little.</p>
+  <ul>
+    <li><b>Backward:</b> gradients of L flow back through every head into the shared encoder. All three passes add to the same encoder weights.</li>
+    <li><b>Clip:</b> if the overall gradient norm is above <b>1.0</b>, all gradients are scaled down to norm 1.0. One unusual batch cannot throw the weights far.
+    The norm measured before clipping is logged as <code>grad_norm</code>.</li>
+    <li><b>AdamW:</b> lr 1e-3, weight decay 0.05 (decoupled: each weight shrinks a little every step). It updates 2,402,461 parameters: the encoder's 2,301,312, the heads and the 13-number mask token.</li>
+    <li><b>Learning rate:</b> linear <b>warm-up</b> over 500 steps up to 1e-3, then <b>cosine</b> decay to 0 over the planned steps (max epochs × steps per epoch ≈ 23,800).
+    If the run stops early (early stopping, time or memory), the LR is still part-way down the curve.</li>
+    <li><b>Seeding:</b> the random draws of a step (views, masks, injections) use the seed <code>seed · 1,000,003 + step</code>, so a resumed run makes the same views again.</li>
+  </ul>
+  <div class="lrwrap"><div class="lrl"><svg class="dg" viewBox="0 0 300 195" role="img"><title>First epoch: learning rate rises linearly over 500 steps to 1e-3</title><polyline class="lrline" points="50.0,149.8 51.9,147.4 53.9,145.0 55.8,142.6 57.7,140.2 59.7,137.8 61.6,135.4 63.5,133.0 65.5,130.6 67.4,128.2 69.3,125.8 71.3,123.4 73.2,121.0 75.1,118.6 77.1,116.2 79.0,113.8 80.9,111.4 82.9,109.0 84.8,106.6 86.7,104.2 88.7,101.8 90.6,99.4 92.5,97.0 94.5,94.6 96.4,92.2 98.3,89.8 100.3,87.4 102.2,85.0 104.1,82.6 106.1,80.2 108.0,77.8 109.9,75.4 111.8,73.0 113.8,70.6 115.7,68.2 117.6,65.8 119.6,63.4 121.5,61.0 123.4,58.6 125.4,56.2 127.3,53.8 129.2,51.4 131.2,49.0 133.1,46.6 135.0,44.2 137.0,41.8 138.9,39.4 140.8,37.0 142.8,34.6 144.7,32.2 146.6,30.0 148.6,30.0 150.5,30.0 152.4,30.0 154.4,30.0 156.3,30.0 158.2,30.0 160.2,30.0 162.1,30.0 164.0,30.0 166.0,30.0 167.9,30.0 169.8,30.0 171.8,30.0 173.7,30.0 175.6,30.0 177.6,30.0 179.5,30.0 181.4,30.0 183.4,30.0 185.3,30.0 187.2,30.0 189.2,30.0 191.1,30.0 193.0,30.0 195.0,30.0 196.9,30.0 198.8,30.0 200.8,30.0 202.7,30.0 204.6,30.0 206.6,30.1 208.5,30.1 210.4,30.1 212.4,30.1 214.3,30.1 216.2,30.1 218.2,30.1 220.1,30.1 222.0,30.1 223.9,30.1 225.9,30.1 227.8,30.1 229.7,30.1 231.7,30.1 233.6,30.1 235.5,30.1 237.5,30.1 239.4,30.1 241.3,30.1 243.3,30.1 245.2,30.1 247.1,30.1 249.1,30.2 251.0,30.2 252.9,30.2 254.9,30.2 256.8,30.2 258.7,30.2 260.7,30.2 262.6,30.2 264.5,30.2 266.5,30.2 268.4,30.2 270.3,30.2 272.3,30.2 274.2,30.2 276.1,30.2 278.1,30.3 280.0,30.3"/><path class="arr" d="M50,150 L284,150"/><path class="arr" d="M50,150 L50,26"/><line class="lrgrid" x1="146.6" y1="30" x2="146.6" y2="150"/><text class="mut" x="146.6" y="166" text-anchor="middle">500</text><text class="mut" x="50" y="166" text-anchor="middle">0</text><text class="mut" x="272" y="166" text-anchor="middle">1,190</text><text class="mut" x="44" y="34" text-anchor="end">1e-3</text><text class="mut" x="44" y="153" text-anchor="end">0</text><text class="b" x="165" y="16" text-anchor="middle">first epoch (zoom)</text><text class="mut" x="104" y="112">warm-up</text><text class="mut" x="200" y="50" text-anchor="middle">cosine starts</text><text class="mut" x="165" y="186" text-anchor="middle">step</text></svg></div><div class="lrr"><svg class="dg" viewBox="0 0 560 195" role="img"><title>Whole run: warm-up, then cosine decay of the learning rate to 0 over 20 epochs</title><polyline class="lrline" points="50.0,149.8 52.1,125.8 54.1,101.8 56.2,77.8 58.2,53.8 60.3,30.0 62.4,30.0 64.4,30.0 66.5,30.0 68.5,30.1 70.6,30.1 72.6,30.2 74.7,30.3 76.8,30.3 78.8,30.4 80.9,30.5 82.9,30.7 85.0,30.8 87.1,30.9 89.1,31.1 91.2,31.2 93.2,31.4 95.3,31.6 97.4,31.8 99.4,32.0 101.5,32.2 103.5,32.4 105.6,32.6 107.6,32.9 109.7,33.1 111.8,33.4 113.8,33.6 115.9,33.9 117.9,34.2 120.0,34.5 122.1,34.8 124.1,35.2 126.2,35.5 128.2,35.8 130.3,36.2 132.4,36.6 134.4,36.9 136.5,37.3 138.5,37.7 140.6,38.1 142.6,38.5 144.7,38.9 146.8,39.4 148.8,39.8 150.9,40.3 152.9,40.7 155.0,41.2 157.1,41.6 159.1,42.1 161.2,42.6 163.2,43.1 165.3,43.6 167.4,44.2 169.4,44.7 171.5,45.2 173.5,45.8 175.6,46.3 177.6,46.9 179.7,47.4 181.8,48.0 183.8,48.6 185.9,49.2 187.9,49.8 190.0,50.4 192.1,51.0 194.1,51.6 196.2,52.2 198.2,52.9 200.3,53.5 202.4,54.1 204.4,54.8 206.5,55.5 208.5,56.1 210.6,56.8 212.6,57.5 214.7,58.2 216.8,58.8 218.8,59.5 220.9,60.2 222.9,60.9 225.0,61.6 227.1,62.4 229.1,63.1 231.2,63.8 233.2,64.5 235.3,65.3 237.4,66.0 239.4,66.8 241.5,67.5 243.5,68.3 245.6,69.0 247.6,69.8 249.7,70.5 251.8,71.3 253.8,72.1 255.9,72.8 257.9,73.6 260.0,74.4 262.1,75.2 264.1,76.0 266.2,76.8 268.2,77.6 270.3,78.3 272.4,79.1 274.4,79.9 276.5,80.7 278.5,81.5 280.6,82.3 282.6,83.1 284.7,83.9 286.8,84.7 288.8,85.6 290.9,86.4 292.9,87.2 295.0,88.0 297.1,88.8 299.1,89.6 301.2,90.4 303.2,91.2 305.3,92.0 307.4,92.8 309.4,93.6 311.5,94.4 313.5,95.3 315.6,96.1 317.6,96.9 319.7,97.7 321.8,98.5 323.8,99.3 325.9,100.1 327.9,100.9 330.0,101.7 332.1,102.4 334.1,103.2 336.2,104.0 338.2,104.8 340.3,105.6 342.4,106.4 344.4,107.2 346.5,107.9 348.5,108.7 350.6,109.5 352.6,110.2 354.7,111.0 356.8,111.7 358.8,112.5 360.9,113.2 362.9,114.0 365.0,114.7 367.1,115.5 369.1,116.2 371.2,116.9 373.2,117.6 375.3,118.4 377.4,119.1 379.4,119.8 381.5,120.5 383.5,121.2 385.6,121.8 387.6,122.5 389.7,123.2 391.8,123.9 393.8,124.5 395.9,125.2 397.9,125.9 400.0,126.5 402.1,127.1 404.1,127.8 406.2,128.4 408.2,129.0 410.3,129.6 412.4,130.2 414.4,130.8 416.5,131.4 418.5,132.0 420.6,132.6 422.6,133.1 424.7,133.7 426.8,134.2 428.8,134.8 430.9,135.3 432.9,135.8 435.0,136.4 437.1,136.9 439.1,137.4 441.2,137.9 443.2,138.4 445.3,138.8 447.4,139.3 449.4,139.7 451.5,140.2 453.5,140.6 455.6,141.1 457.6,141.5 459.7,141.9 461.8,142.3 463.8,142.7 465.9,143.1 467.9,143.4 470.0,143.8 472.1,144.2 474.1,144.5 476.2,144.8 478.2,145.2 480.3,145.5 482.4,145.8 484.4,146.1 486.5,146.4 488.5,146.6 490.6,146.9 492.6,147.1 494.7,147.4 496.8,147.6 498.8,147.8 500.9,148.0 502.9,148.2 505.0,148.4 507.1,148.6 509.1,148.8 511.2,148.9 513.2,149.1 515.3,149.2 517.4,149.3 519.4,149.5 521.5,149.6 523.5,149.7 525.6,149.7 527.6,149.8 529.7,149.9 531.8,149.9 533.8,150.0 535.9,150.0 537.9,150.0 540.0,150.0"/><path class="arr" d="M50,150 L544,150"/><path class="arr" d="M50,150 L50,26"/><text class="mut" x="44" y="34" text-anchor="end">1e-3</text><text class="mut" x="44" y="153" text-anchor="end">0</text><text class="mut" x="50.0" y="166" text-anchor="middle">0</text><text class="mut" x="172.5" y="166" text-anchor="middle">5</text><text class="mut" x="295.0" y="166" text-anchor="middle">10</text><text class="mut" x="417.5" y="166" text-anchor="middle">15</text><text class="mut" x="540.0" y="166" text-anchor="middle">20</text><text class="mut" x="295" y="186" text-anchor="middle">epoch (≈ 1,190 steps each; 20 epochs ≈ 23,800 steps)</text><text class="b" x="295" y="16" text-anchor="middle">whole run (max 20 epochs)</text><circle class="lrdot" cx="295.0" cy="88.0" r="4"/><text class="sz" x="303.0" y="80.0">epoch 10: ≈ 5.2e-4</text></svg></div></div>
+  <div class="anim" id="anim-update">
+  <style>
+    #anim-update .steps { display: flex; flex-wrap: wrap; gap: 5px; margin: 2px 0 4px; }
+    #anim-update .steps button { font: 600 .74rem -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--muted); background: var(--pad-soft); border: 1px solid var(--line); border-radius: 999px;
+      padding: 2px 9px; cursor: pointer; transition: background .3s ease, color .3s ease; }
+    #anim-update .steps button.done { color: var(--accent); }
+    #anim-update .steps button.on { background: var(--accent); border-color: var(--accent); color: var(--card); }
+    #anim-update .cap { min-height: 6.2em; }
+    #anim-update .cap .ct { color: var(--ink); font-weight: 600; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+    #anim-update .cap .wn { display: inline-block; margin-top: 4px; font: .84rem ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--ink); background: var(--warn-soft); border-radius: 6px; padding: 1px 8px; }
+    #anim-update .f { transition: opacity .6s ease; }
+    #anim-update .box, #anim-update .acc { transition: fill .4s ease, stroke .4s ease; }
+    #anim-update .gr { stroke: var(--warn); stroke-width: 2; fill: none; stroke-dasharray: 7 5; }
+    #anim-update .gr.run { animation: anim-update-flow 1s linear infinite; }
+    #anim-update .up { stroke: var(--real); stroke-width: 2; fill: none; stroke-dasharray: 7 5; }
+    #anim-update .up.run { animation: anim-update-flow 1s linear infinite reverse; }
+    @keyframes anim-update-flow { to { stroke-dashoffset: 24; } }
+    #anim-update .gah { fill: var(--warn); } #anim-update .uah { fill: var(--real); }
+    #anim-update text.note { fill: var(--warn); font-weight: 600; }
+    #anim-update text.ok { fill: var(--real); font-weight: 600; }
+    #anim-update .gbar { fill: var(--warn); transform-box: fill-box; transform-origin: 0 0; transition: transform .9s ease, fill .4s ease; }
+    #anim-update .gbar.clipped { fill: var(--real); }
+    #anim-update .gtrack { fill: var(--pad-soft); stroke: var(--line); }
+    #anim-update .clipl { stroke: var(--ink); stroke-width: 1.6; stroke-dasharray: 4 3; }
+    #anim-update .ax { stroke: var(--muted); stroke-width: 1.2; fill: none; }
+    #anim-update .lr { stroke: var(--accent); stroke-width: 2.2; fill: none; }
+    #anim-update .lrfill { fill: var(--accent-soft); opacity: .5; }
+    #anim-update .dot { fill: var(--accent); stroke: var(--card); stroke-width: 2; }
+    #anim-update .chart { transition: opacity .5s ease; }
+    @media (prefers-reduced-motion: reduce) { #anim-update * { transition: none !important; animation: none !important; } }
+  </style>
+  <div class="anim-head"><span class="anim-title">Animation · from the joint loss to new weights</span>
+    <span class="anim-ctrl"><button data-act="play">Pause</button><button data-act="prev" aria-label="previous step">◀</button><button data-act="next" aria-label="next step">▶</button><button data-act="restart">Restart</button></span></div>
+  <div class="steps"></div>
+  <svg class="dg" viewBox="0 0 860 340" role="img"><title>Backward pass, gradient clipping at norm 1, AdamW update with weight decay, and the learning-rate schedule (warm-up then cosine)</title>
+    <defs>
+      <marker id="anim-update-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker>
+      <marker id="anim-update-gah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="gah" d="M0,0 L10,5 L0,10 z"/></marker>
+      <marker id="anim-update-uah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="uah" d="M0,0 L10,5 L0,10 z"/></marker>
+    </defs>
+    <!-- forward pipeline -->
+    <rect class="box" x="15" y="62" width="95" height="66" rx="8"/>
+    <text class="b" x="62" y="90" text-anchor="middle">batch</text>
+    <text class="sz" x="62" y="108" text-anchor="middle">256×64×13</text>
+    <path class="arr" d="M110,95 H136" marker-end="url(#anim-update-ah)"/>
+    <rect class="box enc" x="140" y="56" width="200" height="78" rx="8"/>
+    <text class="b" x="240" y="78" text-anchor="middle">Encoder</text>
+    <text class="mut" x="240" y="96" text-anchor="middle">embedding + 4 TimesBlocks</text>
+    <text class="sz" x="240" y="118" text-anchor="middle">2,301,312 params</text>
+    <path class="arr" d="M340,95 H352 V57 H381" marker-end="url(#anim-update-ah)"/>
+    <path class="arr" d="M352,95 H381" marker-end="url(#anim-update-ah)"/>
+    <path class="arr" d="M352,95 V133 H381" marker-end="url(#anim-update-ah)"/>
+    <rect class="box hd" x="385" y="42" width="150" height="30" rx="7"/><text x="460" y="62" text-anchor="middle">recon head</text>
+    <rect class="box hd" x="385" y="80" width="150" height="30" rx="7"/><text x="460" y="100" text-anchor="middle">projection head</text>
+    <rect class="box hd" x="385" y="118" width="150" height="30" rx="7"/><text x="460" y="138" text-anchor="middle">P1 · P2 · P3 heads</text>
+    <path class="arr" d="M535,95 H576" marker-end="url(#anim-update-ah)"/>
+    <rect class="box lossb" x="580" y="62" width="105" height="66" rx="8"/>
+    <text class="b" x="632" y="90" text-anchor="middle">joint L</text>
+    <text class="sz" x="632" y="108" text-anchor="middle">1 number</text>
+    <rect class="box optb" x="728" y="62" width="120" height="66" rx="8"/>
+    <text class="b" x="788" y="88" text-anchor="middle">AdamW</text>
+    <text class="mut" x="788" y="106" text-anchor="middle">lr · wd 0.05</text>
+    <text class="mut" x="20" y="156">total with heads 2,402,461 params</text>
+    <!-- gradient flow (backward) -->
+    <g class="f gflow" style="opacity:0">
+      <path class="gr" d="M632,128 V172 H240 V138" marker-end="url(#anim-update-gah)"/>
+      <path class="gr" d="M460,172 V152" marker-end="url(#anim-update-gah)"/>
+      <path class="gr" d="M685,95 H724" marker-end="url(#anim-update-gah)"/>
+      <text class="note" x="560" y="188">gradients g = ∂L/∂w flow back</text>
+    </g>
+    <!-- update flow -->
+    <g class="f uflow" style="opacity:0">
+      <path class="up" d="M788,62 V22 H240 V52" marker-end="url(#anim-update-uah)"/>
+      <path class="up" d="M460,22 V38" marker-end="url(#anim-update-uah)"/>
+      <text class="ok" x="560" y="16">w ← w − Δw (every parameter, a little)</text>
+    </g>
+    <line x1="15" y1="200" x2="845" y2="200" stroke="var(--line)"/>
+    <!-- detail panels (left) -->
+    <g class="f p p0"><text class="sz" x="20" y="226">L = 1.13 (illustrative)</text>
+      <text x="20" y="250">one number for 256 windows,</text><text x="20" y="268">built from all five losses</text>
+      <text class="mut" x="20" y="296">opt.zero_grad(); loss.backward()</text></g>
+    <g class="f p p1"><text class="sz" x="20" y="226">loss.backward()</text>
+      <text x="20" y="250">chain rule from L back through each head,</text><text x="20" y="268">then through the 4 TimesBlocks to the embedding</text>
+      <text class="mut" x="20" y="294">each head gets the gradient of its own loss;</text><text class="mut" x="20" y="311">the encoder gets the sum of all five</text>
+      <text class="mut" x="20" y="328">every weight w now has a gradient g, same shape</text></g>
+    <g class="f p p2"><text class="sz" x="20" y="226">‖g‖ = √(Σ g²) over 2,402,461 numbers</text></g>
+    <g class="f p p3"><text class="sz" x="20" y="226">if ‖g‖ &gt; 1: g ← g × 1 / ‖g‖</text></g>
+    <g class="f gauge" style="opacity:0">
+      <rect class="gtrack" x="20" y="252" width="360" height="18" rx="4"/>
+      <rect class="gbar" x="20" y="252" width="120" height="18" rx="4"/>
+      <line class="clipl" x1="140" y1="244" x2="140" y2="278"/>
+      <text class="mut" x="140" y="292" text-anchor="middle">clip 1.0</text>
+      <text class="mut" x="20" y="292">0</text><text class="mut" x="380" y="292" text-anchor="end">3</text>
+      <text class="gval sz" x="20" y="318"></text>
+    </g>
+    <g class="f p p4"><text class="sz" x="20" y="226">AdamW, per parameter</text>
+      <text class="sz" x="20" y="252">m ← 0.9·m + 0.1·g</text>
+      <text class="sz" x="20" y="272">v ← 0.999·v + 0.001·g²</text>
+      <text class="sz" x="20" y="292">w ← w − lr · m̂ / (√v̂ + ε)</text>
+      <text class="mut" x="20" y="318">m̂, v̂ = bias-corrected · each weight moves ≈ lr at most</text></g>
+    <g class="f p p5"><text class="sz" x="20" y="226">weight decay (decoupled)</text>
+      <text class="sz" x="20" y="252">w ← w − lr · 0.05 · w</text>
+      <text x="20" y="278">pulls every weight a little toward 0</text>
+      <text class="mut" x="20" y="300">at lr = 1e-3: 0.005% of each weight per step</text>
+      <text class="mut" x="20" y="318">keeps weights small → smoother features</text></g>
+    <g class="f p p6"><text class="sz" x="20" y="226">learning-rate schedule</text>
+      <text x="20" y="252">warm-up: lr = 1e-3 · (step+1) / 500</text>
+      <text x="20" y="274">then cosine: lr = 1e-3 · ½(1 + cos(π·progress))</text>
+      <text class="mut" x="20" y="298">reaches 0 at the planned last step</text>
+      <text class="mut" x="20" y="316">(20 epochs × ≈1,190 ≈ 23,800 steps)</text></g>
+    <g class="f p p7"><text class="sz" x="20" y="226">next step</text>
+      <text x="20" y="252">next batch from the prefetch thread,</text>
+      <text x="20" y="270">new seed = seed · 1,000,003 + step</text>
+      <text class="mut" x="20" y="296">≈1,190 steps = one epoch →</text>
+      <text class="mut" x="20" y="314">evaluation on the check set</text></g>
+    <!-- LR chart (right) -->
+    <g class="chart">
+      <text class="mut" x="460" y="220">learning rate over the planned run</text>
+      <path class="lrfill"/>
+      <path class="ax" d="M470,232 V312 H845"/>
+      <path class="lr"/>
+      <text class="mut" x="466" y="244" text-anchor="end">1e-3</text>
+      <text class="mut" x="466" y="315" text-anchor="end">0</text>
+      <g class="xt"></g>
+      <text class="mut wu" x="482" y="300">↖ warm-up: first 500 steps</text>
+      <circle class="dot" r="5"/>
+      <text class="sz dl" x="845" y="220" text-anchor="end"></text>
+    </g>
+  </svg>
+  <div class="cap"></div>
+</div>
+<script>
+(() => {
+  const root = document.getElementById("anim-update");
+  if (!root) return;
+  const svg = root.querySelector("svg");
+  const NS = "http://www.w3.org/2000/svg";
+  const mk = (tag, attrs, parent, txt) => { const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]); if (txt !== undefined) e.textContent = txt;
+    parent.appendChild(e); return e; };
+  const op = (el, v) => { el.style.opacity = v; };
+  const player = (steps, render, ms) => {
+    const bar = root.querySelector(".steps"), cap = root.querySelector(".cap");
+    const btn = root.querySelector('[data-act="play"]');
+    const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let cur = 0, playing = !reduced, visible = false, timer = 0;
+    const chips = steps.map((s, i) => { const b = document.createElement("button"); b.type = "button";
+      b.textContent = (i + 1) + " " + s.k; bar.appendChild(b);
+      b.addEventListener("click", () => { playing = false; show(i); sync(); }); return b; });
+    const show = i => { cur = (i + steps.length) % steps.length; const s = steps[cur];
+      chips.forEach((c, k) => { c.className = k === cur ? "on" : (k < cur ? "done" : ""); });
+      cap.innerHTML = '<div class="ct"><span>' + (cur + 1) + "/" + steps.length + " · " + s.t +
+        '</span><span class="m">' + s.s + "</span></div><div>" + s.d + "</div>" + (s.n ? '<div class="wn">' + s.n + "</div>" : "");
+      render(cur, reduced); };
+    const sync = () => { clearInterval(timer); btn.textContent = playing ? "Pause" : "Play";
+      if (playing && visible) timer = setInterval(() => show(cur + 1), ms); };
+    root.querySelector(".anim-ctrl").addEventListener("click", e => {
+      const act = e.target.getAttribute && e.target.getAttribute("data-act"); if (!act) return;
+      if (act === "play") playing = !playing;
+      else if (act === "restart") { playing = true; show(0); }
+      else { playing = false; show(cur + (act === "next" ? 1 : -1)); }
+      sync(); });
+    const m = (location.hash || "").match(new RegExp("^#" + root.id + ":(\\d+)$"));
+    if (m) playing = false;
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(es => { visible = es[0].isIntersecting; sync(); }, { threshold: 0.3 }).observe(root);
+    } else { visible = true; }
+    show(m ? Math.min(+m[1], steps.length - 1) : 0); sync();
+  };
+
+  const q = s => svg.querySelector(s), qa = s => svg.querySelectorAll(s);
+  // LR schedule exactly as train.py _lr_factor: linear warm-up over 500 steps, cosine to 0 at the planned last step.
+  const WU = 500, TOT = 20 * 1190, LR = 1e-3, X0 = 470, X1 = 840, Y0 = 312, YH = 72;
+  const lr = s => s < WU ? LR * (s + 1) / WU : LR * 0.5 * (1 + Math.cos(Math.PI * Math.min(1, (s - WU) / (TOT - WU))));
+  const px = s => X0 + (s / TOT) * (X1 - X0), py = v => Y0 - (v / LR) * YH;
+  const pts = [];
+  for (let s = 0; s <= WU; s += 25) pts.push([px(s), py(lr(s))]);
+  for (let s = WU; s <= TOT; s += 200) pts.push([px(s), py(lr(s))]);
+  pts.push([px(TOT), py(0)]);
+  const d = "M" + pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" L");
+  q(".lr").setAttribute("d", d);
+  q(".lrfill").setAttribute("d", d + ` L${X1},${Y0} L${X0},${Y0} Z`);
+  [5, 10, 15, 20].forEach(e => { const x = px(e * 1190);
+    mk("line", { x1: x, y1: Y0, x2: x, y2: Y0 + 4, stroke: "var(--muted)" }, q(".xt"));
+    mk("text", { class: "mut", x, y: Y0 + 18, "text-anchor": "middle" }, q(".xt"), "ep " + e); });
+  mk("text", { class: "mut", x: X0, y: Y0 + 18, "text-anchor": "middle" }, q(".xt"), "0");
+  const dot = q(".dot"), dl = q(".dl");
+  const place = s => { const x = px(s), y = py(lr(s)); dot.setAttribute("cx", x); dot.setAttribute("cy", y);
+    dl.textContent = "step " + Math.round(s).toLocaleString("en-US") + " · lr " + lr(s).toExponential(1); };
+  let raf = 0;
+  const sweep = reduced => { cancelAnimationFrame(raf);
+    if (reduced) { place(2000); return; }
+    const t0 = performance.now(), dur = 2600;
+    const f = t => { const p = Math.min(1, (t - t0) / dur); place(p * TOT); if (p < 1) raf = requestAnimationFrame(f); };
+    raf = requestAnimationFrame(f); };
+
+  const gbar = q(".gbar"), gval = q(".gval"), G = 2.6;
+  const steps = [
+    { k: "Joint", t: "Start from the joint loss", s: "L: 1 number",
+      d: "Everything the batch taught the model is now in one number. The optimiser's job: change every weight so this number goes down next time.",
+      n: "illustrative value · nothing is trained yet" },
+    { k: "Backward", t: "Backward: gradients flow back", s: "g has the shape of w · 2,402,461 numbers",
+      d: "loss.backward() applies the chain rule from L back through the heads into the encoder. Each weight learns which direction would lower L, and how strongly." },
+    { k: "Norm", t: "Measure the gradient's size", s: "‖g‖ = 1 number",
+      d: "All gradients are seen as one long vector and its length is taken. This is the grad_norm written to metrics.jsonl every 50 steps (before clipping).",
+      n: "‖g‖ = 2.6 here (illustrative)" },
+    { k: "Clip", t: "Clip the norm at 1.0", s: "‖g‖ → min(‖g‖, 1)",
+      d: "If the length is above 1, every gradient is shrunk by the same factor: the direction is kept, only the step size is capped. One odd batch cannot throw the weights far.",
+      n: "factor = 1 / 2.6 ≈ 0.38 · clip_grad_norm_(params, 1.0)" },
+    { k: "AdamW", t: "AdamW step", s: "lr = 1e-3 (after warm-up)",
+      d: "Adam keeps for every weight a running mean of its gradient (m) and of its square (v), and moves the weight by lr · m̂ / √v̂: big where gradients agree, small where they are noisy." },
+    { k: "Decay", t: "Weight decay", s: "wd = 0.05",
+      d: "AdamW also shrinks every weight a little toward zero, separately from the gradient step. This keeps weights small and the learned features smooth." },
+    { k: "LR", t: "The learning rate over the run", s: "warm-up 500 · cosine to 0",
+      d: "lr climbs linearly from 2e-6 to 1e-3 over the first 500 steps (gentle start while Adam's m and v fill up), then follows a cosine down to 0 at the planned last step.",
+      n: "planned = 20 epochs × ≈1,190 steps ≈ 23,800 · early stopping may end the run sooner, at a non-zero lr" },
+    { k: "Repeat", t: "A little change, then the next batch", s: "step → step + 1",
+      d: "The heads and the encoder changed a little. The next batch comes from the prefetch thread with a new seed; about 1,190 such steps make one epoch, then the check set is evaluated.",
+      n: "seed per step = seed · 1,000,003 + step → a resume repeats the same views" },
+  ];
+  const render = (i, reduced) => {
+    cancelAnimationFrame(raf);
+    q(".lossb").setAttribute("class", i === 0 ? "acc lossb" : "box lossb");
+    q(".optb").setAttribute("class", i === 4 || i === 5 ? "acc optb" : "box optb");
+    q(".enc").setAttribute("class", i === 1 || i === 7 ? "acc enc" : "box enc");
+    qa(".hd").forEach(h => h.setAttribute("class", i === 1 || i === 7 ? "acc hd" : "box hd"));
+    op(q(".gflow"), i >= 1 && i <= 3 ? 1 : 0);
+    qa(".gr").forEach(p => p.classList.toggle("run", i === 1));
+    op(q(".uflow"), i === 4 || i === 5 || i === 7 ? 1 : 0);
+    qa(".up").forEach(p => p.classList.toggle("run", i === 4 || i === 5 || i === 7));
+    qa(".p").forEach((p, k) => op(p, k === i ? 1 : 0));
+    op(q(".gauge"), i === 2 || i === 3 ? 1 : 0);
+    const k = i === 3 ? 1 : G;
+    gbar.style.transform = `scale(${i === 3 ? 1 : G / 1}, 1)`;
+    gbar.classList.toggle("clipped", i === 3);
+    gval.textContent = i === 3 ? "after clipping: ‖g‖ = 1.0 (logged: 2.6)" : "‖g‖ = " + k.toFixed(1) + " (illustrative)";
+    op(q(".chart"), i >= 4 ? 1 : 0.45);
+    op(q(".wu"), i === 6 ? 1 : 0);
+    if (i === 6) sweep(reduced); else place(i === 7 ? 2001 : 2000);
+  };
+  place(2000);
+  player(steps, render, 2900);
+  root.setAttribute("data-ok", "1");
+})();
+</script>
+  <p class="code-title">From <code>train.py · Trainer._train_step</code> and <code>_lr_factor</code></p>
+<pre class="code">gen = torch.Generator().manual_seed(s.seed * 1_000_003 + self.step)    <span class="c"># same views on resume</span>
+losses, extra = self.objective(self.model, x, mask, gen, groups)      <span class="c"># 5 raw losses</span>
+self.scales.update({k: float(v) <span class="k">for</span> k, v <span class="k">in</span> losses.items()}, self.step)
+loss = self.objective.joint(losses, self.scales)                     <span class="c"># scalar</span>
+<span class="k">if not</span> torch.isfinite(loss):                                          <span class="c"># NaN / inf: save and stop</span>
+    self._save("last.pt"); <span class="k">raise</span> FloatingPointError(...)
+self.opt.zero_grad(set_to_none=True)
+loss.backward()                                                       <span class="c"># grads for 2,402,461 params</span>
+grad_norm = nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)    <span class="c"># norm before clipping</span>
+self.opt.step()                                                       <span class="c"># AdamW(lr 1e-3, wd 0.05)</span>
+self.sched.step()                                                     <span class="c"># warm-up 500, then cosine</span>
+
+<span class="k">def</span> _lr_factor(self, step):                                          <span class="c"># multiplies lr = 1e-3</span>
+    <span class="k">if</span> step < 500: <span class="k">return</span> (step + 1) / 500
+    progress = (step - 500) / (self.total_steps - 500)
+    <span class="k">return</span> 0.5 * (1 + math.cos(math.pi * min(1.0, progress)))</pre>
+  <h3>Logging</h3>
+  <p>Every 50 steps (and at step 1), one line goes to <code>metrics.jsonl</code> and the console with: joint, recon, nce, p1–p3, grad_norm, lr,
+  seconds per step, memory, <code>same_link_pairs</code> (pairs of windows from the same link in the batch) and <code>nce_masked_pairs</code>
+  (negatives removed as false negatives).</p>
+</section>
+
+<section class="stage" id="epoch">
+  <h2>End of each epoch: evaluate, save, maybe stop</h2>
+  <p class="lead">After every epoch the model runs on the check set without updating. It still uses no labels.</p>
+  <h3>What is evaluated</h3>
+  <p>A fixed subset of <b>8,192</b> check-set windows, in batches of 512, with <b>fixed views</b>: the same masks, crops and injections every epoch. A change between epochs
+  therefore comes from the model, not from the random draws. A clean pass of each window also gives a z for the monitors.</p>
+  <table class="t">
+    <tr><th>Monitor</th><th>What it is</th><th>Why it matters</th></tr>
+    <tr><td><code>val_recon</code>, <code>val_nce</code>, <code>val_p1–p3</code>, <b><code>val_joint</code></b></td><td>The same losses on the check set; val_joint uses the frozen scales</td><td>val_joint picks <code>best.pt</code> and drives early stopping</td></tr>
+    <tr><td><code>val_recon_interp_baseline</code></td><td>MSE of straight-line filling of the same hidden rows</td><td>val_recon must go below it</td></tr>
+    <tr><td><code>auroc_p1/p2/p3</code></td><td>Do the physics heads rank injected windows above clean ones?</td><td>0.5 = chance</td></tr>
+    <tr><td><code>z_effective_rank</code></td><td>exp(entropy of the singular values of z): how many directions z really uses (1 … 128)</td><td>dropping towards 1 = collapse</td></tr>
+    <tr><td><code>z_std_mean</code>, <code>z_std_min</code></td><td>Spread of each z dimension</td><td>near 0 = dead dimensions</td></tr>
+    <tr><td><code>align</code>, <code>uniformity</code>, <code>cos_pos</code>, <code>cos_neg</code></td><td>Contrastive geometry: positives close, negatives spread out</td><td>cos_neg rising to cos_pos = collapse</td></tr>
+    <tr><td><code>length_probe_r2</code></td><td>Held-out R² of a ridge regression predicting the number of real rows from z</td><td>high = z encodes length (a shortcut risk; the length-only AUC on test is 0.535)</td></tr>
+  </table>
+  <p><b>At initialisation (measured):</b> val_recon 1.03 vs interpolation 0.21 · AUROC ≈ 0.47–0.53 · effective rank 54.6 · length R² 0.96.
+  The model starts close to "z = how long the window is". Watch whether the length R² falls as the other signals grow.</p>
+  <h3>Checkpoints and stopping</h3>
+  <ul>
+    <li><code>best.pt</code>: saved when val_joint improves on the best so far by more than 1e-4.</li>
+    <li><code>last.pt</code>: saved after every epoch, and when the run stops. This is what <code>--resume</code> reads.</li>
+    <li><b>Early stopping:</b> after <b>5</b> epochs in a row without improvement.</li>
+    <li><b>Budgets:</b> max <b>20 epochs</b>. Time: <b>8 h</b> (<code>npm run train</code>) or <b>30 h</b> (<code>npm run train:full</code>), checked after every step.
+    Memory: <code>mem_gb = 22</code>; the run stops cleanly once the process passes 95% of it.</li>
+    <li>A run stopped by a budget runs one more evaluation (<code>stop_…</code>) and saves <code>best.pt</code> if that evaluation improved.</li>
+  </ul>
+  <div class="anim" id="anim-evalloop">
+  <style>
+    #anim-evalloop .steps { display: flex; flex-wrap: wrap; gap: 5px; margin: 2px 0 4px; }
+    #anim-evalloop .steps button { font: 600 .74rem -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--muted); background: var(--pad-soft); border: 1px solid var(--line); border-radius: 999px;
+      padding: 2px 9px; cursor: pointer; transition: background .3s ease, color .3s ease; }
+    #anim-evalloop .steps button.done { color: var(--accent); }
+    #anim-evalloop .steps button.on { background: var(--accent); border-color: var(--accent); color: var(--card); }
+    #anim-evalloop .cap { min-height: 6.2em; }
+    #anim-evalloop .cap .ct { color: var(--ink); font-weight: 600; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+    #anim-evalloop .cap .wn { display: inline-block; margin-top: 4px; font: .84rem ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--ink); background: var(--warn-soft); border-radius: 6px; padding: 1px 8px; }
+    #anim-evalloop .pn { transition: opacity .5s ease; }
+    #anim-evalloop .box, #anim-evalloop .acc { transition: fill .4s ease, stroke .4s ease; }
+    #anim-evalloop .grow { transition: transform .9s ease; transform-box: fill-box; }
+    #anim-evalloop .gx { transform-origin: 0 50%; }
+    #anim-evalloop .gy { transform-origin: 50% 100%; }
+    #anim-evalloop .fade { transition: opacity .45s ease; }
+    #anim-evalloop .ok { fill: var(--real); } #anim-evalloop .bad { fill: var(--warn); }
+    #anim-evalloop .okt { fill: var(--real); font-weight: 600; } #anim-evalloop text.badt { fill: var(--warn); font-weight: 600; }
+    #anim-evalloop .ref { stroke: var(--warn); stroke-width: 2; stroke-dasharray: 4 3; fill: none; }
+    #anim-evalloop .trk { fill: var(--pad-soft); stroke: var(--line); }
+    #anim-evalloop .bar { fill: var(--accent); }
+    #anim-evalloop .bar2 { fill: var(--accent); fill-opacity: .45; }
+    #anim-evalloop .cs { fill: var(--real); fill-opacity: .55; }
+    #anim-evalloop .stopb { fill: var(--card); stroke: var(--line); stroke-width: 1.5; transition: fill .4s ease, stroke .4s ease; }
+    #anim-evalloop .stopb.hit { fill: var(--warn-soft); stroke: var(--warn); }
+    @media (prefers-reduced-motion: reduce) { #anim-evalloop * { transition: none !important; } }
+  </style>
+  <div class="anim-head"><span class="anim-title">Animation · end of an epoch: evaluate, save, maybe stop</span>
+    <span class="anim-ctrl"><button data-act="play">Pause</button><button data-act="prev" aria-label="previous step">◀</button><button data-act="next" aria-label="next step">▶</button><button data-act="restart">Restart</button></span></div>
+  <div class="steps"></div>
+  <svg class="dg" viewBox="0 0 860 440" role="img"><title>End of each epoch: evaluate on the label-free check set, compare with the interpolation baseline, read the monitors, save best.pt and last.pt, count patience, stop on early stopping or a budget</title>
+    <defs><marker id="anim-evalloop-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+
+    <!-- A: epoch ends -->
+    <rect class="box pA" x="10" y="10" width="200" height="186" rx="10"/>
+    <g class="pn gA">
+      <text class="b" x="22" y="32">Training epoch ends</text>
+      <rect class="trk" x="22" y="48" width="176" height="14" rx="4"/>
+      <rect class="bar grow gx progA" x="22" y="48" width="176" height="14" rx="4"/>
+      <text class="sz" x="22" y="80">step 1,190 / ≈ 1,190</text>
+      <text class="mut" x="22" y="100">every train window used once</text>
+      <rect class="acc" x="22" y="114" width="176" height="34" rx="6"/>
+      <text x="110" y="135" text-anchor="middle">encoder + heads</text>
+      <text class="mut" x="22" y="168">model.eval() · no gradients</text>
+      <text class="mut" x="22" y="186">weights frozen until next epoch</text>
+    </g>
+
+    <!-- B: check set -->
+    <rect class="box pB" x="222" y="10" width="200" height="186" rx="10"/>
+    <g class="pn gB">
+      <text class="b" x="234" y="32">Check set</text>
+      <g class="csg"></g>
+      <text class="sz" x="234" y="128">8,192 windows</text>
+      <text class="mut" x="234" y="146">= 16 batches of 512</text>
+      <text class="mut" x="234" y="164">10% of train vehicles, held out</text>
+      <text class="mut" x="234" y="182">fixed views · no labels read</text>
+    </g>
+
+    <!-- C: val losses -->
+    <rect class="box pC" x="434" y="10" width="200" height="186" rx="10"/>
+    <g class="pn gC">
+      <text class="b" x="446" y="32">Validation losses</text>
+      <line x1="446" y1="140" x2="622" y2="140" class="arr"/>
+      <g class="vbars"></g>
+      <text class="mut" x="446" y="172">÷ frozen scales, × λ, sum</text>
+      <text class="mut" x="446" y="188">heights illustrative</text>
+    </g>
+
+    <!-- D: recon vs interpolation -->
+    <rect class="box pD" x="646" y="10" width="204" height="186" rx="10"/>
+    <g class="pn gD">
+      <text class="b" x="658" y="32">Recon vs straight line</text>
+      <text class="mut" x="658" y="56">model (val_recon)</text>
+      <rect class="trk" x="658" y="62" width="180" height="14" rx="3"/>
+      <rect class="bar grow gx rbm" x="658" y="62" width="165" height="14" rx="3"/>
+      <text class="sz rbmt fade" x="826" y="95" text-anchor="end">1.03</text>
+      <text class="mut" x="658" y="104">interpolation baseline</text>
+      <rect class="trk" x="658" y="110" width="180" height="14" rx="3"/>
+      <rect class="bar2 grow gx rbi" x="658" y="110" width="34" height="14" rx="3"/>
+      <text class="sz rbit fade" x="696" y="138">0.21</text>
+      <path class="ref fade rref" d="M692,56 V80 M692,108 V128"/>
+      <text class="mut" x="658" y="164">at initialisation (measured)</text>
+      <text class="badt" x="658" y="184">goal: model left of the line</text>
+    </g>
+
+    <!-- E: monitors -->
+    <rect class="box pE" x="10" y="208" width="412" height="126" rx="10"/>
+    <g class="pn gE">
+      <text class="b" x="22" y="230">Label-free monitors (at initialisation)</text>
+      <text x="22" y="258">P1–P3 AUROC</text>
+      <rect class="trk" x="150" y="248" width="170" height="12" rx="3"/>
+      <rect class="bar2 grow gx g1" x="230" y="248" width="10" height="12"/>
+      <text class="sz" x="328" y="258">≈ 0.5</text>
+      <text class="mut" x="150" y="274">0 · · 0.5 = guessing · · 1 = found</text>
+      <text x="22" y="296">effective rank of z</text>
+      <rect class="trk" x="150" y="286" width="170" height="12" rx="3"/>
+      <rect class="bar grow gx g2" x="150" y="286" width="72.5" height="12" rx="3"/>
+      <text class="sz" x="328" y="296">54.6/128</text>
+      <text x="22" y="322">length probe R²</text>
+      <rect class="trk" x="150" y="312" width="170" height="12" rx="3"/>
+      <rect class="bad grow gx g3" x="150" y="312" width="163" height="12" rx="3"/>
+      <text class="sz" x="328" y="322">0.96</text>
+    </g>
+
+    <!-- F: decision -->
+    <rect class="box pF" x="434" y="208" width="416" height="126" rx="10"/>
+    <g class="pn gF">
+      <text class="b" x="446" y="230">Better than the best so far?</text>
+      <path class="acc" d="M540,244 L630,276 L540,308 L450,276 Z"/>
+      <text x="540" y="272" text-anchor="middle">val_joint &lt;</text>
+      <text x="540" y="288" text-anchor="middle">best − 1e-4 ?</text>
+      <path class="arr" d="M630,276 L650,276 L650,256 L668,256" marker-end="url(#anim-evalloop-ah)"/>
+      <path class="arr" d="M630,276 L650,276 L650,298 L668,298" marker-end="url(#anim-evalloop-ah)"/>
+      <text class="okt" x="636" y="250">yes</text>
+      <text class="badt" x="636" y="314">no</text>
+      <rect class="box fyes" x="670" y="240" width="170" height="30" rx="6"/>
+      <text x="755" y="260" text-anchor="middle">save best.pt · patience 0</text>
+      <rect class="box fno" x="670" y="284" width="170" height="30" rx="6"/>
+      <text x="755" y="304" text-anchor="middle">patience + 1</text>
+      <text class="mut" x="446" y="326">always: save last.pt (for --resume)</text>
+    </g>
+
+    <!-- G: patience track -->
+    <rect class="box pG" x="10" y="346" width="530" height="88" rx="10"/>
+    <g class="pn gG">
+      <text class="b" x="22" y="366">Patience across epochs</text>
+      <text class="mut" x="200" y="366">illustrative sequence, not a result</text>
+      <g class="ptrack"></g>
+      <text class="mut" x="22" y="392">epoch</text>
+      <text class="mut" x="22" y="424">patience</text>
+    </g>
+
+    <!-- H: stop reasons -->
+    <rect class="box pH" x="552" y="346" width="298" height="88" rx="10"/>
+    <g class="pn gH">
+      <text class="b" x="564" y="366">Stop reasons</text>
+      <rect class="stopb s0" x="564" y="374" width="134" height="24" rx="5"/>
+      <text x="631" y="391" text-anchor="middle">early stop · 5</text>
+      <rect class="stopb s1" x="704" y="374" width="134" height="24" rx="5"/>
+      <text x="771" y="391" text-anchor="middle">max 20 epochs</text>
+      <rect class="stopb s2" x="564" y="404" width="134" height="24" rx="5"/>
+      <text x="631" y="421" text-anchor="middle">time 8 h / 30 h</text>
+      <rect class="stopb s3" x="704" y="404" width="134" height="24" rx="5"/>
+      <text x="771" y="421" text-anchor="middle">memory 22 GB</text>
+    </g>
+  </svg>
+  <div class="cap"></div>
+</div>
+<script>
+(() => {
+  const root = document.getElementById("anim-evalloop");
+  if (!root) return;
+  const svg = root.querySelector("svg");
+  const NS = "http://www.w3.org/2000/svg";
+  const mk = (tag, attrs, parent, txt) => { const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]); if (txt !== undefined) e.textContent = txt;
+    parent.appendChild(e); return e; };
+  const q = s => svg.querySelector(s);
+  const op = (el, v) => { el.style.opacity = v; };
+  // Player: step chips, caption, Play/Pause, prev/next, restart; autoplay when visible; #<id>:<n> opens step n paused.
+  const player = (steps, render, ms) => {
+    const bar = root.querySelector(".steps"), cap = root.querySelector(".cap");
+    const btn = root.querySelector('[data-act="play"]');
+    const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let cur = 0, playing = !reduced, visible = false, timer = 0;
+    const chips = steps.map((s, i) => { const b = document.createElement("button"); b.type = "button";
+      b.textContent = (i + 1) + " " + s.k; bar.appendChild(b);
+      b.addEventListener("click", () => { playing = false; show(i); sync(); }); return b; });
+    const show = i => { cur = (i + steps.length) % steps.length; const s = steps[cur];
+      chips.forEach((c, k) => { c.className = k === cur ? "on" : (k < cur ? "done" : ""); });
+      cap.innerHTML = '<div class="ct"><span>' + (cur + 1) + "/" + steps.length + " · " + s.t +
+        '</span><span class="m">' + s.s + "</span></div><div>" + s.d + "</div>" + (s.n ? '<div class="wn">' + s.n + "</div>" : "");
+      render(cur); };
+    const sync = () => { clearInterval(timer); btn.textContent = playing ? "Pause" : "Play";
+      if (playing && visible) timer = setInterval(() => show(cur + 1), ms); };
+    root.querySelector(".anim-ctrl").addEventListener("click", e => {
+      const act = e.target.getAttribute && e.target.getAttribute("data-act"); if (!act) return;
+      if (act === "play") playing = !playing;
+      else if (act === "restart") { playing = true; show(0); }
+      else { playing = false; show(cur + (act === "next" ? 1 : -1)); }
+      sync(); });
+    const m = (location.hash || "").match(new RegExp("^#" + root.id + ":(\\d+)$"));
+    if (m) playing = false;
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(es => { visible = es[0].isIntersecting; sync(); }, { threshold: 0.3 }).observe(root);
+    } else { visible = true; }
+    show(m ? Math.min(+m[1], steps.length - 1) : 0); sync();
+  };
+
+  // Check set: 16 columns (batches of 512) × 6 rows of little windows.
+  const cells = [];
+  for (let c = 0; c < 16; c++) for (let r = 0; r < 6; r++) {
+    const e = mk("rect", { class: "cs fade", x: 234 + c * 11, y: 44 + r * 11, width: 9, height: 9, rx: 1.5 }, q(".csg"));
+    e.style.transitionDelay = (c * 40) + "ms"; cells.push(e);
+  }
+  // Validation loss bars (illustrative heights) and val_joint.
+  const VB = [["rec", 54], ["nce", 40], ["P1", 46], ["P2", 34], ["P3", 30], ["joint", 70]];
+  const vbars = VB.map(([lab, h], i) => {
+    const x = 452 + i * 28, joint = lab === "joint";
+    const r = mk("rect", { class: (joint ? "bar" : "bar2") + " grow gy", x: joint ? x + 6 : x, y: 140 - h,
+      width: 20, height: h, rx: 2 }, q(".vbars"));
+    r.style.transitionDelay = (i * 110) + "ms";
+    mk("text", { class: "mut", x: (joint ? x + 6 : x) + 10, y: 155, "text-anchor": "middle" }, q(".vbars"), lab);
+    return r;
+  });
+  // Patience track: 1 = improved (best.pt), 0 = no gain. Illustrative.
+  const SEQ = [1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0];
+  const pt = []; let pat = 0;
+  SEQ.forEach((ok, i) => {
+    pat = ok ? 0 : pat + 1;
+    const x = 80 + i * 32, g = mk("g", { class: "fade" }, q(".ptrack"));
+    mk("text", { class: "mut", x: x + 12, y: 392, "text-anchor": "middle" }, g, String(i + 1));
+    mk("circle", { class: ok ? "ok" : "bad", cx: x + 12, cy: 404, r: 6 }, g);
+    mk("text", { class: ok ? "okt" : "badt", x: x + 12, y: 424, "text-anchor": "middle" }, g, String(pat));
+    g.style.transitionDelay = (i * 120) + "ms"; pt.push(g);
+  });
+  const stopMark = mk("text", { class: "badt fade", x: 80 + 13 * 32 + 26, y: 408 }, q(".ptrack"), "stop");
+  stopMark.style.transitionDelay = (SEQ.length * 120) + "ms";
+
+  const steps = [
+    { k: "Epoch ends", t: "One pass over the training windows is done", s: "≈ 1,190 steps of 256",
+      d: "Every one of the ≈ 304k training windows has been used once. Training pauses: the model switches to eval mode and no weight changes until the next epoch starts.",
+      n: "an extra evaluation also runs once before step 1 (\"init\"): the untrained reference" },
+    { k: "Check set", t: "Run the model on the check set", s: "8,192 windows · batch 512",
+      d: "The check set comes from the 10% of train vehicles held out at load time. The same views, masks and injections are drawn every epoch (fixed seed), so a change in a number means the model changed, not the dice. No label file is opened.",
+      n: "8,192 ÷ 512 = 16 batches · torch.no_grad()" },
+    { k: "Val losses", t: "Compute the same five losses, no gradients", s: "val_recon, val_nce, val_p1–p3 → val_joint",
+      d: "Each loss is divided by the scale frozen at step 200 and weighted by λ (1, 0.3, 0.3, 0.3, 0.3), exactly like training. val_joint is the one number used to choose checkpoints.",
+      n: "val_joint = Σ λ_k · val_k / s_k · bar heights here are illustrative" },
+    { k: "vs straight line", t: "Is reconstruction better than drawing a straight line?", s: "val_recon vs interpolation baseline",
+      d: "The baseline fills each hidden row with a straight line between the nearest visible rows. A model that cannot beat this has learned nothing about motion. At initialisation the model is far worse.",
+      n: "at initialisation (measured): val_recon 1.03 vs interpolation 0.21" },
+    { k: "Monitors", t: "Read the label-free health monitors", s: "AUROC · effective rank · length R²",
+      d: "P1–P3 AUROC: can the heads find our own injected violations (0.5 = guessing)? Effective rank: how many directions z really uses (falling towards 1 = collapse). Length probe R²: can z predict how many real rows a window has (high = shortcut risk).",
+      n: "at initialisation (measured): AUROC ≈ 0.47–0.53 · rank 54.6 · length R² 0.96" },
+    { k: "Save", t: "Keep the best model, always keep the latest", s: "best.pt · last.pt",
+      d: "If val_joint beat the best value so far by more than 1e-4, best.pt is overwritten and the patience counter goes back to 0. Otherwise patience goes up by 1. last.pt is written every epoch so --resume can continue.",
+      n: "best.pt = what you evaluate later · last.pt = where a resume starts" },
+    { k: "Patience", t: "Count epochs without improvement", s: "patience 0 … 5",
+      d: "Green dots: val_joint improved, best.pt saved, counter reset. Orange dots: no gain, counter + 1. One good epoch resets the count. Five orange in a row ends the run. The sequence shown is made up to show the rule.",
+      n: "patience = 5 · min improvement = 1e-4" },
+    { k: "Stop", t: "Four ways a run ends cleanly", s: "early stop · 20 epochs · 8 h / 30 h · 22 GB",
+      d: "Early stopping, the 20-epoch cap, the time budget (8 h for npm run train, 30 h for train:full) or the memory guard. A budget stop runs one last evaluation and can still update best.pt. A NaN loss is different: last.pt is saved and the run exits with an error.",
+      n: "afterwards only the encoder from best.pt is kept; the heads are dropped" },
+  ];
+  const panels = ["A", "B", "C", "D", "E", "F", "G", "H"];
+  const render = i => {
+    panels.forEach((p, k) => {
+      q(".p" + p).setAttribute("class", (k === i ? "acc" : "box") + " p" + p);
+      op(q(".g" + p), k === i ? 1 : (k < i ? 0.5 : 0.18));
+    });
+    q(".progA").style.transform = i >= 0 ? "scaleX(1)" : "scaleX(0)";
+    if (i === 0) { const b = q(".progA"); b.style.transition = "none"; b.style.transform = "scaleX(0.05)";
+      void b.getBoundingClientRect(); b.style.transition = ""; b.style.transform = "scaleX(1)"; }
+    cells.forEach(c => op(c, i >= 1 ? 1 : 0.15));
+    vbars.forEach(b => { b.style.transform = i >= 2 ? "scaleY(1)" : "scaleY(0.02)"; });
+    q(".rbm").style.transform = i >= 3 ? "scaleX(1)" : "scaleX(0.01)";
+    q(".rbi").style.transform = i >= 3 ? "scaleX(1)" : "scaleX(0.01)";
+    [".rbmt", ".rbit", ".rref"].forEach(s => op(q(s), i >= 3 ? 1 : 0));
+    [".g1", ".g2", ".g3"].forEach(s => { q(s).style.transform = i >= 4 ? "scaleX(1)" : "scaleX(0.01)"; });
+    q(".fyes").setAttribute("class", (i === 5 ? "acc" : "box") + " fyes");
+    q(".fno").setAttribute("class", "box fno");
+    pt.forEach(g => op(g, i >= 6 ? 1 : 0));
+    op(stopMark, i >= 6 ? 1 : 0);
+    for (let k = 0; k < 4; k++) q(".s" + k).setAttribute("class", "stopb s" + k + (i === 7 ? " hit" : ""));
+  };
+  player(steps, render, 3200);
+  root.setAttribute("data-ok", "1");
+})();
+</script>
+</section>
+
+<section class="stage" id="outputs">
+  <h2>What a run leaves behind</h2>
+  <p class="lead"><code>src/runs/pretraining/benign_gridsybil/T64/&lt;run_id&gt;/</code>, where run_id is a timestamp + preset, e.g. <code>20261008-102838-joint</code>.</p>
+  <table class="t">
+    <tr><th>File</th><th>Contents</th></tr>
+    <tr><td><code>config.json</code></td><td>Every setting of <code>PretrainConfig</code>, including the seed</td></tr>
+    <tr><td><code>env.json</code></td><td>Git commit and dirty flag, Python / torch / numpy versions, device, data-file hash, rows per split, the scaling (median / IQR), the pre-flight check report, label files opened = 0</td></tr>
+    <tr><td><code>metrics.jsonl</code></td><td>One JSON line per log: <code>"kind": "train"</code> every 50 steps, <code>"eval"</code> per epoch (and at init), <code>"summary"</code> at the end (stop reason, steps, best val_joint, hours)</td></tr>
+    <tr><td><code>best.pt</code></td><td>The model at the best val_joint: full model, encoder weights alone, optimiser, scheduler, loss scales, step, epoch, RNG state</td></tr>
+    <tr><td><code>last.pt</code></td><td>Same contents, latest epoch: used to resume</td></tr>
+  </table>
+  <p><b>What is kept:</b> only the <b>encoder</b> (<code>best.pt["encoder"]</code>, 2,301,312 parameters). The reconstruction, projection and
+  physics heads and the mask token are pretraining tools and are thrown away. The encoder's z (128 numbers per window) is then used by the
+  frozen-encoder probes (S1.4) and by few-shot fine-tuning.</p>
+</section>
+
+<section class="stage" id="health">
+  <h2>Is the run healthy?</h2>
+  <p class="lead">Open <code>pretrain_monitor.ipynb</code> on the run folder and go down this list.</p>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Signal</th><th>Healthy</th><th>Worrying</th><th>What to do</th></tr>
+    <tr><td>Train joint loss</td><td>Falls fast in the first epoch, then slowly</td><td>Flat from the start, or NaN</td><td>NaN stops the run by itself (last.pt saved). Check grad_norm before it; lower lr (e.g. 5e-4) and resume as a new run</td></tr>
+    <tr><td>val_joint</td><td>Falls with train, gap small</td><td>Rises while train falls</td><td>Overfitting: trust best.pt; early stopping ends the run</td></tr>
+    <tr><td>val_recon vs interpolation</td><td>Goes below the baseline (0.21 at init)</td><td>Stays above it</td><td>Look at per-feature recon; compare with <code>train:recon-only</code></td></tr>
+    <tr><td>auroc_p1/p2/p3</td><td>Rises well above 0.5</td><td>One stays ≈ 0.5</td><td>That head learns nothing; see the P1 question below</td></tr>
+    <tr><td>z_effective_rank</td><td>Stays tens of directions (54.6 at init)</td><td>Drops towards 1</td><td>Collapse: check cos_neg, temperature, λ_nce</td></tr>
+    <tr><td>cos_pos vs cos_neg</td><td>cos_pos near 1, cos_neg well below</td><td>cos_neg climbs to cos_pos</td><td>Collapse (same as above)</td></tr>
+    <tr><td>length_probe_r2</td><td>Falls from 0.96 as other signals grow</td><td>Stays near 1 or rises</td><td>Shortcut: z mostly encodes length. Report it; check probes in length bands</td></tr>
+    <tr><td>grad_norm</td><td>Mostly ≤ 1 after warm-up</td><td>Large spikes, always clipped</td><td>Lower lr; check for bad windows</td></tr>
+    <tr><td>Memory</td><td>Steady (5–8 GB in the stopped test run, batch 128)</td><td>Grows every epoch</td><td>The memory guard stops at 22 GB; resume with a smaller <code>--batch-size</code> as a new run</td></tr>
+    <tr><td>s/step</td><td>Steady</td><td>Slows down over time</td><td>Close other GPU apps; check memory</td></tr>
+  </table></div>
+  <div class="anim" id="anim-health">
+  <style>
+    #anim-health .steps { display: flex; flex-wrap: wrap; gap: 5px; margin: 2px 0 4px; }
+    #anim-health .steps button { font: 600 .74rem -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--muted); background: var(--pad-soft); border: 1px solid var(--line); border-radius: 999px;
+      padding: 2px 9px; cursor: pointer; transition: background .3s ease, color .3s ease; }
+    #anim-health .steps button.done { color: var(--accent); }
+    #anim-health .steps button.on { background: var(--accent); border-color: var(--accent); color: var(--card); }
+    #anim-health .cap { min-height: 6.2em; }
+    #anim-health .cap .ct { color: var(--ink); font-weight: 600; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+    #anim-health .cap .wn { display: inline-block; margin-top: 4px; font: .84rem ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--ink); background: var(--warn-soft); border-radius: 6px; padding: 1px 8px; }
+    #anim-health .col { transition: opacity .5s ease; }
+    #anim-health .box, #anim-health .acc { transition: fill .4s ease, stroke .4s ease; }
+    #anim-health .ln { fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
+      stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 1.6s ease; }
+    #anim-health .ln.on { stroke-dashoffset: 0; }
+    #anim-health .l-acc { stroke: var(--accent); } #anim-health .l-ok { stroke: var(--real); }
+    #anim-health .l-bad { stroke: var(--warn); } #anim-health .l-mut { stroke: var(--muted); }
+    #anim-health .ref { stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 4 3; fill: none; }
+    #anim-health .ax { stroke: var(--line); stroke-width: 1.2; fill: none; }
+    #anim-health .frame { fill: var(--pad-soft); fill-opacity: .5; stroke: none; }
+    #anim-health text.ok { fill: var(--real); font-weight: 600; }
+    #anim-health text.bad { fill: var(--warn); font-weight: 600; }
+    #anim-health text.lg { font-size: 11px; }
+    @media (prefers-reduced-motion: reduce) { #anim-health * { transition: none !important; } }
+  </style>
+  <div class="anim-head"><span class="anim-title">Animation · a healthy run vs three failure patterns (illustrative)</span>
+    <span class="anim-ctrl"><button data-act="play">Pause</button><button data-act="prev" aria-label="previous step">◀</button><button data-act="next" aria-label="next step">▶</button><button data-act="restart">Restart</button></span></div>
+  <div class="steps"></div>
+  <svg class="dg" viewBox="0 0 860 380" role="img"><title>Four small panels of made-up curves: a healthy run, representation collapse, a length shortcut and divergence, each with what you would see and what to do</title>
+    <g class="cols"></g>
+    <text class="mut" x="430" y="372" text-anchor="middle">illustrative shapes only · nothing has been trained yet · x-axis = training time</text>
+  </svg>
+  <div class="cap"></div>
+</div>
+<script>
+(() => {
+  const root = document.getElementById("anim-health");
+  if (!root) return;
+  const svg = root.querySelector("svg");
+  const NS = "http://www.w3.org/2000/svg";
+  const mk = (tag, attrs, parent, txt) => { const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]); if (txt !== undefined) e.textContent = txt;
+    parent.appendChild(e); return e; };
+  // Player: step chips, caption, Play/Pause, prev/next, restart; autoplay when visible; #<id>:<n> opens step n paused.
+  const player = (steps, render, ms) => {
+    const bar = root.querySelector(".steps"), cap = root.querySelector(".cap");
+    const btn = root.querySelector('[data-act="play"]');
+    const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let cur = 0, playing = !reduced, visible = false, timer = 0;
+    const chips = steps.map((s, i) => { const b = document.createElement("button"); b.type = "button";
+      b.textContent = (i + 1) + " " + s.k; bar.appendChild(b);
+      b.addEventListener("click", () => { playing = false; show(i); sync(); }); return b; });
+    const show = i => { cur = (i + steps.length) % steps.length; const s = steps[cur];
+      chips.forEach((c, k) => { c.className = k === cur ? "on" : (k < cur ? "done" : ""); });
+      cap.innerHTML = '<div class="ct"><span>' + (cur + 1) + "/" + steps.length + " · " + s.t +
+        '</span><span class="m">' + s.s + "</span></div><div>" + s.d + "</div>" + (s.n ? '<div class="wn">' + s.n + "</div>" : "");
+      render(cur); };
+    const sync = () => { clearInterval(timer); btn.textContent = playing ? "Pause" : "Play";
+      if (playing && visible) timer = setInterval(() => show(cur + 1), ms); };
+    root.querySelector(".anim-ctrl").addEventListener("click", e => {
+      const act = e.target.getAttribute && e.target.getAttribute("data-act"); if (!act) return;
+      if (act === "play") playing = !playing;
+      else if (act === "restart") { playing = true; show(0); }
+      else { playing = false; show(cur + (act === "next" ? 1 : -1)); }
+      sync(); });
+    const m = (location.hash || "").match(new RegExp("^#" + root.id + ":(\\d+)$"));
+    if (m) playing = false;
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(es => { visible = es[0].isIntersecting; sync(); }, { threshold: 0.3 }).observe(root);
+    } else { visible = true; }
+    show(m ? Math.min(+m[1], steps.length - 1) : 0); sync();
+  };
+
+  // Curve shapes on [0, 1] → value in [0, 1] (1 = top of the chart). Made up to show patterns, not data.
+  const N = 48, ex = (t, k) => Math.exp(-k * t);
+  const wig = (t, a, f) => a * Math.sin(f * t * 6.283);
+  const C = {
+    lossTrain: t => 0.12 + 0.78 * ex(t, 4.5) + wig(t, 0.015, 7),
+    lossVal: t => 0.17 + 0.73 * ex(t, 4) + wig(t, 0.01, 3),
+    rankOk: t => 0.45 + 0.25 * (1 - ex(t, 3)) + wig(t, 0.015, 5),
+    lenOk: t => 0.92 - 0.55 * (1 - ex(t, 3)) + wig(t, 0.015, 4),
+    rankBad: t => 0.45 * ex(t, 6) + 0.02,
+    cosPos: t => 0.88 + wig(t, 0.01, 4),
+    cosNeg: t => 0.12 + 0.74 * (1 - ex(t, 5)),
+    lossShort: t => 0.14 + 0.74 * ex(t, 4.5) + wig(t, 0.015, 6),
+    lenBad: t => 0.92 + 0.06 * (1 - ex(t, 3)),
+    lossDiv: t => t < 0.62 ? 0.12 + 0.7 * ex(t, 5) + wig(t, 0.015, 7) : 0.2 + 2.6 * (t - 0.62) ** 1.4 + (t > 0.7 ? 0.3 * Math.abs(Math.sin(t * 60)) : 0),
+    gradDiv: t => 0.18 + wig(t, 0.03, 9) + (t > 0.5 ? 0.6 * Math.abs(Math.sin(t * 47)) ** 6 + (t - 0.5) * 0.9 : 0),
+  };
+  const COLS = [
+    { title: "Healthy", tc: "ok", sub: "what you hope to see",
+      c1: { lab: "joint loss: train · val", s: [["lossTrain", "l-acc"], ["lossVal", "l-ok"]] },
+      c2: { lab: "rank of z · length R²", s: [["rankOk", "l-acc"], ["lenOk", "l-ok"]] },
+      see: ["losses fall, then flatten", "rank holds · R² drifts down"],
+      act: ["let it run; early stopping", "picks best.pt"] },
+    { title: "Collapse", tc: "bad", sub: "every window → same z",
+      c1: { lab: "effective rank of z", s: [["rankBad", "l-bad"]], ref: 0.03 },
+      c2: { lab: "cos_pos · cos_neg", s: [["cosPos", "l-acc"], ["cosNeg", "l-bad"]] },
+      see: ["rank → 1, z std → 0", "cos_neg climbs to cos_pos"],
+      act: ["stop; check the two views,", "lower LR or λ for NT-Xent"] },
+    { title: "Length shortcut", tc: "bad", sub: "z mostly counts rows",
+      c1: { lab: "joint loss (looks fine)", s: [["lossShort", "l-acc"]] },
+      c2: { lab: "length probe R²", s: [["lenBad", "l-bad"]], ref: 0.98 },
+      see: ["losses fall nicely, but", "length R² stays near 1"],
+      act: ["a warning, not a stop:", "check masking, length bands"] },
+    { title: "Divergence", tc: "bad", sub: "the numbers blow up",
+      c1: { lab: "joint loss → NaN", s: [["lossDiv", "l-bad"]], nan: true },
+      c2: { lab: "grad_norm (clip at 1.0)", s: [["gradDiv", "l-bad"]], ref: 0.25 },
+      see: ["grad_norm spikes, loss NaN", "run exits, last.pt saved"],
+      act: ["new run: lower LR,", "check scaling of inputs"] },
+  ];
+  const W = 202, GAP = 10, X0 = 10, CW = 176, CH = 58;
+  const cols = [], lines = [];
+  const path = (fn, x, y) => { let d = "";
+    for (let k = 0; k < N; k++) { const t = k / (N - 1), v = Math.max(0, Math.min(1, C[fn](t)));
+      d += (k ? "L" : "M") + (x + t * CW).toFixed(1) + "," + (y + CH - v * CH).toFixed(1); }
+    return d; };
+  COLS.forEach((c, i) => {
+    const x = X0 + i * (W + GAP), g = mk("g", { class: "col" }, svg.querySelector(".cols")), ls = [];
+    const frame = mk("rect", { class: "box", x, y: 8, width: W, height: 348, rx: 10 }, g);
+    mk("text", { class: "b " + c.tc, x: x + 12, y: 30 }, g, c.title);
+    mk("text", { class: "mut", x: x + 12, y: 47 }, g, c.sub);
+    [[c.c1, 72], [c.c2, 172]].forEach(([ch, y]) => {
+      const cx = x + 13;
+      mk("text", { class: "mut lg", x: cx, y: y - 6 }, g, ch.lab);
+      mk("rect", { class: "frame", x: cx, y, width: CW, height: CH, rx: 3 }, g);
+      mk("path", { class: "ax", d: `M${cx},${y} V${y + CH} H${cx + CW}` }, g);
+      if (ch.ref !== undefined) mk("path", { class: "ref", d: `M${cx},${(y + CH - ch.ref * CH).toFixed(1)} H${cx + CW}` }, g);
+      ch.s.forEach(([fn, cls]) => ls.push(mk("path", { class: "ln " + cls, d: path(fn, cx, y), pathLength: 1 }, g)));
+      if (ch.nan) { const t = mk("text", { class: "bad lg", x: cx + CW, y: y - 6, "text-anchor": "end" }, g, "✕ NaN");
+        ls.push(t); t.style.transition = "opacity .4s ease 1.4s"; }
+    });
+    mk("text", { class: "b", x: x + 12, y: 256 }, g, "You see");
+    c.see.forEach((s, k) => mk("text", { x: x + 12, y: 272 + k * 16 }, g, s));
+    mk("text", { class: "b", x: x + 12, y: 310 }, g, "You do");
+    c.act.forEach((s, k) => mk("text", { x: x + 12, y: 326 + k * 16 }, g, s));
+    cols.push({ g, frame }); lines.push(ls);
+  });
+  const steps = [
+    { k: "Four runs", t: "Four ways a pretraining run can look", s: "made-up curves, read in pretrain_monitor.ipynb",
+      d: "Each panel shows the shape of two monitor curves over training time. Only the first is what you want; the other three are the common ways self-supervised training goes wrong. None of these curves is a real result.",
+      n: "every curve comes from metrics.jsonl (train lines every 50 steps, eval lines each epoch)" },
+    { k: "Healthy", t: "Healthy: falling losses, z stays spread out", s: "joint ↓ · rank holds · length R² ↓",
+      d: "Train and val joint loss fall and flatten, val a little above train. The effective rank of z stays well above 1, and the length probe R² drifts down from its starting value (0.96 at initialisation). val_recon should end below the straight-line baseline and P-head AUROC should climb above 0.5.",
+      n: "what to do: nothing; early stopping ends the run and best.pt is the model to evaluate" },
+    { k: "Collapse", t: "Collapse: every window gets almost the same z", s: "rank → 1 · cos_neg → cos_pos",
+      d: "The encoder found a cheap answer: map everything to one point. Effective rank and z std fall towards 0, and different windows (cos_neg) become as similar as two views of the same window (cos_pos). NT-Xent stops falling.",
+      n: "what to do: stop; check the two views are not identical or too different; lower the LR or λ_nce; compare with npm run train:recon-only" },
+    { k: "Shortcut", t: "Length shortcut: z mostly encodes how long the window is", s: "length probe R² near 1",
+      d: "Losses look fine, but a straight-line probe can read the number of real rows from z almost perfectly. Window length differs slightly between benign and GridSybil (length-only AUC 0.535 on test), so a detector built on this z could look better than it is.",
+      n: "what to do: not a reason to stop; confirm npm run train:check still gives padding Δ = 0, and report results by length band later" },
+    { k: "Divergence", t: "Divergence: the numbers blow up", s: "grad_norm spikes · loss NaN",
+      d: "grad_norm (logged before clipping) jumps far above the clip line of 1.0, the loss climbs, then turns NaN. The trainer checks every step: on a non-finite loss it saves last.pt before the bad update and exits with an error.",
+      n: "what to do: start a new run with a lower LR (a resume repeats the same steps and seeds); check the input scaling for extreme values" },
+    { k: "Checklist", t: "What to look at after each epoch", s: "five numbers, in this order",
+      d: "Is val_joint still falling? Is val_recon below the interpolation baseline? Is the effective rank well above 1, with cos_neg clearly below cos_pos? Is the length probe R² going down? Are grad_norm and memory steady? The health table in this section gives the thresholds.",
+      n: "the same panels, all four at once: compare your run with them" },
+  ];
+  const render = i => {
+    cols.forEach((c, k) => {
+      const active = i === k + 1, shown = i === 0 || i === 5 || k + 1 <= i;
+      c.g.style.opacity = i === 0 ? 0.55 : (i === 5 || active ? 1 : (shown ? 0.4 : 0.18));
+      c.frame.setAttribute("class", active ? "acc" : "box");
+      lines[k].forEach(l => {
+        const on = i === 0 || i === 5 || k + 1 <= i;
+        if (l.tagName === "text") l.style.opacity = on ? 1 : 0;
+        else l.classList.toggle("on", on);
+      });
+    });
+  };
+  player(steps, render, 3600);
+  root.setAttribute("data-ok", "1");
+})();
+</script>
+</section>
+
+<section class="stage" id="run">
+  <h2>Running it</h2>
+  <p class="lead">From the repository root (the script refuses to start anywhere else).</p>
+  <table class="t">
+    <tr><th>Command</th><th>What it does</th></tr>
+    <tr><td><code>npm run train:check</code></td><td>Loads one shard, runs the pre-flight checks, writes <code>env.json</code>, exits</td></tr>
+    <tr><td><code>npm run train:smoke</code></td><td>One shard, 30 steps, small eval: measures the real seconds per step</td></tr>
+    <tr><td><code>npm run train</code></td><td>The full joint run with an 8 h cap</td></tr>
+    <tr><td><code>npm run train:full</code></td><td>The same with a 30 h cap</td></tr>
+    <tr><td><code>npm run train:recon-only</code></td><td>Sanity baseline: reconstruction only (no NT-Xent, no physics heads)</td></tr>
+    <tr><td><code>npm run train:resume -- &lt;run_dir&gt;</code></td><td>Continues from <code>last.pt</code> with the same config and batch order</td></tr>
+    <tr><td><code>npm run train:runs</code></td><td>Lists the run folders, newest first</td></tr>
+  </table>
+  <h3>Pre-flight checks (<code>train:check</code>, and at the start of every run)</h3>
+  <ul>
+    <li>Filling the padding rows with large random numbers changes no loss and no z (Δ = 0).</li>
+    <li>Scaling round-trip (normalise → raw → normalise) is exact to ≤ 1e-3.</li>
+    <li>Masking, injection and augmentation touch real rows only. No window grows, and windows with &lt; 4 real rows are never injected.</li>
+    <li>Parameter counts: encoder 2,301,312, total 2,402,461.</li>
+  </ul>
+  <h3>Timeline of a run</h3>
+  <div class="calc">
+    <div class="calc-row"><span>load ≈ 338k windows → hold out check set → robust scaling</span><span>time printed</span></div>
+    <div class="calc-row"><span>pre-flight checks → <code>config.json</code>, <code>env.json</code></span><span>seconds</span></div>
+    <div class="calc-row"><span>evaluation "init" (random-weight reference)</span><span>one eval</span></div>
+    <div class="calc-row"><span>epoch 1: ≈ 1,190 steps, a log line every 50; scales frozen at step 200, warm-up ends at step 500</span><span>?</span></div>
+    <div class="calc-row"><span>eval → <code>best.pt</code> / <code>last.pt</code></span><span>per epoch</span></div>
+    <div class="calc-row"><span>… until 5 epochs without improvement, 20 epochs, or the time / memory budget</span><span></span></div>
+    <div class="calc-row"><span><code>summary</code> line in metrics.jsonl</span><span>end</span></div>
+  </div>
+  <p><b>How long?</b> Not measured yet at the current settings. <i>The stopped test run (batch 128, random batches)</i> took ~1.65 s/step, which is
+  2,381 steps per epoch ≈ 65 min. Batch 256 with length-bucketed batches should be much faster per epoch. Run <code>npm run train:smoke</code> and multiply
+  its seconds per step by ≈ 1,190 to get the epoch time. 20 epochs may hit the 8 h cap, which is what <code>train:full</code> (30 h) is for.</p>
+  <h3>Stopping and resuming</h3>
+  <ul>
+    <li><b>Ctrl-C</b> stops at once. <code>last.pt</code> is from the last finished epoch, so the current epoch's steps are lost.</li>
+    <li><code>npm run train:resume -- src/runs/pretraining/benign_gridsybil/T64/&lt;run_id&gt;</code> reloads model, optimiser, scheduler, scales,
+    step, best and patience, and continues with the same batch order and views. <code>--max-hours</code> can be raised on resume.</li>
+    <li>Read a run, live or finished, in <code>src/model/benign_gridsybil/timesnet/pretrain_monitor.ipynb</code>.</li>
+  </ul>
+</section>
+
+<section class="stage" id="faq">
+<h2>Questions, answered simply</h2>
+<p class="lead">Click a question to open the answer.</p>
+<details class="qa"><summary>Why three forward passes, not one?</summary><div class="ans">
+<p>Each objective needs a different input. Reconstruction needs rows hidden. Contrastive needs a second, unhidden view to compare with. The physics heads need
+a copy with a violation injected. Hiding rows in the contrastive view would let it match on the mask pattern, and injecting into the masked view would mix
+two tasks. So the same encoder runs three times and the gradients of all three passes add up in one backward pass. A step therefore costs about 3× one encoder pass.</p></div></details>
+<details class="qa"><summary>Why freeze the loss scales after 200 steps?</summary><div class="ans">
+<p>Scales are needed so that a loss of size 5 (NT-Xent) does not drown one of size 0.7 (BCE). If they kept updating, each term would be divided by its own
+current value and stay ≈ 1: the joint loss would be flat and could not pick a best epoch. Frozen scales are a fixed yardstick: val_joint falls only if the
+losses really fall.</p></div></details>
+<details class="qa"><summary>Why mask "false negatives" in NT-Xent?</summary><div class="ans">
+<p>One broadcast is heard by many receivers, and one link gives several crops. Two windows of the same pseudonym in the same run can therefore be almost
+the same data. Pushing them apart as negatives would teach the encoder to separate identical motion. Those pairs are left out (D13), and
+<code>nce_masked_pairs</code> in the log shows how many. All GridSybil ghosts use pseudonym 1, so they form one group per run.</p></div></details>
+<details class="qa"><summary>Why take the check set from train, not from test?</summary><div class="ans">
+<p>The check set chooses <code>best.pt</code> and when to stop, so it shapes the model. If it were the test split, the final test numbers would be
+optimistic (RULE 3). It is carved by vehicle, so no vehicle is in both parts, and it is read without labels.</p></div></details>
+<details class="qa"><summary>Why length-bucketed batches? Is that still random?</summary><div class="ans">
+<p>Speed: the FFT / period step runs once for each distinct length, about 60 per random batch and 2–3 per bucketed batch (D14). It is still random: windows are shuffled
+within each length, the batch order is shuffled every epoch, and every window is seen once per epoch. A bonus is that negatives share the anchor's length, so length
+cannot be used to tell them apart. <code>length_bucketed = False</code> brings back random batches.</p></div></details>
+<details class="qa"><summary>What if P1 stays flat?</summary><div class="ans">
+<p>In the stopped test run (batch 128, steps 1–400) P1 had not started learning (loss ≈ 0.53–0.67) while P2 / P3 had. That early in a run it is not alarming. A 50–150 m jump that
+stays shifted changes the positions, range and bearing, but z is an <i>average</i> over the window and may hide a single step change. If auroc_p1 stays ≈ 0.5 for
+several epochs, report it as found and look at P1 per window length. Do not change the injection to make the number look better (RULE 1); any change to the design is
+a decision to record.</p></div></details>
+<details class="qa"><summary>What if the length probe stays high?</summary><div class="ans">
+<p>At initialisation z already predicts the window length with R² 0.96, partly because short and long windows look different. If it stays near 1 while the
+other signals improve, the encoder may be leaning on length. Length alone separates the classes only weakly (AUC 0.535 on test), but later probes should then be
+reported within length bands, and the shortcut should be named in the thesis.</p></div></details>
+<details class="qa"><summary>What if the loss becomes NaN?</summary><div class="ans">
+<p>The step checks <code>torch.isfinite(loss)</code>. On NaN / inf it saves <code>last.pt</code> and stops with <code>FloatingPointError</code>. Look at the last
+logged <code>grad_norm</code> and the raw losses. Usual fixes are a lower learning rate or finding a bad window. Start a new run with the change, and record it in config.json.</p></div></details>
+<details class="qa"><summary>How long does it take?</summary><div class="ans">
+<p>Unknown at the current settings until <code>npm run train:smoke</code> is run. For reference, the stopped test run (batch 128, random batches) took
+~1.65 s/step ≈ 65 min per epoch. Length-bucketed batches of 256 should be much faster per epoch. With early stopping the run may end well before 20 epochs.</p></div></details>
+<details class="qa"><summary>Which file do I hand on after pretraining?</summary><div class="ans">
+<p><code>best.pt</code>. Only its <code>"encoder"</code> weights are used later. The heads and the mask token are discarded. Keep the run folder whole:
+<code>config.json</code> and <code>env.json</code> are what make the result reproducible (RULE 4).</p></div></details>
+</section>
+<footer>Source: <code>src/model/benign_gridsybil/timesnet/</code> (config.py, data.py, views.py, losses.py, heads.py, monitors.py, train.py) ·
+commands: <code>package.json</code> · decisions D4, D7, D8′, D12–D14 in <code>agent.md</code> · encoder: <a href="encoder-shapes.html">Encoder Shapes</a>.</footer>
+</main>
+
+</body>
+</html>

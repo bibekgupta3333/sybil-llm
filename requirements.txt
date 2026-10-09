@@ -16,3 +16,4 @@ weasyprint==68.1
 markdown2==2.5.5
 fonttools==4.62.1
 debugpy==1.8.20
+black[jupyter]==26.10.0

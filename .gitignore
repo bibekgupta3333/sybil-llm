@@ -14,3 +14,4 @@ simulation/.cache/
 /simulation/public/
 /src/data/
 .venv-train/
+/src/runs/

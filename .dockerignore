@@ -1,0 +1,4 @@
+# The build context holds only what the image needs; the code and data are bind-mounted at run time.
+*
+!docker/
+!requirements/

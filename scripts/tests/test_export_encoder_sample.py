@@ -14,8 +14,21 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 import export_encoder_sample as exp  # noqa: E402
 
-_FEATURES = ["claimed_pos_x", "claimed_pos_y", "rx_pos_x", "rx_pos_y", "claimed_vel_x", "claimed_vel_y",
-             "rx_vel_x", "rx_vel_y", "claimed_acl_x", "claimed_acl_y", "range", "bearing", "log_dtau"]
+_FEATURES = [
+    "claimed_pos_x",
+    "claimed_pos_y",
+    "rx_pos_x",
+    "rx_pos_y",
+    "claimed_vel_x",
+    "claimed_vel_y",
+    "rx_vel_x",
+    "rx_vel_y",
+    "claimed_acl_x",
+    "claimed_acl_y",
+    "range",
+    "bearing",
+    "log_dtau",
+]
 _RANGE = _FEATURES.index("range")
 _RANGE_MEAN, _RANGE_STD = 100.0, 50.0
 
@@ -35,11 +48,29 @@ def _links() -> list[dict]:
                 pseudo = 1 if attack else 1000 + sender
                 n_total = int(rng.integers(1, 150))
                 lens = [64] * (n_total // 64) + ([n_total % 64] if n_total % 64 else [])
-                spec.append(dict(split=split, scenario=scenario, receiver=receiver, sender=sender, pseudo=pseudo,
-                                 label=16 if attack else 0, lens=lens))
+                spec.append(
+                    dict(
+                        split=split,
+                        scenario=scenario,
+                        receiver=receiver,
+                        sender=sender,
+                        pseudo=pseudo,
+                        label=16 if attack else 0,
+                        lens=lens,
+                    )
+                )
     # One long benign test link (5 crops) and one test window of n = 1.
-    spec.append(dict(split="test", scenario="GridSybil_1416", receiver=3, sender=103, pseudo=2103, label=0,
-                     lens=[64, 64, 64, 64, 10]))
+    spec.append(
+        dict(
+            split="test",
+            scenario="GridSybil_1416",
+            receiver=3,
+            sender=103,
+            pseudo=2103,
+            label=0,
+            lens=[64, 64, 64, 64, 10],
+        )
+    )
     spec.append(dict(split="test", scenario="GridSybil_1416", receiver=3, sender=107, pseudo=2107, label=0, lens=[1]))
     return spec
 
@@ -63,37 +94,74 @@ def _write_source(root: pathlib.Path, far_range_z: float = 200.0) -> pathlib.Pat
             mask = [1] * n + [0] * (64 - n)
             wid = f"{rfile}#{link['pseudo']}-{link['sender']}#{k}"
             per_split[link["split"]][0].append({"id": wid, "x": x.tolist(), "mask": mask})
-            per_split[link["split"]][1].append({
-                "id": wid, "scenario": link["scenario"], "run": run, "receiver_file": rfile,
-                "receiver": link["receiver"], "sender": link["sender"], "sender_pseudo": link["pseudo"],
-                "link_window_index": k, "n_messages": n, "bucket": 64, "label": link["label"],
-                "label_name": "GridSybil" if link["label"] == 16 else "Benign", "is_attack": int(link["label"] == 16)})
+            per_split[link["split"]][1].append(
+                {
+                    "id": wid,
+                    "scenario": link["scenario"],
+                    "run": run,
+                    "receiver_file": rfile,
+                    "receiver": link["receiver"],
+                    "sender": link["sender"],
+                    "sender_pseudo": link["pseudo"],
+                    "link_window_index": k,
+                    "n_messages": n,
+                    "bucket": 64,
+                    "label": link["label"],
+                    "label_name": "GridSybil" if link["label"] == 16 else "Benign",
+                    "is_attack": int(link["label"] == 16),
+                }
+            )
             total_windows += 1
     shards = []
     for split, (wins, infos) in per_split.items():
         d = src / split / "b64"
         d.mkdir(parents=True)
-        (d / "part-00000.json").write_text(json.dumps({"seq_len": 64, "max_seq_len": 64, "features": _FEATURES,
-                                                       "windows": wins}))
-        (d / "part-00000_info.json").write_text(json.dumps({"split": split, "bucket": 64, "shard": "part-00000",
-                                                            "windows": infos}))
-        shards.append({"split": split, "bucket": 64, "file": f"{split}/b64/part-00000.json",
-                       "info": f"{split}/b64/part-00000_info.json", "windows": len(wins)})
+        (d / "part-00000.json").write_text(
+            json.dumps({"seq_len": 64, "max_seq_len": 64, "features": _FEATURES, "windows": wins})
+        )
+        (d / "part-00000_info.json").write_text(
+            json.dumps({"split": split, "bucket": 64, "shard": "part-00000", "windows": infos})
+        )
+        shards.append(
+            {
+                "split": split,
+                "bucket": 64,
+                "file": f"{split}/b64/part-00000.json",
+                "info": f"{split}/b64/part-00000_info.json",
+                "windows": len(wins),
+            }
+        )
     mean = [0.0] * 13
     std = [1.0] * 13
     mean[_RANGE], std[_RANGE] = _RANGE_MEAN, _RANGE_STD
-    (src / "metadata.json").write_text(json.dumps({
-        "features": _FEATURES, "max_seq_len": 64,
-        "normalisation": {"features": _FEATURES, "mean": mean, "std": std, "fitted_on": "train real rows"},
-        "counts": {"windows": total_windows}, "shards": shards}))
+    (src / "metadata.json").write_text(
+        json.dumps(
+            {
+                "features": _FEATURES,
+                "max_seq_len": 64,
+                "normalisation": {"features": _FEATURES, "mean": mean, "std": std, "fitted_on": "train real rows"},
+                "counts": {"windows": total_windows},
+                "shards": shards,
+            }
+        )
+    )
     return src
 
 
 def _config(tmp_path: pathlib.Path, **kw) -> exp.ExportConfig:
     src = _write_source(tmp_path)
     out = tmp_path / "out" / "encoder"
-    base = dict(source_dir=src, out_dir=out, allowed_out_root=out, per_stratum=6, max_sender_windows=400,
-                budget_bytes=10_000_000, target_step=2, min_per_stratum=1, workers=1)
+    base = dict(
+        source_dir=src,
+        out_dir=out,
+        allowed_out_root=out,
+        per_stratum=6,
+        max_sender_windows=400,
+        budget_bytes=10_000_000,
+        target_step=2,
+        min_per_stratum=1,
+        workers=1,
+    )
     base.update(kw)
     return exp.ExportConfig(**base)
 
@@ -114,8 +182,11 @@ def test_sampler_takes_whole_senders_and_skips_large_ones(tmp_path: pathlib.Path
     sample, stats = exp.StratifiedSampler(index, 0, 400).sample(6)
     picked = {(r.split, r.scenario, r.label_name, r.sender_key) for r in sample}
     for split, scenario, cls, sender in picked:
-        full = [r for r in index.records if (r.split, r.scenario, r.label_name, r.sender_key)
-                == (split, scenario, cls, sender)]
+        full = [
+            r
+            for r in index.records
+            if (r.split, r.scenario, r.label_name, r.sender_key) == (split, scenario, cls, sender)
+        ]
         assert {r.id for r in full} <= {r.id for r in sample}
     _, stats_small = exp.StratifiedSampler(index, 0, 1).sample(6)
     assert sum(s["skipped_large_senders"] for s in stats_small.values()) > 0
@@ -129,8 +200,18 @@ def test_export_bundle_is_consistent(tmp_path: pathlib.Path) -> None:
     ws = manifest["windows"]
     assert sum(w["n"] for w in ws) == x.shape[0] == manifest["sample"]["n_rows"]
     assert all(w["row"] == sum(v["n"] for v in ws[:i]) for i, w in enumerate(ws))
-    assert ws == sorted(ws, key=lambda w: (exp.SPLITS.index(w["split"]), w["scenario"], w["run"],
-                                           w["receiver_file"], w["sender"], w["sender_pseudo"], w["k"]))
+    assert ws == sorted(
+        ws,
+        key=lambda w: (
+            exp.SPLITS.index(w["split"]),
+            w["scenario"],
+            w["run"],
+            w["receiver_file"],
+            w["sender"],
+            w["sender_pseudo"],
+            w["k"],
+        ),
+    )
     # Every crop of each sampled link is present.
     by_link: dict[str, set[int]] = {}
     for w in ws:
@@ -143,7 +224,7 @@ def test_export_bundle_is_consistent(tmp_path: pathlib.Path) -> None:
     src = {w["id"]: np.asarray(w["x"], dtype=np.float32) for w in shard["windows"]}
     for w in ws:
         if w["split"] == "test":
-            assert np.array_equal(x[w["row"]: w["row"] + w["n"]], src[w["id"]][: w["n"]])
+            assert np.array_equal(x[w["row"] : w["row"] + w["n"]], src[w["id"]][: w["n"]])
     assert json.loads((out / "predictions/index.json").read_text()) == {"models": []}
     assert manifest["units"][_RANGE] == "m"
 
@@ -154,8 +235,9 @@ def test_sender_splits_full(tmp_path: pathlib.Path) -> None:
     assert manifest["full_dataset"]["senders_in_multiple_splits"] == 0
     assert all(w["sender_splits_full"] == [w["split"]] for w in manifest["windows"])
     records = exp.EncoderInput(cfg.source_dir).all_records()
-    leaked = dataclasses.replace(records[0], split="val" if records[0].split != "val" else "test", id="leak#0#99",
-                                 sender_pseudo=999999, k=0)
+    leaked = dataclasses.replace(
+        records[0], split="val" if records[0].split != "val" else "test", id="leak#0#99", sender_pseudo=999999, k=0
+    )
     index = exp.DatasetIndex(records + [leaked])
     assert index.senders_in_multiple_splits == 1
     assert len(index.splits_of_sender(records[0])) == 2

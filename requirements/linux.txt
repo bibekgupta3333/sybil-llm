@@ -1,0 +1,18 @@
+# Linux (Docker, Ubuntu 24.04) training + pipeline environment: portable top-level pins matching the macOS
+# .venv-train (requirements-train.txt, Python 3.14.5). No mac-only packages. torch is installed separately by
+# docker/Dockerfile from the PyTorch index chosen by the TORCH_VARIANT build arg.
+numpy==2.5.3
+pandas==3.0.6
+pyarrow==25.0.1
+scikit-learn==1.9.1
+matplotlib==3.11.2
+psutil==7.2.2
+huggingface_hub==2.2.0
+hf-xet==1.7.0
+ipykernel==7.4.0
+nbformat==5.11.1
+nbclient==0.11.0
+nbconvert==7.17.1
+jupyter_client==8.10.0
+black[jupyter]==26.10.0
+pytest==9.1.1

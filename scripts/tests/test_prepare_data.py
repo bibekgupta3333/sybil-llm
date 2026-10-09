@@ -15,8 +15,9 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 import prepare_data as pd_mod  # noqa: E402
 
 
-def _write_run(base: pathlib.Path, family: str, group: str, subfolder: str,
-                vehicles: dict[int, tuple[int, list[dict]]]) -> pd_mod.ScenarioRun:
+def _write_run(
+    base: pathlib.Path, family: str, group: str, subfolder: str, vehicles: dict[int, tuple[int, list[dict]]]
+) -> pd_mod.ScenarioRun:
     """vehicles: sender -> (attack_code, [ground-truth message dicts, each with senderPseudo/pos/spd/acl/hed/sendTime])."""
     run_dir = base / f"{family}_{group}" / subfolder
     run_dir.mkdir(parents=True)
@@ -25,19 +26,37 @@ def _write_run(base: pathlib.Path, family: str, group: str, subfolder: str,
         pseudo = messages[0]["senderPseudo"]
         (run_dir / f"traceJSON-{sender}-{pseudo}-A{code}-0-1.json").write_text("{}\n")
         for i, msg in enumerate(messages):
-            ledger_lines.append(json.dumps({
-                "type": 4, "sendTime": msg["sendTime"], "sender": sender, "senderPseudo": msg["senderPseudo"],
-                "messageID": sender * 1000 + i,
-                "pos": [msg["pos_x"], msg["pos_y"], 0.0], "spd": [msg["spd_x"], msg["spd_y"], 0.0],
-                "acl": [0.0, 0.0, 0.0], "hed": [1.0, 0.0, 0.0],
-            }))
+            ledger_lines.append(
+                json.dumps(
+                    {
+                        "type": 4,
+                        "sendTime": msg["sendTime"],
+                        "sender": sender,
+                        "senderPseudo": msg["senderPseudo"],
+                        "messageID": sender * 1000 + i,
+                        "pos": [msg["pos_x"], msg["pos_y"], 0.0],
+                        "spd": [msg["spd_x"], msg["spd_y"], 0.0],
+                        "acl": [0.0, 0.0, 0.0],
+                        "hed": [1.0, 0.0, 0.0],
+                    }
+                )
+            )
     (run_dir / "traceGroundTruthJSON-1.json").write_text("\n".join(ledger_lines) + "\n")
     return pd_mod.ScenarioRun(family, group, subfolder, run_dir)
 
 
 def _drive(n: int, t0: float = 0.0, x0: float = 0.0, pseudo: int = 100, speed: float = 12.0) -> list[dict]:
-    return [{"sendTime": t0 + i, "pos_x": x0 + speed * i, "pos_y": 0.0, "spd_x": speed, "spd_y": 0.0,
-             "senderPseudo": pseudo} for i in range(n)]
+    return [
+        {
+            "sendTime": t0 + i,
+            "pos_x": x0 + speed * i,
+            "pos_y": 0.0,
+            "spd_x": speed,
+            "spd_y": 0.0,
+            "senderPseudo": pseudo,
+        }
+        for i in range(n)
+    ]
 
 
 class TestParsedTraceFilename:
@@ -55,7 +74,9 @@ class TestScenarioIndex:
         _write_run(tmp_path, "GridSybil", "1416", "run1", {2: (16, _drive(25))})
         runs = pd_mod.ScenarioIndex(tmp_path).runs()
         assert {(r.family, r.group, r.subfolder) for r in runs} == {
-            ("GridSybil", "0709", "run1"), ("GridSybil", "1416", "run1")}
+            ("GridSybil", "0709", "run1"),
+            ("GridSybil", "1416", "run1"),
+        }
 
     def test_raises_when_the_base_dir_is_empty(self, tmp_path: pathlib.Path) -> None:
         with pytest.raises(FileNotFoundError):
@@ -102,17 +123,25 @@ class TestGridSybilSpliceFix:
         labels = pd_mod.VehicleLabelResolver().resolve([run])
         ground_truth = pd_mod.GroundTruthLoader(labels).load([run])
         features = pd_mod.FeatureEngineer().add_deltas(ground_truth)
-        broken = pd_mod.WindowBuilder(pd_mod.PipelineConfig(), sequence_keys=["family", "group", "subfolder", "senderPseudo"])
+        broken = pd_mod.WindowBuilder(
+            pd_mod.PipelineConfig(), sequence_keys=["family", "group", "subfolder", "senderPseudo"]
+        )
         with pytest.raises(ValueError, match="mixes"):
             broken.build(features)
 
 
 class TestVehicleLabelResolverAndGroundTruthLoader:
     def test_labels_attach_correctly_by_physical_sender(self, tmp_path: pathlib.Path) -> None:
-        run = _write_run(tmp_path, "DataReplaySybil", "0709", "run1", {
-            9: (0, _drive(20, pseudo=555)),
-            4833: (17, _drive(20, pseudo=999)),
-        })
+        run = _write_run(
+            tmp_path,
+            "DataReplaySybil",
+            "0709",
+            "run1",
+            {
+                9: (0, _drive(20, pseudo=555)),
+                4833: (17, _drive(20, pseudo=999)),
+            },
+        )
         labels = pd_mod.VehicleLabelResolver().resolve([run])
         assert set(labels["attack_label"]) == {"Benign", "DataReplaySybil"}
         ground_truth = pd_mod.GroundTruthLoader(labels).load([run])
@@ -136,7 +165,9 @@ class TestWindowBuilder:
         labels = pd_mod.VehicleLabelResolver().resolve([run])
         ground_truth = pd_mod.GroundTruthLoader(labels).load([run])
         features = pd_mod.FeatureEngineer().add_deltas(ground_truth)
-        window_set = pd_mod.WindowBuilder(pd_mod.PipelineConfig(window_size=20, stride=10, min_seq_len=20)).build(features)
+        window_set = pd_mod.WindowBuilder(pd_mod.PipelineConfig(window_size=20, stride=10, min_seq_len=20)).build(
+            features
+        )
         assert window_set.features.shape == (3, 20, 13)  # starts 0, 10, 20
         assert list(window_set.metadata["window_start_idx"]) == [0, 10, 20]
 
@@ -154,10 +185,21 @@ class TestSplitBuilder:
         rows = []
         for s in range(n_senders):
             for w in range(windows_per_sender):
-                rows.append({"family": "GridSybil", "group": "0709" if s % 2 == 0 else "1416",
-                             "subfolder": "run1", "sender": s, "senderPseudo": s,
-                             "attack_code": 0, "attack_label": "Benign", "is_attacker": False,
-                             "window_start_idx": w * 10, "start_time": float(w), "end_time": float(w + 20)})
+                rows.append(
+                    {
+                        "family": "GridSybil",
+                        "group": "0709" if s % 2 == 0 else "1416",
+                        "subfolder": "run1",
+                        "sender": s,
+                        "senderPseudo": s,
+                        "attack_code": 0,
+                        "attack_label": "Benign",
+                        "is_attacker": False,
+                        "window_start_idx": w * 10,
+                        "start_time": float(w),
+                        "end_time": float(w + 20),
+                    }
+                )
         return pd.DataFrame(rows)
 
     def test_splits_are_sender_disjoint_and_complete(self) -> None:
@@ -196,12 +238,19 @@ class TestDataPreparationPipelineEndToEnd:
     def test_runs_end_to_end_and_writes_a_consistent_manifest(self, tmp_path: pathlib.Path) -> None:
         base = tmp_path / "raw"
         out = tmp_path / "prepared"
-        _write_run(base, "GridSybil", "0709", "run1", {
-            **{1000 + s: (16, _drive(30, x0=s * 300.0, pseudo=1)) for s in range(4)},  # the collision, fixed
-            9001: (0, _drive(30, pseudo=42)),
-        })
+        _write_run(
+            base,
+            "GridSybil",
+            "0709",
+            "run1",
+            {
+                **{1000 + s: (16, _drive(30, x0=s * 300.0, pseudo=1)) for s in range(4)},  # the collision, fixed
+                9001: (0, _drive(30, pseudo=42)),
+            },
+        )
         config = pd_mod.DataPreparationPipeline(
-            pd_mod.PipelineConfig(base_dir=base, out_dir=out, min_seq_len=20, seed=7)).run()
+            pd_mod.PipelineConfig(base_dir=base, out_dir=out, min_seq_len=20, seed=7)
+        ).run()
 
         assert (out / "X_windows.npy").exists()
         windows = np.load(out / "X_windows.npy")

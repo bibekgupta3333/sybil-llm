@@ -14,8 +14,21 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 import export_simulation_sample as exp  # noqa: E402
 
-_FEATURES = ["pos_x", "pos_y", "spd_x", "spd_y", "acl_x", "acl_y", "hed_x", "hed_y",
-             "dt", "dpos_x", "dpos_y", "dspd_x", "dspd_y"]
+_FEATURES = [
+    "pos_x",
+    "pos_y",
+    "spd_x",
+    "spd_y",
+    "acl_x",
+    "acl_y",
+    "hed_x",
+    "hed_y",
+    "dt",
+    "dpos_x",
+    "dpos_y",
+    "dspd_x",
+    "dspd_y",
+]
 _DT = _FEATURES.index("dt")
 
 
@@ -26,16 +39,34 @@ def _make_store(tmp_path: pathlib.Path, sequences: dict[str, np.ndarray], t0: fl
         starts = range(0, len(seq) - exp._WINDOW + 1, exp._STRIDE)
         times = t0 + np.cumsum(seq[:, _DT].astype(np.float64)) - seq[0, _DT]
         for s in starts:
-            windows.append(seq[s: s + exp._WINDOW])
-            rows.append({"family": "GridSybil", "group": "0709", "subfolder": "run", "senderPseudo": 7,
-                         "attack_code": 16, "attack_label": "GridSybil", "is_attacker": True,
-                         "window_start_idx": s, "start_time": times[s], "end_time": times[s + exp._WINDOW - 1],
-                         "sender_uid": uid})
+            windows.append(seq[s : s + exp._WINDOW])
+            rows.append(
+                {
+                    "family": "GridSybil",
+                    "group": "0709",
+                    "subfolder": "run",
+                    "senderPseudo": 7,
+                    "attack_code": 16,
+                    "attack_label": "GridSybil",
+                    "is_attacker": True,
+                    "window_start_idx": s,
+                    "start_time": times[s],
+                    "end_time": times[s + exp._WINDOW - 1],
+                    "sender_uid": uid,
+                }
+            )
     np.save(tmp_path / "X_windows.npy", np.stack(windows).astype(np.float32))
     pd.DataFrame(rows).to_parquet(tmp_path / "window_metadata.parquet")
-    (tmp_path / "config.json").write_text(json.dumps({
-        "feature_cols": _FEATURES, "norm_mean": [0.0] * 13, "norm_std": [1.0] * 13,
-        "label_to_int": {"Benign": 0, "GridSybil": 4}}))
+    (tmp_path / "config.json").write_text(
+        json.dumps(
+            {
+                "feature_cols": _FEATURES,
+                "norm_mean": [0.0] * 13,
+                "norm_std": [1.0] * 13,
+                "label_to_int": {"Benign": 0, "GridSybil": 4},
+            }
+        )
+    )
     return exp.WindowStore(tmp_path)
 
 
@@ -92,10 +123,19 @@ def test_max_windows_truncates_for_defect_demo(tmp_path: pathlib.Path) -> None:
     assert out.n_windows == 3 and out.steps.shape[0] == 40
 
 
-def _broadcast_row(send_time: float, x: float, y: float, message_id: int, sender: int = 15, pseudo: int = 20155) -> dict:
+def _broadcast_row(
+    send_time: float, x: float, y: float, message_id: int, sender: int = 15, pseudo: int = 20155
+) -> dict:
     return {
-        "type": 3, "sendTime": send_time, "sender": sender, "senderPseudo": pseudo, "messageID": message_id,
-        "pos": [x, y, 0.0], "spd": [1.0, 2.0, 0.0], "acl": [0.1, 0.2, 0.0], "hed": [1.0, 0.0, 0.0],
+        "type": 3,
+        "sendTime": send_time,
+        "sender": sender,
+        "senderPseudo": pseudo,
+        "messageID": message_id,
+        "pos": [x, y, 0.0],
+        "spd": [1.0, 2.0, 0.0],
+        "acl": [0.1, 0.2, 0.0],
+        "hed": [1.0, 0.0, 0.0],
     }
 
 
@@ -139,8 +179,15 @@ def test_attack_trace_strategy_per_family() -> None:
 
 def test_pick_all_pseudonyms_merges_short_lived_pseudonyms_in_time_order() -> None:
     # 12 pseudonyms x 2 messages each: no single pseudonym reaches 20, together they do.
-    scanned = {7: {p: {10 * p + k: _broadcast_row(float(12 - p) + 0.5 * k, 0.0, 0.0, 10 * p + k, sender=7, pseudo=p)
-                       for k in range(2)} for p in range(12)}}
+    scanned = {
+        7: {
+            p: {
+                10 * p + k: _broadcast_row(float(12 - p) + 0.5 * k, 0.0, 0.0, 10 * p + k, sender=7, pseudo=p)
+                for k in range(2)
+            }
+            for p in range(12)
+        }
+    }
     assert exp.BroadcastForger.pick_fake_pseudonym(scanned, 7, real_pseudonyms=set(), min_steps=20) is None
     pseudo, rows, n = exp.BroadcastForger.pick_all_pseudonyms(scanned, 7, min_steps=20)
     assert n == 12 and len(rows) == 24
@@ -150,15 +197,24 @@ def test_pick_all_pseudonyms_merges_short_lived_pseudonyms_in_time_order() -> No
 
 
 def test_pick_attack_trace_uses_the_family_strategy() -> None:
-    scanned = {7: {p: {10 * p + k: _broadcast_row(float(p) + 0.1 * k, 0.0, 0.0, 10 * p + k, sender=7, pseudo=p)
-                       for k in range(2)} for p in range(12)}}
+    scanned = {
+        7: {
+            p: {
+                10 * p + k: _broadcast_row(float(p) + 0.1 * k, 0.0, 0.0, 10 * p + k, sender=7, pseudo=p)
+                for k in range(2)
+            }
+            for p in range(12)
+        }
+    }
     got = exp.BroadcastForger.pick_attack_trace(scanned, 7, "DoSRandomSybil", real_pseudonyms=set(range(12)))
     assert got is not None and got[0] == "all_pseudonyms" and got[3] == 12
     # GridSybil only accepts one fake pseudonym with enough messages -- none here.
     assert exp.BroadcastForger.pick_attack_trace(scanned, 7, "GridSybil", real_pseudonyms=set()) is None
 
 
-def _dummy_exporter(tmp_path: pathlib.Path, forged_pairs_per_cell: int, pseudonym_table: dict[str, int]) -> exp.Exporter:
+def _dummy_exporter(
+    tmp_path: pathlib.Path, forged_pairs_per_cell: int, pseudonym_table: dict[str, int]
+) -> exp.Exporter:
     """An Exporter with just enough state for `_find_forged_demos` -- no real prepared_data needed."""
     exporter = exp.Exporter.__new__(exp.Exporter)
     exporter._cfg = exp.SampleConfig(forged_pairs_per_cell=forged_pairs_per_cell, raw_dir=tmp_path)
@@ -168,12 +224,25 @@ def _dummy_exporter(tmp_path: pathlib.Path, forged_pairs_per_cell: int, pseudony
     return exporter
 
 
-def test_find_forged_demos_scans_each_subfolder_once_and_respects_the_cap(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
-    ids = pd.DataFrame([
-        {"family": "GridSybil", "group": "0709", "subfolder": "run", "senderPseudo": p,
-         "attack_code": 16, "attack_label": "GridSybil", "is_attacker": True, "n_windows": 20 + p}
-        for p in range(1, 6)  # 5 distinct physical senders, one sampled pseudonym each
-    ], index=[f"u{p}" for p in range(1, 6)])
+def test_find_forged_demos_scans_each_subfolder_once_and_respects_the_cap(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    ids = pd.DataFrame(
+        [
+            {
+                "family": "GridSybil",
+                "group": "0709",
+                "subfolder": "run",
+                "senderPseudo": p,
+                "attack_code": 16,
+                "attack_label": "GridSybil",
+                "is_attacker": True,
+                "n_windows": 20 + p,
+            }
+            for p in range(1, 6)  # 5 distinct physical senders, one sampled pseudonym each
+        ],
+        index=[f"u{p}" for p in range(1, 6)],
+    )
     sender_lookup = {f"u{p}": p for p in range(1, 6)}
     chosen = [exp.SampledIdentity(uid) for uid in ids.index]
     exporter = _dummy_exporter(tmp_path, forged_pairs_per_cell=2, pseudonym_table={p: p for p in range(1, 6)})
@@ -182,8 +251,13 @@ def test_find_forged_demos_scans_each_subfolder_once_and_respects_the_cap(monkey
 
     def fake_scan(self: exp.BroadcastForger, family: str, group: str, subfolder: str, target_senders: set[int]) -> dict:
         scan_calls.append((family, group, subfolder, frozenset(target_senders)))
-        return {s: {90000 + s: {i: _broadcast_row(float(i), float(i), 0.0, i, sender=s, pseudo=90000 + s) for i in range(25)}}
-                for s in target_senders}
+        return {
+            s: {
+                90000
+                + s: {i: _broadcast_row(float(i), float(i), 0.0, i, sender=s, pseudo=90000 + s) for i in range(25)}
+            }
+            for s in target_senders
+        }
 
     monkeypatch.setattr(exp.BroadcastForger, "scan", fake_scan)
     pairs = exporter._find_forged_demos(ids, sender_lookup, chosen)
@@ -194,19 +268,45 @@ def test_find_forged_demos_scans_each_subfolder_once_and_respects_the_cap(monkey
     assert {anchor for anchor, _ in pairs}.issubset(set(ids.index))
 
 
-def test_find_forged_demos_anchors_on_the_longest_sampled_pseudonym(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
-    ids = pd.DataFrame([
-        {"family": "GridSybil", "group": "0709", "subfolder": "run", "senderPseudo": 100,
-         "attack_code": 16, "attack_label": "GridSybil", "is_attacker": True, "n_windows": 9},
-        {"family": "GridSybil", "group": "0709", "subfolder": "run", "senderPseudo": 101,
-         "attack_code": 16, "attack_label": "GridSybil", "is_attacker": True, "n_windows": 40},
-    ], index=["short", "long"])
+def test_find_forged_demos_anchors_on_the_longest_sampled_pseudonym(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    ids = pd.DataFrame(
+        [
+            {
+                "family": "GridSybil",
+                "group": "0709",
+                "subfolder": "run",
+                "senderPseudo": 100,
+                "attack_code": 16,
+                "attack_label": "GridSybil",
+                "is_attacker": True,
+                "n_windows": 9,
+            },
+            {
+                "family": "GridSybil",
+                "group": "0709",
+                "subfolder": "run",
+                "senderPseudo": 101,
+                "attack_code": 16,
+                "attack_label": "GridSybil",
+                "is_attacker": True,
+                "n_windows": 40,
+            },
+        ],
+        index=["short", "long"],
+    )
     sender_lookup = {"short": 7, "long": 7}  # same physical vehicle, two sampled pseudonyms
     chosen = [exp.SampledIdentity("short"), exp.SampledIdentity("long")]
     exporter = _dummy_exporter(tmp_path, forged_pairs_per_cell=6, pseudonym_table={100: 7, 101: 7})
 
-    monkeypatch.setattr(exp.BroadcastForger, "scan", lambda self, family, group, subfolder, target_senders:
-                         {7: {99999: {i: _broadcast_row(float(i), float(i), 0.0, i, sender=7, pseudo=99999) for i in range(25)}}})
+    monkeypatch.setattr(
+        exp.BroadcastForger,
+        "scan",
+        lambda self, family, group, subfolder, target_senders: {
+            7: {99999: {i: _broadcast_row(float(i), float(i), 0.0, i, sender=7, pseudo=99999) for i in range(25)}}
+        },
+    )
     pairs = exporter._find_forged_demos(ids, sender_lookup, chosen)
 
     assert len(pairs) == 1
@@ -214,11 +314,24 @@ def test_find_forged_demos_anchors_on_the_longest_sampled_pseudonym(monkeypatch:
     assert anchor == "long"
 
 
-def test_find_forged_demos_never_attempts_benign_identities(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
-    ids = pd.DataFrame([
-        {"family": "GridSybil", "group": "0709", "subfolder": "run", "senderPseudo": 1,
-         "attack_code": 0, "attack_label": "Benign", "is_attacker": False, "n_windows": 50},
-    ], index=["benign_u"])
+def test_find_forged_demos_never_attempts_benign_identities(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    ids = pd.DataFrame(
+        [
+            {
+                "family": "GridSybil",
+                "group": "0709",
+                "subfolder": "run",
+                "senderPseudo": 1,
+                "attack_code": 0,
+                "attack_label": "Benign",
+                "is_attacker": False,
+                "n_windows": 50,
+            },
+        ],
+        index=["benign_u"],
+    )
     exporter = _dummy_exporter(tmp_path, forged_pairs_per_cell=6, pseudonym_table={1: 1})
 
     scanned = []
@@ -246,26 +359,55 @@ def test_exporter_run_sets_paired_identity_id_symmetrically(tmp_path: pathlib.Pa
         starts = range(0, len(seq) - exp._WINDOW + 1, exp._STRIDE)
         times = 25200.0 + np.cumsum(seq[:, _DT].astype(np.float64)) - seq[0, _DT]
         for s in starts:
-            windows.append(seq[s: s + exp._WINDOW])
-            rows.append({"family": "GridSybil", "group": "0709", "subfolder": "run", "senderPseudo": pseudo,
-                         "attack_code": code, "attack_label": label, "is_attacker": is_attacker,
-                         "window_start_idx": s, "start_time": times[s], "end_time": times[s + exp._WINDOW - 1],
-                         "sender_uid": uid})
+            windows.append(seq[s : s + exp._WINDOW])
+            rows.append(
+                {
+                    "family": "GridSybil",
+                    "group": "0709",
+                    "subfolder": "run",
+                    "senderPseudo": pseudo,
+                    "attack_code": code,
+                    "attack_label": label,
+                    "is_attacker": is_attacker,
+                    "window_start_idx": s,
+                    "start_time": times[s],
+                    "end_time": times[s + exp._WINDOW - 1],
+                    "sender_uid": uid,
+                }
+            )
     np.save(prepared_dir / "X_windows.npy", np.stack(windows).astype(np.float32))
     pd.DataFrame(rows).to_parquet(prepared_dir / "window_metadata.parquet")
-    (prepared_dir / "config.json").write_text(json.dumps({
-        "feature_cols": _FEATURES, "norm_mean": [0.0] * 13, "norm_std": [1.0] * 13,
-        "label_to_int": {"Benign": 0, "GridSybil": 4}}))
+    (prepared_dir / "config.json").write_text(
+        json.dumps(
+            {
+                "feature_cols": _FEATURES,
+                "norm_mean": [0.0] * 13,
+                "norm_std": [1.0] * 13,
+                "label_to_int": {"Benign": 0, "GridSybil": 4},
+            }
+        )
+    )
 
-    (run_dir / "traceGroundTruthJSON-1.json").write_text('{"sender": 5, "senderPseudo": 7}\n{"sender": 6, "senderPseudo": 1}\n')
+    (run_dir / "traceGroundTruthJSON-1.json").write_text(
+        '{"sender": 5, "senderPseudo": 7}\n{"sender": 6, "senderPseudo": 1}\n'
+    )
     with open(run_dir / "traceJSON-5-999-A16-0-1.json", "w", encoding="utf-8") as fh:
         for i in range(25):
             # same clock as the benign identity (starts at t=25200), so the two overlap in time
-            fh.write(json.dumps(_broadcast_row(25200.0 + i, float(i), 0.0, i, sender=5, pseudo=999), separators=(",", ":")) + "\n")
+            fh.write(
+                json.dumps(_broadcast_row(25200.0 + i, float(i), 0.0, i, sender=5, pseudo=999), separators=(",", ":"))
+                + "\n"
+            )
 
-    cfg = exp.SampleConfig(seed=0, pseudonyms_per_cell=5, forged_pairs_per_cell=5,
-                            prepared_dir=prepared_dir, raw_dir=raw_dir,
-                            out_dir=tmp_path / "out", cache_dir=tmp_path / "cache")
+    cfg = exp.SampleConfig(
+        seed=0,
+        pseudonyms_per_cell=5,
+        forged_pairs_per_cell=5,
+        prepared_dir=prepared_dir,
+        raw_dir=raw_dir,
+        out_dir=tmp_path / "out",
+        cache_dir=tmp_path / "cache",
+    )
     manifest = exp.Exporter(cfg).run()
 
     by_uid = {r["sender_uid"]: r for r in manifest["identities"]}
@@ -287,26 +429,39 @@ def test_exporter_run_sets_paired_identity_id_symmetrically(tmp_path: pathlib.Pa
 
 def _benign_meta(rows: list[tuple[str, str, float, float]]) -> pd.DataFrame:
     """window_metadata-shaped rows: (sender_uid, subfolder, start_time, end_time), all Benign."""
-    return pd.DataFrame([
-        {"sender_uid": uid, "family": "GridSybil", "group": "0709", "subfolder": sub,
-         "attack_label": "Benign", "start_time": t0, "end_time": t1}
-        for uid, sub, t0, t1 in rows
-    ])
+    return pd.DataFrame(
+        [
+            {
+                "sender_uid": uid,
+                "family": "GridSybil",
+                "group": "0709",
+                "subfolder": sub,
+                "attack_label": "Benign",
+                "start_time": t0,
+                "end_time": t1,
+            }
+            for uid, sub, t0, t1 in rows
+        ]
+    )
 
 
 def test_benign_matcher_ranks_by_overlap_and_stays_in_the_run() -> None:
-    meta = _benign_meta([
-        ("short", "run", 100.0, 120.0),       # overlaps [100, 120] -> 20 s
-        ("long", "run", 90.0, 200.0),         # overlaps [100, 150] -> 50 s
-        ("elsewhere", "other_run", 0.0, 1e6),  # overlaps fully, but a different run
-        ("before", "run", 0.0, 50.0),          # no overlap at all
-    ])
+    meta = _benign_meta(
+        [
+            ("short", "run", 100.0, 120.0),  # overlaps [100, 120] -> 20 s
+            ("long", "run", 90.0, 200.0),  # overlaps [100, 150] -> 50 s
+            ("elsewhere", "other_run", 0.0, 1e6),  # overlaps fully, but a different run
+            ("before", "run", 0.0, 50.0),  # no overlap at all
+        ]
+    )
     cands = exp.BenignMatcher(meta).candidates("GridSybil", "0709", "run", 100.0, 150.0)
     assert [uid for uid, _, _ in cands] == ["long", "short"]
     assert cands[0][1:] == (100.0, 150.0)
 
 
-def test_match_benign_requires_a_full_window_on_both_sides(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+def test_match_benign_requires_a_full_window_on_both_sides(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
     exporter = _dummy_exporter(tmp_path, forged_pairs_per_cell=6, pseudonym_table={})
     exporter._store = type("FakeStore", (), {"feature_cols": _FEATURES, "meta": None})()
     matcher = exp.BenignMatcher(_benign_meta([("thin", "run", 0.0, 10.0), ("thick", "run", 0.0, 100.0)]))
@@ -318,24 +473,46 @@ def test_match_benign_requires_a_full_window_on_both_sides(monkeypatch: pytest.M
     monkeypatch.setattr(exp.IdentityStitcher, "__init__", lambda self, store, max_windows=None: None)
     monkeypatch.setattr(exp.IdentityStitcher, "stitch", fake_stitch)
 
-    demo = exp.ForgedDemo("GridSybil", "0709", "run", "GridSybil", 5, 999,
-                          np.zeros((60, 13), np.float32), np.arange(0.0, 60.0))
+    demo = exp.ForgedDemo(
+        "GridSybil", "0709", "run", "GridSybil", 5, 999, np.zeros((60, 13), np.float32), np.arange(0.0, 60.0)
+    )
     uid, _stitched, lo, hi = exporter._match_benign(matcher, demo)
-    assert uid == "thick"             # "thin" overlaps only 10 steps, under the 20-step window
+    assert uid == "thick"  # "thin" overlaps only 10 steps, under the 20-step window
     assert (lo, hi) == (0.0, 59.0)
 
-    short_demo = exp.ForgedDemo("GridSybil", "0709", "run", "GridSybil", 5, 999,
-                                np.zeros((10, 13), np.float32), np.arange(0.0, 10.0))
+    short_demo = exp.ForgedDemo(
+        "GridSybil", "0709", "run", "GridSybil", 5, 999, np.zeros((10, 13), np.float32), np.arange(0.0, 10.0)
+    )
     assert exporter._match_benign(matcher, short_demo) is None  # attack side too short
 
 
 def test_sampler_respects_caps_and_tags() -> None:
     rows = []
     for i in range(50):  # 50 attacker pseudonyms of 5 senders in one cell
-        rows.append({"family": "GridSybil", "group": "0709", "subfolder": "run", "senderPseudo": i,
-                     "attack_code": 16, "attack_label": "GridSybil", "is_attacker": True, "n_windows": 9 + i % 7})
-    rows.append({"family": "GridSybil", "group": "0709", "subfolder": "run", "senderPseudo": 1,
-                 "attack_code": 16, "attack_label": "GridSybil", "is_attacker": True, "n_windows": 7000})
+        rows.append(
+            {
+                "family": "GridSybil",
+                "group": "0709",
+                "subfolder": "run",
+                "senderPseudo": i,
+                "attack_code": 16,
+                "attack_label": "GridSybil",
+                "is_attacker": True,
+                "n_windows": 9 + i % 7,
+            }
+        )
+    rows.append(
+        {
+            "family": "GridSybil",
+            "group": "0709",
+            "subfolder": "run",
+            "senderPseudo": 1,
+            "attack_code": 16,
+            "attack_label": "GridSybil",
+            "is_attacker": True,
+            "n_windows": 7000,
+        }
+    )
     ids = pd.DataFrame(rows, index=[f"u{i}" for i in range(51)])
     lookup = {f"u{i}": i // 10 for i in range(50)} | {"u50": None}
     cfg = exp.SampleConfig(pseudonyms_per_cell=12, max_pseudonyms_per_sender=8, stress_per_class=2)

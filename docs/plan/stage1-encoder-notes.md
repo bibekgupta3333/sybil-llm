@@ -1,7 +1,7 @@
 # Encoder study notes — TimesNet, benign + GridSybil trial (T = 64)
 
 Written 2026-10-07. Study notes for the encoder built (not trained) in
-[`src/model/benign_gridsybil/timesnet_encoder_T64.ipynb`](../../src/model/benign_gridsybil/timesnet_encoder_T64.ipynb).
+[`src/model/benign_gridsybil/encoder_T64.ipynb`](../../src/model/benign_gridsybil/encoder_T64.ipynb).
 Every number below comes from that notebook's code and outputs; nothing has been trained, so there are **no model
 results** here. Input data: [`stage1-preprocessing-feature-engineering.md`](stage1-preprocessing-feature-engineering.md).
 Plan: [`clarification.md`](clarification.md) and the WBS [`stage1-ssl-wbs.md`](stage1-ssl-wbs.md).
@@ -11,13 +11,13 @@ real. A token embedding turns each message into a 128-number vector. Four TimesB
 strongest rhythms (periods) with an FFT over its real rows. Each block folds the sequence into a 2-D grid per period,
 runs small 2-D convolutions and mixes the results. Out come `H` (one vector per message, 64 × 128) and `z` (one vector
 per window, 128, the average over real rows only). The mask is applied at every stage, so padding never changes the
-output. The model has 2,301,312 parameters. Stage 1 will train it without attack labels.
+output. The model has 2,301,312 parameters (d = 128, d_ff = 64; decision D12). Pretraining will train it without attack labels.
 
 ## Contents
 
 - [The encoder from the ground up](#the-encoder-from-the-ground-up)
 - [Masking inside the model, and the checks that prove it works](#masking-inside-the-model-and-the-checks-that-prove-it-works)
-- [How Stage 1 will use the encoder, what is built and what is not](#how-stage-1-will-use-the-encoder-what-is-built-and-what-is-not)
+- [How pretraining will use the encoder, what is built and what is not](#how-pretraining-will-use-the-encoder-what-is-built-and-what-is-not)
 
 
 ## The encoder from the ground up
@@ -33,10 +33,10 @@ window of messages a receiver heard on one link and returns two things:
   physics heads and the contrastive loss read z, and in the end z is the window's representation for probes and
   few-shot detection.
 
-Here d = `d_model` = 128. We **pretrain** the encoder without attack labels (Stage 1) because labels are scarce.
+Here d = `d_model` = 128. We **pretrain** the encoder without attack labels (self-supervised pretraining) because labels are scarce.
 The idea is that an encoder that has learned what normal, physically plausible motion looks like should need
 only a few labelled examples to separate Sybil traffic later. The notebook
-(`src/model/benign_gridsybil/timesnet_encoder_T64.ipynb`) builds and inspects this encoder; **it trains nothing**
+(`src/model/benign_gridsybil/encoder_T64.ipynb`) builds and inspects this encoder; **it trains nothing**
 (no optimizer, no backward pass) and never opens the `_info.json` label files.
 
 ### The input: 64 rows × 13 features + a mask
@@ -157,8 +157,8 @@ B = 256, T = 64, d = 128, d_ff = 64, k = 3.
 | + positions, dropout, × mask | (B, 64, 128) | embedding output |
 | **TimesBlock**: period finder | periods (B, 3) long, weights (B, 3) | per window, real rows only |
 | fold, one period p | (b, 64, 128) → (b, 128, ⌈64/p⌉, p) | b = windows sharing that period |
-| Inception 128 → 64, GELU | (b, 64, ⌈64/p⌉, p) | |
-| Inception 64 → 128 | (b, 128, ⌈64/p⌉, p) | |
+| Inception 128 → 64, GELU | (b, 64, ⌈64/p⌉, p) | bottleneck, e.g. (64, 5, 14) at p = 14 |
+| Inception 64 → 128 | (b, 128, ⌈64/p⌉, p) | back to d |
 | unfold, cut to 64 | (b, 64, 128) | |
 | stack the 3 slots | (B, 64, 128, 3) | |
 | softmax mix + residual, × mask | (B, 64, 128) | |
@@ -175,19 +175,22 @@ B = 256, T = 64, d = 128, d_ff = 64, k = 3.
 | each TimesBlock | 574,016 | two Inception layers, see below |
 | 4 blocks | 2,296,064 | |
 | LayerNorm | 256 | 128 scales + 128 shifts |
-| **encoder total** | **2,301,312** | F9 target 2.30M, gap +0.057% |
+| **encoder total** | **2,301,312** | D12, exact match in the notebook and `train.py --check` |
 
-Per block: kernels 1×1 + 3×3 + 5×5 have 1 + 9 + 25 = 35 weights per channel pair. The first Inception has
-128 · 64 · 35 = 286,720 weights + 3 · 64 = 192 biases; the second has 64 · 128 · 35 = 286,720 + 3 · 128 = 384
-biases. Sum: 574,016.
+Per block: kernels 1×1 + 3×3 + 5×5 have 1 + 9 + 25 = 35 weights per channel pair. Inception 128 → 64 has
+64 · 128 · 35 = 286,720 weights + 3 · 64 = 192 biases = 286,912; Inception 64 → 128 has 128 · 64 · 35 = 286,720
+weights + 3 · 128 = 384 biases = 287,104. Sum: 574,016.
+About 71% of these weights (25 of 35) sit in the 5×5 kernels.
 
-Why the bottleneck **d_ff = 64**: almost every parameter sits in these 2-D convolutions, and their size grows
-with `d × d_ff`. WBS finding F9 counted that with d_ff = d and the reference's 6 kernels, d = 128 / 256 / 512
-gives 37.5M / 150M / 600M parameters — far too many for roughly 18k vehicle identities. With d_ff fixed at 64
-and 3 kernels the encoder is 2.30M / 4.60M / 9.20M, so it grows only linearly with d across the planned sweep.
+Why **d = 128 with a d_ff = 64 bottleneck** (decision D12, 2026-10-08): it is the professor's plan. Almost every
+parameter sits in these 2-D convolutions, and their size grows with `d × d_ff`, so d_ff = 64 halves the convolution
+weights compared with d_ff = 128 (2.30M vs 4.60M). A smaller encoder has less room to overfit the ~5.7k sender
+vehicles and runs faster. (WBS F9 had counted 37.5M / 150M / 600M at d = 128 / 256 / 512 with d_ff = d and the
+reference's 6 kernels.) D12 supersedes D10 (d_ff = d = 128, 4,595,840) and D11 (d = 512). d_ff = 128 is the first
+ablation if the model underfits; d = 256 / 512 are later ablations, chosen only by evidence.
 
-The notebook also defines (untrained) heads on top: reconstruction 18,189, physics 24,963, projection 33,024, for
-2,377,488 in total. They are dropped after pretraining; only the encoder is kept (Section C).
+The (untrained) heads on top: reconstruction 18,189, physics 49,923, projection 33,024 (101,136), for
+2,402,448 in total with the encoder. They are dropped after pretraining; only the encoder is kept (Section C).
 
 ---
 
@@ -273,7 +276,8 @@ tests.
 | Classifier multiplies by the padding mask, then **flattens** (T·d) | **Masked mean** → z (d) | The plan calls for an average-pooled z, and a mean over real rows does not scale with length. |
 
 The parts that are kept: Inception kernels 1×1/3×3/5×5 (`Inception_Block_V1`, MIT licence), the d → d_ff → d
-bottleneck with GELU, softmax mixing of the k results by amplitude, the residual, the shared LayerNorm, and
+Inception pair with GELU (here d = 128 → d_ff = 64 → 128, the plan's bottleneck; D12), softmax mixing of the k results by amplitude,
+the residual, the shared LayerNorm, and
 the kernel-3 token convolution without bias.
 
 ### The checks, and what each one proves
@@ -284,11 +288,11 @@ All checks run on CPU in eval mode (dropout off), float32, on the seeded demo ba
 | # | Check | Result | What it proves |
 |---|---|---|---|
 | 1 | Fill padding rows with random values (×10), compare H at real rows and z | max \|ΔH\| = 0, max \|Δz\| = 0 | The values stored in padding have no effect at all. (Their *position* still has an effect; see limitations.) |
-| 2 | Shortest, median and longest window run alone vs inside the batch | max \|Δz\| = 7.2e-7 | Per-window periods work: batch neighbours do not change a window's output, apart from float rounding. |
+| 2 | Shortest, median and longest window run alone vs inside the batch | max \|Δz\| ≤ 1e-6 | Per-window periods work: batch neighbours do not change a window's output, apart from float rounding. |
 | 3 | NaN / Inf in H, z, recon, proj and the 3 physics logits | none (7 tensors) | The forward pass is numerically sound, including 1-row windows. |
 | 4 | Build the model twice with seed 0 | max \|Δz\| = 0 | Fully reproducible weights and outputs (RULE 4). |
 | 5 | Masked mean of [2, 4, 6, pad, pad] | 4.0 (plain 2.4) | Pooling ignores padding. |
-| 6 | Same forward on CPU and Apple GPU (MPS) | CPU ≈ 1.46 s, MPS ≈ 0.32 s per 256 windows; \|Δz\| = 1.7e-6 | The GPU gives the same answer about 4.6× faster. |
+| 6 | Same forward on CPU and Apple GPU (MPS) | \|Δz\| ≈ 1.4e-6 | The GPU gives the same answer. |
 | 7 | Correlation of ‖z‖ with the real-row count | Spearman −0.24 (Pearson −0.17) | Measured only, no pass/fail. Length is still visible to an untrained encoder. |
 
 The period diagnostic (S1.2.6) adds one more number. **23.7% of all period slots** in the batch fall back to
@@ -318,22 +322,22 @@ periods in blocks 1–3 than in block 0.
 
 ---
 
-## How Stage 1 will use the encoder, what is built and what is not
+## How pretraining will use the encoder, what is built and what is not
 
 ### Three heads on top of the encoder
 
 The encoder on its own only turns a window into numbers: `H` (B, 64, 128), one vector per message, and `z`
-(B, 128), one vector per window. Stage 1 teaches it **without attack labels** by giving it three jobs. Each job has
+(B, 128), one vector per window. Pretraining teaches it **without attack labels** by giving it three jobs. Each job has
 its own small network ("head") on top of the encoder. After pretraining the heads are thrown away and only the
 encoder is kept.
 
 | Head | Reads | Layers | Output | Parameters | What it will learn |
 |---|---|---|---|---|---|
 | `ReconstructionHead` | `H` (B, 64, 128) | Linear 128→128, GELU, Linear 128→13, applied to every row | `recon` (B, 64, 13) | 18,189 | rebuild the features of messages we hid |
-| `PhysicsHeads` (3 MLPs) | `z` (B, 128) | per head: Linear 128→64, GELU, Linear 64→1 | 3 logits, each (B,): `p1_speed_jump`, `p2_speed_scaled`, `p3_sharp_turn` | 24,963 (3 × 8,321) | "did *we* inject this kind of violation into the window?" |
+| `PhysicsHeads` (3 MLPs) | `z` (B, 128) | per head: Linear 128→128, GELU, Linear 128→1 | 3 logits, each (B,): `p1_speed_jump`, `p2_speed_scaled`, `p3_sharp_turn` | 49,923 (3 × 16,641) | "did *we* inject this kind of violation into the window?" |
 | `ProjectionHead` | `z` (B, 128) | Linear 128→128, ReLU, Linear 128→128, then scaled to length 1 | `proj` (B, 128) | 33,024 | map two views of the same window close together |
 
-Totals measured in the notebook: encoder 2,301,312 + heads 76,176 = **2,377,488** parameters. The full model class
+Totals: encoder 2,301,312 + heads 101,136 = **2,402,448** parameters (2,402,461 with the 13-number mask token). The full model class
 is `RoadFMLite`; `forward(x, mask)` returns a dict with `H`, `z`, `recon`, `physics`, `proj`.
 
 The physics heads follow decision D4. Their target is a flag we create ourselves: with probability 0.5 a window gets
@@ -427,7 +431,7 @@ bookkeeping only and never an input. Physics heads learn our own injection flag.
 of the same window. Checkpoints will be chosen with label-free measures. Labels are used only for evaluation.
 
 **What proves it works?** So far only that the plumbing is correct: padding ignored (Δ = 0), a window alone vs. in
-the batch agrees to 7.2e-7, no NaN/Inf, same seed → identical output, CPU vs MPS agree to 1.7e-6. Whether the
+the batch agrees to ≤ 1e-6, no NaN/Inf, same seed → identical output, CPU vs MPS agree to ~1.4e-6. Whether the
 representation is *useful* is not shown yet. That needs training and then frozen-encoder probes (S1.4.1) that
 beat both TimesNet trained from scratch and the length-only baseline (AUC 0.531). Untrained, ‖z‖ already correlates
 with the number of real rows (Spearman −0.24), so the length check matters.

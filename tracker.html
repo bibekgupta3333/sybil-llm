@@ -204,7 +204,7 @@
 <body>
 
 <h1>RoadFM-Lite Research Tracker</h1>
-<p class="subtitle">Self-Supervised Trajectory Foundation Model for Sybil Attack Detection — VeReMi-Extension · Master's Thesis, Florida Polytechnic University · Stage 1 in progress (TimesNet SSL; first trial on benign + GridSybil), Stage 2 deferred</p>
+<p class="subtitle">Self-Supervised Trajectory Foundation Model for Sybil Attack Detection — VeReMi-Extension · Master's Thesis, Florida Polytechnic University · self-supervised pretraining in progress (TimesNet SSL; first trial on benign + GridSybil), few-shot fine-tuning deferred</p>
 
 <!-- Core Objective Banner -->
 <div style="max-width:1400px; width:100%; background:linear-gradient(135deg, #DBEAFE, #EDE9FE); border:1px solid #E2E8F0; border-left:4px solid #2563EB; border-radius:10px; padding:20px 28px; margin-bottom:28px;">
@@ -214,7 +214,7 @@
     <strong style="color:#2563EB;">pretraining a TimesNet encoder on network-heard pseudonym sequences without attack labels</strong>, using three
     self-supervised objectives (masked reconstruction, physics heads P1–P3 that detect violations we inject, and SimCLR-style contrastive learning
     with grid-cell hard negatives), then measuring how well the frozen encoder detects attacks and how
-    <strong style="color:#16A34A;">few labels it needs (Stage 2 few-shot) and whether it transfers 0709 ↔ 1416</strong>.
+    <strong style="color:#16A34A;">few labels it needs (few-shot fine-tuning) and whether it transfers 0709 ↔ 1416</strong>.
   </div>
   <div style="display:flex; gap:20px; margin-top:12px; font-size:12px; color:#475569; flex-wrap:wrap;">
     <span><span style="color:#2563EB;">■</span> network-heard sequences of T = 64 messages × 13 features (1 Hz)</span>
@@ -223,9 +223,9 @@
     <span><span style="color:#8B5CF6;">■</span> label efficiency is the headline claim</span>
   </div>
   <div style="margin-top:10px; font-size:12px; color:#475569;">
-    Adopted plan (2026-10-05): <a href="stage1-plan.html">stage1-plan.html</a> (interactive Stage 1/2 WBS) ·
+    Adopted plan (2026-10-05): <a href="stage1-plan.html">stage1-plan.html</a> (interactive pretraining / fine-tuning WBS) ·
     <code>docs/plan/clarification.md</code> (the plan and what changed) · <code>docs/plan/stage1-ssl-wbs.md</code> (findings F1–F10, decisions D1–D9).
-    TCP is dropped; the Transformer stays as an ablation.
+    TCP is dropped; TimesNet only in the code (D11; a Transformer can return later as an ablation).
   </div>
   <div style="margin-top:8px; font-size:12px; color:#475569;">
     <strong style="color:#0F172A;">Scope of the current work (2026-10-07):</strong> benign + GridSybil is the first trial of the whole
@@ -298,7 +298,7 @@
         <td style="text-align:left;">The three label-free objectives are specified (masked reconstruction with random 25% / block 20–30% masks;
         P1–P3 injected-violation heads at p = 0.5; InfoNCE with physically consistent augmentations and 50 m grid-cell hard
         negatives) plus label-free checkpoint selection. The TimesNet encoder exists with <strong>untrained</strong> heads and loss
-        definitions (reconstruction, P1–P3, projection + NT-Xent) in <code>src/model/benign_gridsybil/timesnet_encoder_T64.ipynb</code>; the violation injectors, augmentations,
+        definitions (reconstruction, P1–P3, projection + NT-Xent) in <code>src/model/benign_gridsybil/encoder_T64.ipynb</code>; the violation injectors, augmentations,
         joint loss and training loop are not built, and <strong>nothing has been trained</strong>. The v1 pilot does not count: its
         TCP never saw a corruption (F2), so it was MTR-only, and TCP is now dropped (D5).</td>
         <td class="src" style="text-align:left;">S1.3.A/P/C → S1.3.J1–J3 (training)</td>
@@ -319,7 +319,7 @@
         <td style="text-align:left;">The v1 pilot numbers in <code>models/results/results_summary.json</code> stay as history but are
         <strong style="color:#DC2626;">invalid as evidence</strong>: the split leaks across the 4 attack scenarios (F1), the
         pretraining was MTR-only (F2), it is a single unseeded run, and 5.16% of its training windows carry the GridSybil_0709
-        windowing defect. Stage 1 detection evidence will come from linear + kNN probes on the frozen encoder, with per-family
+        windowing defect. Pretraining detection evidence will come from linear + kNN probes on the frozen encoder, with per-family
         recall reported, on the new split (now executed).</td>
         <td class="src" style="text-align:left;">S1.3 (training) → S1.4.1, S1.4.2</td>
       </tr>
@@ -327,7 +327,7 @@
         <td style="text-align:left;"><strong>Foundation Model</strong></td>
         <td style="text-align:left;"><span class="pill pill-blocked">UNEVIDENCED</span></td>
         <td style="text-align:left;">"Foundation model" is a transfer claim: the pretrained TimesNet must beat the same TimesNet trained from
-        scratch, on the same splits and seeds. The encoder architecture exists (2,301,312 parameters, untrained), but no pretrained
+        scratch, on the same splits and seeds. The encoder architecture exists (2,301,312 parameters, d = 128, d_ff = 64, D12, untrained), but no pretrained
         checkpoint and no from-scratch control run exist yet.
         <code>models/roadfm_lite_pretrained.pt</code> is the v1 Transformer and does not count (F1, F2).</td>
         <td class="src" style="text-align:left;">S1.4.5 (from-scratch control)</td>
@@ -335,11 +335,11 @@
       <tr>
         <td style="text-align:left;"><strong>Few-Shot / Zero-Shot</strong></td>
         <td style="text-align:left;"><span class="pill pill-blocked">UNEVIDENCED</span></td>
-        <td style="text-align:left;">The protocol is defined and <strong>deferred to Stage 2</strong>: supervised contrastive fine-tuning on
+        <td style="text-align:left;">The protocol is defined and <strong>deferred to few-shot fine-tuning</strong>: supervised contrastive fine-tuning on
         A16 GridSybil, A18 DoSRandom, A19 DoSDisruptive + benign with n ∈ {10, 20, 30, 50} per class (≥ 5 support sets each),
         A17 DataReplay held out for zero-shot, then a memory bank + FAISS kNN with K and θ chosen on val and the test set used
-        once. Nothing implemented or run. Stage 1 can give early signals only (label-free anomaly score, S1.4.4).</td>
-        <td class="src" style="text-align:left;">Stage 2 (S2.0–S2.3) after S1.4.1</td>
+        once. Nothing implemented or run. Pretraining can give early signals only (label-free anomaly score, S1.4.4).</td>
+        <td class="src" style="text-align:left;">Fine-tuning (S2.0–S2.3) after S1.4.1</td>
       </tr>
       <tr>
         <td style="text-align:left;"><strong>Cross-Scenario Transfer</strong></td>
@@ -360,7 +360,7 @@
     are all comparative. The new group-aware split is executed, so the next thing that unblocks the most is the
     <strong>from-scratch TimesNet control (S1.4.5)</strong>, without which no pretraining number means anything.
     <br><br>
-    <strong style="color:#0F172A;">What comes next.</strong> The student reads the encoder notebook (<code>src/model/benign_gridsybil/timesnet_encoder_T64.ipynb</code>);
+    <strong style="color:#0F172A;">What comes next.</strong> The student reads the encoder notebook (<code>src/model/benign_gridsybil/encoder_T64.ipynb</code>);
     no training starts until they say so. Then S1.3 objectives + training loop, S1.4 frozen-encoder evaluation, and finally all attack types.
   </div>
 </div>
@@ -368,13 +368,13 @@
 <!-- Hypotheses banner -->
 <div class="hypothesis-banner">
   <div class="hypothesis-row">
-    <div><span style="color:#16A34A;font-weight:700;">▲</span> <strong>H1</strong>: Stage 1 pretraining &gt; the same TimesNet trained from scratch (main comparison, S1.4.5)</div>
-    <div><span style="color:#2563EB;font-weight:700;">▲</span> <strong>H2</strong>: advantage largest under label scarcity (Stage 2, n = 10/20/30/50 per class; early few-shot probes in Stage 1)</div>
+    <div><span style="color:#16A34A;font-weight:700;">▲</span> <strong>H1</strong>: self-supervised pretraining &gt; the same TimesNet trained from scratch (main comparison, S1.4.5)</div>
+    <div><span style="color:#2563EB;font-weight:700;">▲</span> <strong>H2</strong>: advantage largest under label scarcity (few-shot fine-tuning, n = 10/20/30/50 per class; early few-shot probes during pretraining)</div>
     <div><span style="color:#DC2626;font-weight:700;">▲</span> <strong>H3</strong>: pretraining shrinks the 0709 ↔ 1416 transfer gap (time of day removed from inputs)</div>
     <div><span style="color:#8B5CF6;font-weight:700;">▲</span> <strong>H4</strong>: each part contributes (ablations: −P heads, −InfoNCE, −hard negatives, Transformer encoder, T = 64 vs 128)</div>
   </div>
   <div class="hypothesis-footer">
-    Physics heads are named P1–P3 to avoid clashing with H1–H4 · T = 64 × 13 features at 1 Hz · TimesNet 4 blocks, d_ff = 64, d ∈ {128, 256, 512} · Stage 1: 38 tasks ≈ 44.6 d · Stage 2: 9 tasks ≈ 14.5 d (deferred) · plan: <a href="stage1-plan.html">stage1-plan.html</a>
+    Physics heads are named P1–P3 to avoid clashing with H1–H4 · T = 64 × 13 features at 1 Hz · TimesNet 4 blocks, d = 128, d_ff = 64 (D12; d_ff = 128 and d = 256 / 512 are ablations on evidence) · pretraining (S1.x): 38 tasks ≈ 44.6 d · fine-tuning (S2.x): 9 tasks ≈ 14.5 d (deferred) · plan: <a href="stage1-plan.html">stage1-plan.html</a>
   </div>
 </div>
 
@@ -470,24 +470,24 @@
 
   <!-- Column 2: Model -->
   <div class="column" style="grid-column: 2;">
-    <div class="column-title col-title-model">RoadFM-Lite — TimesNet, Stage 1 → Stage 2</div>
+    <div class="column-title col-title-model">RoadFM-Lite — TimesNet, pretraining → few-shot fine-tuning</div>
 
     <div class="box box-highlight">
       <span class="tag tag-llm">Encoder</span>
       <div class="box-label">TimesNet encoder — the transferable asset</div>
       <div class="box-desc">
         <span class="badge">in</span>13 features → token embedding + position (no time-of-day embedding)<br>
-        <span class="badge">arch</span>4 TimesBlocks: FFT → top-3 periods per sample → 2-D Inception (3 kernels, d_ff = 64) → weighted sum<br>
+        <span class="badge">arch</span>4 TimesBlocks: FFT → top-3 periods per sample → 2-D Inception (3 kernels, d = 128, d_ff = 64: 128 → 64 → 128 bottleneck) → weighted sum<br>
         <span class="badge">out</span>H (per-step) and z (average pooled)<br>
-        <span class="badge">size</span>d ∈ {128, 256, 512} → 2.3M / 4.6M / 9.2M params; built at d = 128: 2,301,312 params<br>
+        <span class="badge">size</span>main model d = 128, d_ff = 64 (D12, the professor's plan): 2,301,312 params (2,402,448 with the heads); d ∈ {128, 256, 512} → 2.30M / 4.60M / 9.20M with d_ff = 64<br>
         <span class="badge">mask</span>periods from an FFT over each window's real rows only; block outputs × mask; z = masked mean
       </div>
       <div class="r2-status"><span class="pill pill-partial">built · untrained</span></div>
-      <div class="box-desc" style="margin-top:4px;"><code>src/model/benign_gridsybil/timesnet_encoder_T64.ipynb</code> — checks pass (padding changes nothing, same seed → same output, CPU vs MPS |Δz| 1.7e-6).</div>
+      <div class="box-desc" style="margin-top:4px;"><code>src/model/benign_gridsybil/encoder_T64.ipynb</code> — checks pass (padding changes nothing, same seed → same output, CPU vs MPS |Δz| ~1.4e-6, params exact 2,301,312 at d = 128, d_ff = 64, D12).</div>
     </div>
 
     <div class="arrow">↓</div>
-    <div class="arrow-label">Stage 1 pretraining — no attack labels</div>
+    <div class="arrow-label">Self-supervised pretraining — no attack labels</div>
 
     <div class="r2-row">
       <div class="box" style="background:#F0FDF4;">
@@ -520,17 +520,17 @@
     <div class="arrow-label">heads discarded → encoder kept</div>
 
     <div class="box" style="border-style:dashed;">
-      <span class="tag tag-env">Stage 2</span>
+      <span class="tag tag-env">Fine-tuning</span>
       <div class="box-label">Few-shot fine-tuning + anomaly score</div>
-      <div class="box-desc">Supervised contrastive fine-tuning from the Stage 1 checkpoint (LR = Stage 1 LR / 10). Unlabeled memory bank + FAISS kNN anomaly score.</div>
-      <div class="r2-status"><span class="pill pill-todo">deferred · after Stage 1</span></div>
+      <div class="box-desc">Supervised contrastive fine-tuning from the pretrained checkpoint (LR = pretraining LR / 10). Unlabeled memory bank + FAISS kNN anomaly score.</div>
+      <div class="r2-status"><span class="pill pill-todo">deferred · after pretraining</span></div>
     </div>
 
     <div class="arrow">↓</div>
 
     <div class="box" style="border-color:#F97316; background:#FFEDD5;">
       <div class="box-label" style="color:#C2410C;">The critical control</div>
-      <div class="box-desc">The <strong>same TimesNet trained from scratch</strong> on the same splits and seeds. Every pretraining claim is a Δ against it. Plus a Transformer encoder under the same SSL as an ablation. No run of either exists yet.</div>
+      <div class="box-desc">The <strong>same TimesNet trained from scratch</strong> on the same splits and seeds. Every pretraining claim is a Δ against it. A Transformer encoder under the same SSL is a possible ablation (removed from the code for now, D11). No run exists yet.</div>
     </div>
 
     <div class="box r2-muted" style="text-align:center;">
@@ -589,7 +589,7 @@
   </style>
 
   <p style="font-size:13px;color:var(--text-secondary);">Two preps exist. The <strong>v1 prep</strong> is on disk and fed the pilot (history only).
-  The <strong>adopted prep (Stage 1)</strong> replaces it for every thesis number; it is built, and its encoder input exists for the benign + GridSybil trial.</p>
+  The <strong>adopted prep (pretraining)</strong> replaces it for every thesis number; it is built, and its encoder input exists for the benign + GridSybil trial.</p>
 
   <div class="r3a-panels">
     <div class="r3a-panel r3a-old">
@@ -603,7 +603,7 @@
       </ul>
     </div>
     <div class="r3a-panel r3a-new">
-      <h4>Adopted prep (Stage 1) <span class="pill pill-ready">BUILT</span></h4>
+      <h4>Adopted prep (pretraining) <span class="pill pill-ready">BUILT</span></h4>
       <div style="font-size:12px;color:var(--text-muted);">Receiver view, T = 64 × 13 + mask · <code>src/data/prepared_data/</code> → <code>src/data/encoder_input/benign_gridsybil/T64/</code></div>
       <ul>
         <li>One sample = up to 64 messages of one link, padded to 64 with a mask; every received copy kept</li>
@@ -616,7 +616,7 @@
 
   <h3>Side by side</h3>
   <table class="metrics-table" style="font-size:11px;">
-    <thead><tr><th style="text-align:left;">Aspect</th><th style="text-align:left;">Current prep (v1)</th><th style="text-align:left;">Adopted prep (Stage 1)</th></tr></thead>
+    <thead><tr><th style="text-align:left;">Aspect</th><th style="text-align:left;">Current prep (v1)</th><th style="text-align:left;">Adopted prep (pretraining)</th></tr></thead>
     <tbody>
       <tr><td>Sample unit</td><td style="text-align:left;">sender trajectory from ground-truth logs</td><td style="text-align:left;">link in the receiver's view; each message is heard by a median 3 (1416) or 6 (0709) receivers, every copy kept (D1′)</td></tr>
       <tr><td>Length</td><td style="text-align:left;">20 messages, stride 10</td><td style="text-align:left;">T = 64 messages (≈ 64 s): crop at 64, pad to 64 + mask (71% padding rows); T = 24 as an ablation</td></tr>
@@ -715,8 +715,8 @@
     <strong>89.7% of benign test identities (2,283 / 2,546) have a near-copy in train.</strong> This is why the adopted prep uses a new split.
   </div>
 
-  <!-- ===================== Adopted prep (Stage 1) ===================== -->
-  <h3>Adopted prep (Stage 1) — receiver view, T = 64 + mask <span class="pill pill-ready">BUILT</span></h3>
+  <!-- ===================== Adopted prep (pretraining) ===================== -->
+  <h3>Adopted prep (pretraining) — receiver view, T = 64 + mask <span class="pill pill-ready">BUILT</span></h3>
   <div class="r3a-sub">Built: <code>src/pipeline/input_representation.ipynb</code> (all scenarios) and <code>src/pipeline/benign_gridsybil/encoder_input_T64.ipynb</code> (benign + GridSybil). S1.1.2–S1.1.5 done, S1.1.6 partly (length probe only) — see <a href="stage1-plan.html">stage1-plan.html</a>. Full description: <code>docs/plan/stage1-preprocessing-feature-engineering.md</code>.</div>
 
   <div class="data-flow">
@@ -1202,9 +1202,9 @@
         <h3>Likely questions — one-line answers</h3>
         <table class="mini">
           <tr><th style="width:38%;">Question</th><th>Answer</th></tr>
-          <tr><td>You say no labels — where do labels appear at all?</td><td>Stage 1 reads no attack label: its only labels are the violations we inject ourselves (P1–P3). Attack labels score the frozen encoder (probes, AUROC) and, in Stage 2, fit n ∈ {10, 20, 30, 50} examples per class.</td></tr>
+          <tr><td>You say no labels — where do labels appear at all?</td><td>Pretraining reads no attack label: its only labels are the violations we inject ourselves (P1–P3). Attack labels score the frozen encoder (probes, AUROC) and, in few-shot fine-tuning, fit n ∈ {10, 20, 30, 50} examples per class.</td></tr>
           <tr><td>Doesn't pretraining on attack windows teach the model that attacks are normal?</td><td>It sees them as sequences, yes. Detection rests on <em>physical consistency</em>: P1–P3 learn what injected violations look like, and augmentations are kept physically consistent so the encoder is not trained to ignore attack artifacts (sensitivity probe S1.3.C5).</td></tr>
-          <tr><td>What is the zero-shot protocol?</td><td>A memory bank of <em>unlabeled</em> training embeddings; score = mean cosine similarity to the K nearest; K and θ chosen on val, test read once. A17 DataReplay is held out of Stage 2 training. (A benign-only bank would need labels.)</td></tr>
+          <tr><td>What is the zero-shot protocol?</td><td>A memory bank of <em>unlabeled</em> training embeddings; score = mean cosine similarity to the K nearest; K and θ chosen on val, test read once. A17 DataReplay is held out of fine-tuning. (A benign-only bank would need labels.)</td></tr>
           <tr><td>Why TimesNet, and not a transformer?</td><td>The advisor's plan: FFT periods + 2-D convolutions over T = 64 messages. Vehicle motion is mostly aperiodic, so the Transformer with the same inputs, outputs and pretraining is run as an ablation — that comparison answers whether the period modelling helps.</td></tr>
           <tr><td>How will you handle imbalance without labels?</td><td>You can't in pretraining — and needn't. Windows are padded to 64 with a mask, so masked pooling cannot see the length (length alone: AUC 0.531); imbalance is controlled at the head (balanced probe, n per class) and in metrics (macro-F1, per-class recall).</td></tr>
           <tr><td>Which family will be hardest?</td><td>DataReplay (rarest, small offsets, rotating pseudonyms that rarely reach T = 64 — a documented blind spot). DoSDisruptive's timing signature is now covered by the log-Δτ input and its reconstruction target.</td></tr>
@@ -1215,7 +1215,7 @@
       <!-- 17 -->
       <section class="slide" data-title="Decisions">
         <div class="slide-kicker">Close · adopted decisions</div>
-        <h3>Nine decisions, all adopted 2026-10-05</h3>
+        <h3>Twelve decisions (D1–D9 adopted 2026-10-05; D10–D12 on 2026-10-08)</h3>
         <table class="mini">
           <tr><th>#</th><th>Decision</th><th>Status</th></tr>
           <tr><td class="n">D1</td><td>Network-heard pseudonym sequences, T = 64 (128 sensitivity), fixed length, no padding</td><td>Adopted 2026-10-05; revised 2026-10-06 (D1′: receiver view, links cropped at 64, padded + mask)</td></tr>
@@ -1226,14 +1226,17 @@
           <tr><td class="n">D6</td><td>Hard negatives: same 50 m grid cell, same group, different pseudonym, |Δt| ≥ 10 min</td><td>Adopted 2026-10-05</td></tr>
           <tr><td class="n">D7</td><td>Normalised losses, small λ2 sweep + one automatic weighting run, label-free checkpoint selection</td><td>Adopted 2026-10-05</td></tr>
           <tr><td class="n">D8</td><td>New split by (time window, physical vehicle) across the 4 scenarios</td><td><strong>Adopted 2026-10-05 — RULE 3 split change, executed 2026-10-06</strong></td></tr>
-          <tr><td class="n">D9</td><td>Deviation from <code>proposal/main.tex</code> accepted; Transformer kept as an ablation</td><td>Adopted 2026-10-05</td></tr>
+          <tr><td class="n">D9</td><td>Deviation from <code>proposal/main.tex</code> accepted; Transformer kept as an ablation (removed from the code for now, D11)</td><td>Adopted 2026-10-05</td></tr>
+          <tr><td class="n">D10</td><td>TimesNet d_ff = d = 128, no bottleneck (4,595,840 params); P1–P3 heads hidden width d (128 → 128 → 1)</td><td>2026-10-08; width part superseded by D12 (head width still in force)</td></tr>
+          <tr><td class="n">D11</td><td>d = 512 (73,433,600 params); TimesNet only in the code</td><td>2026-10-08; d = 512 superseded by D12 (TimesNet-only still in force)</td></tr>
+          <tr><td class="n">D12</td><td>Main model d = 128, d_ff = 64 (the professor's plan): encoder 2,301,312 params, 2,402,448 with the heads; d_ff = 128 and d = 256 / 512 are ablations chosen only by evidence</td><td><strong>Decided 2026-10-08 (student)</strong></td></tr>
         </table>
         <div class="three-col" style="margin-top:10px;">
-          <div class="card good"><div class="card-title">Delivered</div>Phase 1: 7/7 tasks · 7 notes · audit script · QA cells · taxonomy figure. Planning: decision record, P1–P3 rename, Stage 1 WBS, clarification note.</div>
+          <div class="card good"><div class="card-title">Delivered</div>Phase 1: 7/7 tasks · 7 notes · audit script · QA cells · taxonomy figure. Planning: decision record, P1–P3 rename, pretraining WBS, clarification note.</div>
           <div class="card"><div class="card-title">Sources</div><code>docs/plan/stage1-ssl-wbs.md</code> · <code>docs/plan/clarification.md</code> · <code>docs/research-notes/data_understanding/</code> · <code>results/figures/eda/</code></div>
           <div class="card warn"><div class="card-title">Figures to fix before the proposal</div><code>PROPOSAL_2</code> title says "message rate" but plots velocity; <code>PROPOSAL_3</code> axes say lat/lon but are planar metres.</div>
         </div>
-        <div class="researcher-note"><strong>Closing line:</strong> "The data shows attack physics without labels, but the old split leaked across scenarios and the old TCP never ran — so the v1 pilot is history, not evidence. Stage 1 starts with the leak audit and the encoder; the new receiver-centric prep and split wait on a data-write OK, and nothing is reported until it runs on that split."</div>
+        <div class="researcher-note"><strong>Closing line:</strong> "The data shows attack physics without labels, but the old split leaked across scenarios and the old TCP never ran — so the v1 pilot is history, not evidence. Pretraining starts with the leak audit and the encoder; the new receiver-centric prep and split wait on a data-write OK, and nothing is reported until it runs on that split."</div>
       </section>
 
 
@@ -1335,7 +1338,7 @@
       <li><strong>F2 — TCP labels are all zero.</strong> No corruption was ever applied, so the pretraining was MTR-only; mask positions
         were shared across each batch; no seed was recorded.</li>
     </ul>
-    <strong>The thesis results will come from the adopted plan</strong> — Stage 1 probes (S1.4) on the new
+    <strong>The thesis results will come from the adopted plan</strong> — pretraining probes (S1.4) on the new
     (time window, physical vehicle) split. See <a href="stage1-plan.html">stage1-plan.html</a>.
   </div>
 
@@ -1402,12 +1405,12 @@
     <span class="pill pill-partial">PARTIAL</span> exists but incomplete or superseded-pending ·
     <span class="pill pill-todo">TODO</span> not started ·
     <span class="pill pill-blocked">BLOCKED</span> waiting on an upstream task ·
-    <span class="pill pill-superseded">SUPERSEDED</span> replaced by a Stage 1 task of the adopted plan (excluded from the % below).
+    <span class="pill pill-superseded">SUPERSEDED</span> replaced by a pretraining task (S1.x) of the adopted plan (excluded from the % below).
   </p>
   <p style="font-size:11px; color:#475569; margin-top:6px;">
-    <strong>Adopted plan (2026-10-05):</strong> TimesNet SSL, Stage 1 now / Stage 2 deferred — mapping of old tasks from
-    <code>docs/plan/stage1-ssl-wbs.md</code> §3. <span class="r4-map">→ S1.x</span> names the Stage 1 task that replaces or
-    changes a row. Modified rows keep their historical status; their Stage 1 replacement is tracked in
+    <strong>Adopted plan (2026-10-05):</strong> TimesNet SSL, pretraining now / few-shot fine-tuning deferred — mapping of old tasks from
+    <code>docs/plan/stage1-ssl-wbs.md</code> §3. <span class="r4-map">→ S1.x</span> names the pretraining task that replaces or
+    changes a row. Modified rows keep their historical status; their pretraining replacement is tracked in
     <a href="stage1-plan.html">stage1-plan.html</a>. All v1 pilot numbers are invalid as evidence until the re-split
     (F1 cross-scenario leak, F2 TCP was a no-op).
   </p>
@@ -1416,7 +1419,7 @@
     <div class="stat-card"><div class="stat-val" style="color:#16A34A;">19</div><div class="stat-label">tasks done</div></div>
     <div class="stat-card"><div class="stat-val" style="color:#F59E0B;">12</div><div class="stat-label">partial</div></div>
     <div class="stat-card"><div class="stat-val" style="color:#475569;">34</div><div class="stat-label">todo / blocked</div></div>
-    <div class="stat-card"><div class="stat-val">38%</div><div class="stat-label">of 65 tasks (partial = 0.5; the 3 superseded rows 2.2, 3.1, 3.3 are excluded from the denominator; Stage 1/2 tasks are counted in stage1-plan.html, not here) — counted 2026-10-06</div></div>
+    <div class="stat-card"><div class="stat-val">38%</div><div class="stat-label">of 65 tasks (partial = 0.5; the 3 superseded rows 2.2, 3.1, 3.3 are excluded from the denominator; S1.x / S2.x tasks are counted in stage1-plan.html, not here) — counted 2026-10-06</div></div>
   </div>
 
   <!-- Phase 0 -->
@@ -1432,10 +1435,10 @@
       <tr><td class="num">0.6</td><td>Proposal document</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">proposal/main.tex + proposal-draft.md — Figure 1 placeholder pending (original ref was a 0-byte file)</td></tr>
       <tr><td class="num">0.7</td><td>Proposal presentation slides</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">proposal/thesis-proposal-presentation.html</td></tr>
       <tr><td class="num">0.8</td><td>Proposal defense &amp; committee approval</td><td><span class="pill pill-todo">TODO</span></td><td>Committee sign-off — the gate for everything downstream being "the thesis"</td></tr>
-      <tr><td class="num">0.9</td><td>Stage 1 / Stage 2 WBS for the adopted TimesNet SSL plan (F1–F10, 38 + 9 tasks, sweep plan)</td><td><span class="pill pill-ready">DONE</span></td><td class="src">docs/plan/stage1-ssl-wbs.md — from the adopted plan</td></tr>
+      <tr><td class="num">0.9</td><td>Pretraining / fine-tuning WBS (S1.x / S2.x) for the adopted TimesNet SSL plan (F1–F10, 38 + 9 tasks, sweep plan)</td><td><span class="pill pill-ready">DONE</span></td><td class="src">docs/plan/stage1-ssl-wbs.md — from the adopted plan</td></tr>
       <tr><td class="num">0.10</td><td>Corrected plan in the professor's format + what changed and why + Q&amp;A</td><td><span class="pill pill-ready">DONE</span></td><td class="src">docs/plan/clarification.md — from the adopted plan (sharing it with the professor is S1.0.1, still TODO)</td></tr>
-      <tr><td class="num">0.11</td><td>Interactive Stage 1/2 page (per-task ticks, plan review, diagrams)</td><td><span class="pill pill-ready">DONE</span></td><td class="src"><a href="stage1-plan.html">stage1-plan.html</a> — from the adopted plan</td></tr>
-      <tr><td class="num">0.12</td><td>Decision record D1–D9 (all adopted 2026-10-05) + task mapping</td><td><span class="pill pill-ready">DONE</span></td><td class="src">research-plan.md "Stage 1 plan" section — from the adopted plan (= S1.0.2). D8 re-split adopted and executed 2026-10-06; D9 deviation from main.tex accepted</td></tr>
+      <tr><td class="num">0.11</td><td>Interactive pretraining / fine-tuning page (per-task ticks, plan review, diagrams)</td><td><span class="pill pill-ready">DONE</span></td><td class="src"><a href="stage1-plan.html">stage1-plan.html</a> — from the adopted plan</td></tr>
+      <tr><td class="num">0.12</td><td>Decision record D1–D9 (all adopted 2026-10-05) + task mapping</td><td><span class="pill pill-ready">DONE</span></td><td class="src">research-plan.md pretraining plan section (formerly "Stage 1 plan") — from the adopted plan (= S1.0.2). D8 re-split adopted and executed 2026-10-06; D9 deviation from main.tex accepted</td></tr>
     </tbody>
   </table>
 
@@ -1480,7 +1483,7 @@
       <tr><td class="num">2.4</td><td><strong>SSL corruption suite</strong> — replay / shuffle / speed-scale / position-offset</td><td><span class="pill pill-todo">TODO</span></td><td><span class="r4-chg"><strong>Modified:</strong> splits into physically consistent contrastive augmentations (common-mode 3–5 m shift, time stretch ±5%, crop 80–100% by subsampling) and violation injectors for the P1–P3 heads (p = 0.5). The old TCP corruptions are dropped (D5).</span> <span class="r4-map">→ S1.3.C1 + S1.3.P1</span></td></tr>
       <tr><td class="num">2.5</td><td>Masking strategy for MTR (span vs random, ratio)</td><td><span class="pill pill-todo">TODO</span></td><td><span class="r4-chg"><strong>Modified:</strong> random exactly 25% of T, or one block of 20–30% of T, chosen per sample; learned mask token.</span> <span class="r4-map">→ S1.3.A1 / A2</span></td></tr>
       <tr><td class="num">2.6</td><td>Reproducible scripts/prepare_data.py — fixes the GridSybil_0709 splice</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">Written + 16 pytest (incl. a synthetic reproduction of the splice proving the fix: group key gains <code>sender</code>, disambiguating the <code>senderPseudo==1</code> collision). Not yet run against the real 13 GB dataset — needs go-ahead before writing data/prepared_data/ (CLAUDE.md rule 2). <span class="r4-chg">Kept; the pseudonym-1 handling is extended to the receiver logs.</span> <span class="r4-map">→ S1.1.4</span></td></tr>
-      <tr><td class="num">2.7</td><td>Group splits — no vehicle leakage across 0709/1416</td><td><span class="pill pill-ready">DONE</span></td><td class="src">idx_group_0709 (195,551) / idx_group_1416 (90,375), GroupShuffleSplit + asserts. <span class="r4-chg">Kept; for Stage 1 replaced by the new (time window, physical vehicle) split — RULE 3 change, executed 2026-10-06 in src/data/prepared_data/.</span> <span class="r4-map">→ S1.1.5</span></td></tr>
+      <tr><td class="num">2.7</td><td>Group splits — no vehicle leakage across 0709/1416</td><td><span class="pill pill-ready">DONE</span></td><td class="src">idx_group_0709 (195,551) / idx_group_1416 (90,375), GroupShuffleSplit + asserts. <span class="r4-chg">Kept; for pretraining replaced by the new (time window, physical vehicle) split — RULE 3 change, executed 2026-10-06 in src/data/prepared_data/.</span> <span class="r4-map">→ S1.1.5</span></td></tr>
     </tbody>
   </table>
 
@@ -1489,12 +1492,12 @@
   <table class="pt-table">
     <thead><tr><th style="width:52px;">ID</th><th>Task</th><th style="width:90px;">Status</th><th style="width:340px;">Artifact / note</th></tr></thead>
     <tbody>
-      <tr class="r4-sup"><td class="num">3.1</td><td>Architecture spec — document the running config exactly</td><td><span class="pill pill-superseded">SUPERSEDED</span></td><td class="src">was PARTIAL (Transformer, roadfm_lite_config.json). <span class="r4-chg">Replaced by the TimesNet encoder: 4 TimesBlocks, d_ff = 64, 3 kernels, top-3 per-sample periods, d ∈ {128, 256, 512}; Transformer kept as an ablation.</span> <span class="r4-map">→ S1.2.1–S1.2.5</span></td></tr>
+      <tr class="r4-sup"><td class="num">3.1</td><td>Architecture spec — document the running config exactly</td><td><span class="pill pill-superseded">SUPERSEDED</span></td><td class="src">was PARTIAL (Transformer, roadfm_lite_config.json). <span class="r4-chg">Replaced by the TimesNet encoder: 4 TimesBlocks, d = 128, d_ff = 64 (D12), 3 kernels, top-3 per-sample periods; TimesNet only in the code (Transformer ablation removed for now, D11).</span> <span class="r4-map">→ S1.2.1–S1.2.5</span></td></tr>
       <tr><td class="num">3.2</td><td>MTR pretext task — loss + implementation + unit test</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">Implemented in transformer_model.ipynb (mask 0.15, loss on masked only); test pending. <span class="r4-chg"><strong>Modified:</strong> 2-layer MLP decoder on H, masked MSE on sender pos / velocity / acceleration / log-Δτ, plus a linear-interpolation baseline.</span> <span class="r4-map">→ S1.3.A3 / A4</span></td></tr>
       <tr class="r4-sup"><td class="num">3.3</td><td><strong>TCP pretext task over 4 corruption types</strong></td><td><span class="pill pill-superseded">SUPERSEDED</span></td><td class="src">was BLOCKED. <span class="r4-chg">TCP dropped (D5; the v1 TCP was a no-op, F2). Corruption detection moves to the P1–P3 heads that detect injected violations (D4).</span> <span class="r4-map">→ S1.3.P1 / P4</span></td></tr>
       <tr><td class="num">3.4</td><td>Multi-task loss weighting (λ sweep)</td><td><span class="pill pill-todo">TODO</span></td><td><span class="r4-chg"><strong>Modified:</strong> 5 normalised losses λ1–λ5 (λ1 = 1, λ3–λ5 = 0.3, λ2 ∈ {0.1, 0.3, 1} + one automatic-weighting run), ≥ 3 seeds, checkpoint chosen label-free (D7).</span> <span class="r4-map">→ S1.3.J1–J3</span></td></tr>
-      <tr><td class="num">3.5</td><td>Fine-tuning heads: binary + 5-class</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">Binary head ran in v1; 5-class head and frozen-encoder probe pending. <span class="pill pill-deferred">STAGE 2 · DEFERRED</span> <span class="r4-chg">Becomes supervised contrastive few-shot fine-tuning; Stage 1 uses frozen linear/kNN probes (S1.4.1).</span> <span class="r4-map">→ S2.1.1</span></td></tr>
-      <tr><td class="num">3.6</td><td>Few-shot / zero-shot protocol definitions — frozen before runs</td><td><span class="pill pill-todo">TODO</span></td><td><span class="r4-chg"><strong>Modified:</strong> Stage 1 defines a label-free anomaly score on unlabeled train embeddings (θ on val); the few-shot protocol (n ∈ {10, 20, 30, 50}, A17 held out) moves to Stage 2 (S2.0.2).</span> <span class="r4-map">→ S1.4.4</span></td></tr>
+      <tr><td class="num">3.5</td><td>Fine-tuning heads: binary + 5-class</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">Binary head ran in v1; 5-class head and frozen-encoder probe pending. <span class="pill pill-deferred">FINE-TUNING · DEFERRED</span> <span class="r4-chg">Becomes supervised contrastive few-shot fine-tuning; pretraining uses frozen linear/kNN probes (S1.4.1).</span> <span class="r4-map">→ S2.1.1</span></td></tr>
+      <tr><td class="num">3.6</td><td>Few-shot / zero-shot protocol definitions — frozen before runs</td><td><span class="pill pill-todo">TODO</span></td><td><span class="r4-chg"><strong>Modified:</strong> pretraining defines a label-free anomaly score on unlabeled train embeddings (θ on val); the few-shot protocol (n ∈ {10, 20, 30, 50}, A17 held out) moves to few-shot fine-tuning (S2.0.2).</span> <span class="r4-map">→ S1.4.4</span></td></tr>
       <tr><td class="num">3.7</td><td>Training config + seed policy frozen</td><td><span class="pill pill-todo">TODO</span></td><td>One config file; ≥3 fixed seeds. Torch env freeze done (requirements-train.txt); config + seed policy still open</td></tr>
     </tbody>
   </table>
@@ -1517,9 +1520,9 @@
   <table class="pt-table">
     <thead><tr><th style="width:52px;">ID</th><th>Task</th><th style="width:90px;">Status</th><th style="width:340px;">Artifact / note</th></tr></thead>
     <tbody>
-      <tr><td class="num">5.1</td><td>SSL pretraining runs + loss curves + checkpoints</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">v1 run exists (5 epochs). <span class="r4-chg">The v1 run is effectively MTR-only (F2) and its numbers are invalid as evidence until the re-split (F1); kept as history. New runs = the Stage 1 weight sweep.</span> <span class="r4-map">→ S1.3.J3</span></td></tr>
-      <tr><td class="num">5.2</td><td>Full-label fine-tuning: binary + 5-class</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">Binary v1 done (F1 0.900, uncontrolled; invalid as evidence until re-split, F1); 5-class and multi-seed pending. <span class="pill pill-deferred">STAGE 2 · DEFERRED</span> <span class="r4-map">→ S2.1.2</span></td></tr>
-      <tr><td class="num">5.3</td><td>Label-efficiency curves (1/5/10/50/100% + K-shot)</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>Blocked on 3.6 (protocols) + 4.4 (control). The thesis's headline figure. <span class="pill pill-deferred">STAGE 2 · DEFERRED</span> <span class="r4-chg">Becomes score vs n ∈ {10, 20, 30, 50} per class.</span> <span class="r4-map">→ S2.3.2</span></td></tr>
+      <tr><td class="num">5.1</td><td>SSL pretraining runs + loss curves + checkpoints</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">v1 run exists (5 epochs). <span class="r4-chg">The v1 run is effectively MTR-only (F2) and its numbers are invalid as evidence until the re-split (F1); kept as history. New runs = the pretraining weight sweep.</span> <span class="r4-map">→ S1.3.J3</span></td></tr>
+      <tr><td class="num">5.2</td><td>Full-label fine-tuning: binary + 5-class</td><td><span class="pill pill-partial">PARTIAL</span></td><td class="src">Binary v1 done (F1 0.900, uncontrolled; invalid as evidence until re-split, F1); 5-class and multi-seed pending. <span class="pill pill-deferred">FINE-TUNING · DEFERRED</span> <span class="r4-map">→ S2.1.2</span></td></tr>
+      <tr><td class="num">5.3</td><td>Label-efficiency curves (1/5/10/50/100% + K-shot)</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>Blocked on 3.6 (protocols) + 4.4 (control). The thesis's headline figure. <span class="pill pill-deferred">FINE-TUNING · DEFERRED</span> <span class="r4-chg">Becomes score vs n ∈ {10, 20, 30, 50} per class.</span> <span class="r4-map">→ S2.3.2</span></td></tr>
       <tr><td class="num">5.4</td><td>Cross-scenario transfer 0709 ↔ 1416</td><td><span class="pill pill-blocked">BLOCKED</span></td><td>Now S1.4.3. Needs a trained encoder (the vehicle-grouped split, D8, is executed) and the from-scratch TimesNet control; no time-of-day feature</td></tr>
       <tr><td class="num">5.5</td><td>Ablations: objectives; model size</td><td><span class="pill pill-blocked">BLOCKED</span></td><td><span class="r4-chg"><strong>Modified:</strong> was MTR-only / TCP-only / both; now −P heads, −InfoNCE, −hard negatives on the same splits and seeds as the probes.</span> <span class="r4-map">→ S1.4.6</span></td></tr>
       <tr><td class="num">5.6</td><td>Multi-seed runs (≥3) + significance</td><td><span class="pill pill-todo">TODO</span></td><td>Mean±std everywhere; paired tests on identical splits</td></tr>
@@ -1573,30 +1576,32 @@
     </tbody>
   </table>
 
-  <!-- Stage 1 / Stage 2 summary -->
-  <h3 style="margin-top:24px;">Stage 1 (now) and Stage 2 (deferred) — adopted plan</h3>
+  <!-- Pretraining / fine-tuning summary -->
+  <h3 style="margin-top:24px;">Pretraining (S1.x, now) and few-shot fine-tuning (S2.x, deferred) — adopted plan</h3>
   <p style="font-size:11px; color:#475569; margin-top:4px;">
     Summary of <code>docs/plan/stage1-ssl-wbs.md</code> §2 and §4. Per-task ticks live in
     <a href="stage1-plan.html">stage1-plan.html</a>. Status 2026-10-07: input built (benign + GridSybil trial), training env pinned,
-    TimesNet encoder built and <strong>untrained</strong>. Nothing has been trained. Next: the student reads the encoder notebook, then S1.3.
+    TimesNet encoder built and <strong>untrained</strong>; pretraining code in <code>src/model/benign_gridsybil/timesnet/</code>
+    (TimesNet only, D11; d = 128, d_ff = 64, D12; 90 / 10 train / test by vehicle, D8′). Nothing has been trained. Next: the smoke run
+    when the student says so, then S1.3.
   </p>
   <table class="pt-table">
     <thead><tr><th style="width:64px;">Group</th><th>What</th><th style="width:56px;">Tasks</th><th style="width:56px;">Days</th><th style="width:140px;">Status</th></tr></thead>
     <tbody>
       <tr><td class="num">S1.0</td><td>Scope, decisions, environment (share plan with professor, decision record, pin torch env, rename P1–P3)</td><td class="num">4</td><td class="num">2.1</td><td><span class="pill pill-partial">3 OF 4 DONE</span> <span class="r4-chg">S1.0.2 decision record, S1.0.4 torch env (.venv-train, torch 2.14.1, MPS, requirements-train.txt), S1.0.5 rename</span></td></tr>
       <tr><td class="num">S1.1</td><td>Input representation: leak audit, receiver-log parser, features, T = 64, new split (RULE 3), probes, manifest</td><td class="num">7</td><td class="num">9.0</td><td><span class="pill pill-partial">4 DONE · 1 PARTLY</span> <span class="r4-chg">S1.1.2–S1.1.5 done; S1.1.6 length probe only; benign + GridSybil encoder input</span></td></tr>
-      <tr><td class="num">S1.2</td><td>TimesNet encoder (+ Transformer ablation), tests, period diagnostic</td><td class="num">6</td><td class="num">6.0</td><td><span class="pill pill-partial">3 BUILT · 2 PARTLY</span> <span class="r4-chg">S1.2.1–S1.2.3 built (untrained); S1.2.4 checks in the notebook, no tests/ file; S1.2.6 one untrained batch; S1.2.5 Transformer not started</span></td></tr>
+      <tr><td class="num">S1.2</td><td>TimesNet encoder (+ Transformer ablation), tests, period diagnostic</td><td class="num">6</td><td class="num">6.0</td><td><span class="pill pill-partial">3 BUILT · 2 PARTLY</span> <span class="r4-chg">S1.2.1–S1.2.3 built (untrained); S1.2.4 checks in the notebook, no tests/ file; S1.2.6 one untrained batch; S1.2.5 Transformer removed from the code (D11)</span></td></tr>
       <tr><td class="num">S1.3.A</td><td>Masked reconstruction (random 25% / block 20–30% of T, MLP decoder, interpolation baseline)</td><td class="num">4</td><td class="num">3.5</td><td><span class="pill pill-todo">TODO</span></td></tr>
       <tr><td class="num">S1.3.P</td><td>Physics heads P1–P3 on injected violations + diagnostic rule audit (+ optional map test)</td><td class="num">4</td><td class="num">5.0</td><td><span class="pill pill-todo">TODO</span> <span class="r4-chg">incl. 1.5 d optional</span></td></tr>
       <tr><td class="num">S1.3.C</td><td>Contrastive SimCLR / InfoNCE with physically consistent augmentations, grid-cell hard negatives, sensitivity probe</td><td class="num">4</td><td class="num">5.5</td><td><span class="pill pill-todo">TODO</span></td></tr>
       <tr><td class="num">S1.3.J</td><td>Joint loss, label-free checkpoint selector, weight sweep (≥ 3 seeds)</td><td class="num">3</td><td class="num">5.0</td><td><span class="pill pill-todo">TODO</span></td></tr>
-      <tr><td class="num">S1.4</td><td>Stage 1 evaluation on the frozen encoder: probes, per-family recall, 0709 ↔ 1416, anomaly score, controls, ablations</td><td class="num">6</td><td class="num">8.5</td><td><span class="pill pill-todo">TODO</span></td></tr>
-      <tr style="font-weight:600;"><td class="num">Stage 1</td><td>Total</td><td class="num">38</td><td class="num">44.6</td><td>10 of 38 done or built, 3 partly; nothing trained (≈ 45 d + ~15% integration)</td></tr>
+      <tr><td class="num">S1.4</td><td>Pretraining evaluation on the frozen encoder: probes, per-family recall, 0709 ↔ 1416, anomaly score, controls, ablations</td><td class="num">6</td><td class="num">8.5</td><td><span class="pill pill-todo">TODO</span></td></tr>
+      <tr style="font-weight:600;"><td class="num">S1</td><td>Pretraining total</td><td class="num">38</td><td class="num">44.6</td><td>10 of 38 done or built, 3 partly; nothing trained (≈ 45 d + ~15% integration)</td></tr>
       <tr><td class="num">S2.0</td><td>Confirm class set (train A16/A18/A19 + benign, hold out A17); few-shot support-set sampler</td><td class="num">2</td><td class="num">1.5</td><td><span class="pill pill-deferred">DEFERRED</span></td></tr>
       <tr><td class="num">S2.1</td><td>Supervised contrastive fine-tuning + runs (pretrained vs from scratch)</td><td class="num">2</td><td class="num">5.0</td><td><span class="pill pill-deferred">DEFERRED</span></td></tr>
       <tr><td class="num">S2.2</td><td>Unlabeled memory bank + FAISS kNN score; K, θ on val; test once</td><td class="num">3</td><td class="num">3.5</td><td><span class="pill pill-deferred">DEFERRED</span></td></tr>
       <tr><td class="num">S2.3</td><td>Hyperparameter sweep; label-efficiency curves (score vs n)</td><td class="num">2</td><td class="num">4.5</td><td><span class="pill pill-deferred">DEFERRED</span></td></tr>
-      <tr style="font-weight:600;"><td class="num">Stage 2</td><td>Total</td><td class="num">9</td><td class="num">14.5</td><td>Deferred until Stage 1 ends</td></tr>
+      <tr style="font-weight:600;"><td class="num">S2</td><td>Fine-tuning total</td><td class="num">9</td><td class="num">14.5</td><td>Deferred until pretraining ends</td></tr>
     </tbody>
   </table>
   </div>
@@ -1607,7 +1612,7 @@
 <!-- SECTION: Critical path -->
 <!-- ============================================================ -->
 <div class="section">
-  <h2 class="section-header-purple">Critical Path — adopted Stage 1 plan (TimesNet SSL)</h2>
+  <h2 class="section-header-purple">Critical Path — adopted pretraining plan (TimesNet SSL)</h2>
   <div class="section-body">
 
   <table class="pt-table">
@@ -1617,17 +1622,17 @@
         <td class="num">1</td>
         <td><strong>Receiver-view prep + new split + encoder input</strong> (S1.1.2–S1.1.5 done, S1.1.6 partly; S1.0.4 env done) — <code>src/data/prepared_data/</code> for all scenarios, split by (time window, physical vehicle); 376,427 benign + GridSybil windows of 64 × 13 + mask in <code>src/data/encoder_input/benign_gridsybil/T64/</code>; training env pinned (<code>requirements-train.txt</code>, kernel <code>roadfm-train</code>)</td>
         <td><span class="pill pill-ready">DONE · TRIAL SCOPE</span></td>
-        <td class="src"><strong>RULE 3 split change</strong> (D8) executed 2026-10-06. Every Stage 1 number must come from this split. All attack types still need per-receiver time windows (DataReplay / DoS links are 1–2 messages)</td>
+        <td class="src"><strong>RULE 3 split change</strong> (D8) executed 2026-10-06; benign + GridSybil encoder input re-split 90 / 10 train / test by sender vehicle on 2026-10-08 (D8′, no val split). Every pretraining number must come from this split. All attack types still need per-receiver time windows (DataReplay / DoS links are 1–2 messages)</td>
       </tr>
       <tr>
         <td class="num">2</td>
-        <td><strong>TimesNet encoder</strong> (S1.2.1–S1.2.3 built, S1.2.4 / S1.2.6 partly) — <code>src/model/benign_gridsybil/timesnet_encoder_T64.ipynb</code>: 4 TimesBlocks, d = 128, d_ff = 64, top-3 periods per window from an FFT over real rows only, masked pooling; 2,301,312 params; untrained heads + loss definitions as an S1.3 preview. Transformer ablation (S1.2.5) not started</td>
+        <td><strong>TimesNet encoder</strong> (S1.2.1–S1.2.3 built, S1.2.6 partly) — <code>src/model/benign_gridsybil/encoder_T64.ipynb</code>: 4 TimesBlocks, d = 128, d_ff = 64 (128 → 64 → 128 bottleneck, D12), top-3 periods per window from an FFT over real rows only, masked pooling; 2,301,312 params; untrained heads (P1–P3 hidden width 128) + loss definitions as an S1.3 preview. Transformer ablation (S1.2.5, 1,194,624 params) was built 2026-10-07 and removed from the code 2026-10-08 (D11: TimesNet only); checks pass</td>
         <td><span class="pill pill-partial">BUILT · UNTRAINED</span></td>
         <td class="src">The student reads the notebook next; no training until they say so. Every objective in S1.3 runs on this encoder</td>
       </tr>
       <tr>
         <td class="num">3</td>
-        <td><strong>Stage 1 objectives, then joint training</strong> (S1.3) — masking + MLP decoder, violation injectors P1–P3, physically consistent augmentations + InfoNCE with grid-cell hard negatives; then the joint loss, label-free checkpoint selection and the small λ2 sweep (≥ 3 seeds)</td>
+        <td><strong>Pretraining objectives, then joint training</strong> (S1.3) — masking + MLP decoder, violation injectors P1–P3, physically consistent augmentations + InfoNCE with grid-cell hard negatives; then the joint loss, label-free checkpoint selection and the small λ2 sweep (≥ 3 seeds)</td>
         <td><span class="pill pill-todo">NEXT · after the read-through</span></td>
         <td class="src">The pretraining the thesis describes starts existing here. No attack labels are read; checkpoints are chosen without labels</td>
       </tr>
@@ -1639,15 +1644,15 @@
       </tr>
       <tr>
         <td class="num">5</td>
-        <td><strong>Stage 2</strong> (S2.0–S2.3) — supervised contrastive few-shot fine-tuning (A16/A18/A19 + benign, A17 DataReplay held out), unlabeled memory bank + kNN, K and θ on val, test once</td>
+        <td><strong>Few-shot fine-tuning</strong> (S2.0–S2.3) — supervised contrastive few-shot fine-tuning (A16/A18/A19 + benign, A17 DataReplay held out), unlabeled memory bank + kNN, K and θ on val, test once</td>
         <td><span class="pill pill-todo">DEFERRED</span></td>
-        <td class="src">Planned, starts after Stage 1 (≈ 14.5 d). Loads the chosen Stage 1 checkpoint</td>
+        <td class="src">Planned, starts after pretraining (≈ 14.5 d). Loads the chosen pretrained checkpoint</td>
       </tr>
       <tr>
         <td class="num">6</td>
         <td><strong>Results chapters + defense</strong> (6.x, 7.5–7.7, 8.x)</td>
         <td><span class="pill pill-blocked">BLOCKED on evaluation</span></td>
-        <td class="src">Stage 1 results feed the chapters; Stage 2 adds the label-efficiency curves</td>
+        <td class="src">Pretraining results feed the chapters; fine-tuning adds the label-efficiency curves</td>
       </tr>
     </tbody>
   </table>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Stage 1 · Input representation</title>
+<title>Pretraining Input Representation</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap">
@@ -401,7 +401,7 @@
 </style>
 </head>
 <body>
-<main class="deck" id="deck" tabindex="0" aria-roledescription="slide deck" aria-label="Stage 1 · Input representation">
+<main class="deck" id="deck" tabindex="0" aria-roledescription="slide deck" aria-label="Self-supervised pretraining · Input representation">
   <div class="deck-bar">
     <button class="deck-btn" id="prev" type="button" aria-label="Previous slide">&larr; Prev</button>
     <span class="deck-counter" id="counter" aria-live="polite">1 / 1</span>
@@ -414,9 +414,9 @@
   <div class="stage" id="stage">
 
 <!-- ===== Opening (shell) ===== -->
-<section class="slide sS sS-hero" data-title="Stage 1 · Input representation">
-  <div class="kicker">RoadFM-Lite · Stage 1</div>
-  <h2>Stage 1 · Input representation</h2>
+<section class="slide sS sS-hero" data-title="Pretraining · Input representation">
+  <div class="kicker">RoadFM-Lite · self-supervised pretraining</div>
+  <h2>Pretraining · Input representation</h2>
   <p class="sS-sub">How the raw VeReMi-Extension receive logs become the masked windows (64&nbsp;&times;&nbsp;13) the TimesNet encoder reads, and what we checked on the way.</p>
   <div class="sS-flow" aria-label="From raw logs to encoder windows">
     <div class="sS-node"><b>23,032</b><span>raw trace files (one per receiving car)</span></div>
@@ -426,7 +426,7 @@
     <div class="sS-node is-out"><b>376,427</b><span>encoder windows, 64 &times; 13 + mask, 71.0% padding (benign + GridSybil)</span></div>
   </div>
   <p class="sS-meta">Master's thesis · Florida Polytechnic University · all numbers measured on the local data</p>
-  <div class="note">Speaker note: this deck covers only the input side of Stage 1: what goes into the encoder, why, and which leaks we closed. No model results yet: the encoder is built and checked but not trained.</div>
+  <div class="note">Speaker note: this deck covers only the input side of self-supervised pretraining: what goes into the encoder, why, and which leaks we closed. No model results yet: the encoder is built and checked but not trained.</div>
 </section>
 
 <section class="slide sS" data-title="What this deck covers">
@@ -956,7 +956,7 @@
       <div class="card info">Classes in the encoder input: ≈ 65% GridSybil / 35% benign, so use class weights and macro metrics.</div>
     </div>
   </div>
-  <div class="note">Speaker note: A link is everything one car heard from one pseudonym, so attackers that change pseudonym every message never build a 64-message history, and they drop out of Stage 1 entirely. The opposite problem is GridSybil: all ghosts share pseudonym 1, and we separate them using the true sender id, which a real receiver would not know, so those windows need a decision.</div>
+  <div class="note">Speaker note: A link is everything one car heard from one pseudonym, so attackers that change pseudonym every message never build a 64-message history, and they drop out of pretraining entirely. The opposite problem is GridSybil: all ghosts share pseudonym 1, and we separate them using the true sender id, which a real receiver would not know, so those windows need a decision.</div>
 </section>
 
 <!-- slides_pipeline -->
@@ -1232,14 +1232,12 @@
 <section class="slide sP" data-title="Encoder input">
   <div class="kicker">Pipeline · encoder input</div>
   <h2>The encoder input in numbers</h2>
-  <p class="lead">376,427 masked windows of 64 &times; 13 from the two GridSybil folders, split by sender vehicle; every kept message is in exactly one window.</p>
+  <p class="lead">376,427 masked windows of 64 &times; 13 from the two GridSybil folders, split 90 / 10 train / test by sender vehicle (D8′, 2026-10-08; the pretraining check set is 10% of train vehicles, no val split); every kept message is in exactly one window.</p>
   <table class="tbl">
         <thead><tr><th>Split</th><th class="sP-num">Benign</th><th class="sP-num">GridSybil</th><th class="sP-num">Total</th><th class="sP-num">Padding (benign / GridSybil)</th></tr></thead>
         <tbody>
-          <tr><td>train</td><td class="sP-num">84,282</td><td class="sP-num">152,150</td><td class="sP-num">236,432</td><td class="sP-num">69.2% / 72.1%</td></tr>
-          <tr><td>pretrain_val</td><td class="sP-num">8,517</td><td class="sP-num">19,889</td><td class="sP-num">28,406</td><td class="sP-num">68.3% / 72.6%</td></tr>
-          <tr><td>val</td><td class="sP-num">19,970</td><td class="sP-num">37,651</td><td class="sP-num">57,621</td><td class="sP-num">70.1% / 71.0%</td></tr>
-          <tr><td>test</td><td class="sP-num">20,045</td><td class="sP-num">33,923</td><td class="sP-num">53,968</td><td class="sP-num">69.0% / 72.3%</td></tr>
+          <tr><td>train</td><td class="sP-num">120,073</td><td class="sP-num">217,928</td><td class="sP-num">338,001</td><td class="sP-num">69.2% / 72.1%</td></tr>
+          <tr><td>test</td><td class="sP-num">12,741</td><td class="sP-num">25,685</td><td class="sP-num">38,426</td><td class="sP-num">69.6% / 70.9%</td></tr>
           <tr><td><b>all</b></td><td class="sP-num"></td><td class="sP-num"></td><td class="sP-num"><b>376,427</b></td><td class="sP-num"><b>71.0%</b></td></tr>
         </tbody>
       </table>
@@ -1261,6 +1259,534 @@
   </div>
   <div class="note">Speaker note: Short links dominate, so most windows are mostly padding: over all rows about 71% are zeros, slightly more for GridSybil than for benign. Normalisation uses train real rows only; padding rows and the missing first log_dtau are 0. Keeping labels in separate _info files means the pretraining code physically cannot read them.</div>
 </section>
+<!-- slides_unlabelled_a -->
+<style>
+.uA .uA-svg { width: 100%; height: auto; display: block; }
+.slide.uA svg.uA-svg { max-height: 13.5em; }
+.uA .uA-tblwrap { flex-shrink: 0; }
+.uA .uA-tblwrap > .uA-tag { margin-bottom: .3em; }
+.slide.uA svg.uA-map { max-height: 21em; }
+.uA .uA-svg text { font-family: inherit; fill: var(--text); }
+.uA .uA-svg .uA-s { font-size: 12px; }
+.uA .uA-svg .uA-m { fill: var(--muted); }
+.uA .uA-svg .uA-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+.uA .uA-svg .uA-w { fill: #FFFFFF; font-size: 11px; font-weight: 700; }
+.uA .uA-svg .uA-pad { fill: var(--alt); stroke: var(--border); stroke-width: 1; }
+.uA .uA-svg .uA-m1 { fill: var(--good); }
+.uA .uA-svg .uA-m0 { fill: var(--divider); }
+.uA .uA-svg .uA-frame { fill: var(--page); stroke: var(--border); stroke-width: 1; }
+.uA .uA-svg .uA-pc { fill: none; stroke: var(--primary); stroke-width: 2.5; }
+.uA .uA-svg .uA-pr { fill: none; stroke: #0D9488; stroke-width: 2.5; stroke-dasharray: 7 4; }
+.uA .uA-svg .uA-dc { fill: var(--primary); }
+.uA .uA-svg .uA-dr { fill: #0D9488; }
+.uA .uA-svg .uA-start { stroke: var(--card); stroke-width: 2; }
+.uA .uA-svg .uA-rng { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 3; }
+.uA .uA-svg .uA-sb { stroke: var(--text); stroke-width: 2; }
+.uA .uA-chips { display: flex; flex-wrap: wrap; gap: .5em; }
+.uA .uA-chip { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; font-weight: 600; color: var(--primary-dark); background: var(--fill-info); border: 1px solid #BFDBFE; border-radius: 999px; padding: .15em .7em; }
+.uA .uA-tag { display: inline-block; font-size: .75em; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
+.uA table.uA-tbl { font-size: .7em; }
+.uA table.uA-tbl th { text-transform: none; letter-spacing: 0; padding: .35em .4em; white-space: nowrap; }
+.uA table.uA-tbl td { padding: .28em .4em; }
+.uA table.uA-tbl2 { font-size: .76em; }
+.uA .uA-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.uA tr.uA-more td { color: var(--muted); font-style: italic; }
+.uA tr.uA-gap td { background: var(--fill-warn); }
+.uA .uA-c21 { grid-template-columns: minmax(0, 2.6fr) minmax(0, 1fr); grid-auto-flow: row; }
+.uA .uA-c12 { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); grid-auto-flow: row; }
+.uA .uA-key { display: flex; flex-wrap: wrap; gap: .3em 1em; font-size: .8em; color: var(--muted); }
+.uA .uA-key i { display: inline-block; width: 1.4em; height: 0; border-top: 3px solid var(--primary); vertical-align: middle; margin-right: .35em; }
+.uA .uA-key i.r { border-top: 3px dashed #0D9488; }
+@media (max-width: 700px) { .uA .uA-c21, .uA .uA-c12 { grid-template-columns: 1fr; } .uA table.uA-tbl { display: block; overflow-x: auto; } }
+</style>
+
+<section class="slide uA" data-title="An unlabelled window">
+  <div class="kicker">Example · one training window</div>
+  <h2>An unlabelled window (as the encoder sees it)</h2>
+  <p class="lead">A real window from the first train shard: 12 messages one listener heard from one pseudonym, then 52 padding rows. This grid and the mask are <strong>everything</strong> pretraining gets.</p>
+  <div class="cols uA-c21">
+    <div class="col"><svg class="uA-svg" viewBox="0 0 832 286" role="img" aria-labelledby="uA-t1"><title id="uA-t1">Heat map of one real training window, transposed for display: 13 feature rows by 64 time steps. The first 12 time steps are coloured by their z-score; the remaining 52 are grey padding. Below, the mask strip: 12 ones then 52 zeros.</title>
+<text x="118" y="16" class="uA-s">t = 1</text>
+<text x="254" y="16" class="uA-s uA-m">t = 13 … 64: padding (exactly 0)</text>
+<text x="822" y="16" text-anchor="end" class="uA-s">t = 64</text>
+<text x="112" y="37" text-anchor="end" class="uA-s uA-mono">claimed_pos_x</text>
+<rect x="118" y="26" width="10" height="14" fill="#DAE5FC"><title>t=1 claimed_pos_x: z = -0.50</title></rect>
+<rect x="129" y="26" width="10" height="14" fill="#DAE5FC"><title>t=2 claimed_pos_x: z = -0.51</title></rect>
+<rect x="140" y="26" width="10" height="14" fill="#DAE4FC"><title>t=3 claimed_pos_x: z = -0.51</title></rect>
+<rect x="151" y="26" width="10" height="14" fill="#D6E2FB"><title>t=4 claimed_pos_x: z = -0.56</title></rect>
+<rect x="162" y="26" width="10" height="14" fill="#D6E2FB"><title>t=5 claimed_pos_x: z = -0.56</title></rect>
+<rect x="173" y="26" width="10" height="14" fill="#D6E1FB"><title>t=6 claimed_pos_x: z = -0.57</title></rect>
+<rect x="184" y="26" width="10" height="14" fill="#D5E1FB"><title>t=7 claimed_pos_x: z = -0.57</title></rect>
+<rect x="195" y="26" width="10" height="14" fill="#D5E1FB"><title>t=8 claimed_pos_x: z = -0.58</title></rect>
+<rect x="206" y="26" width="10" height="14" fill="#D4E1FB"><title>t=9 claimed_pos_x: z = -0.58</title></rect>
+<rect x="217" y="26" width="10" height="14" fill="#D4E0FB"><title>t=10 claimed_pos_x: z = -0.59</title></rect>
+<rect x="228" y="26" width="10" height="14" fill="#D4E0FB"><title>t=11 claimed_pos_x: z = -0.59</title></rect>
+<rect x="239" y="26" width="10" height="14" fill="#D3E0FB"><title>t=12 claimed_pos_x: z = -0.60</title></rect>
+<rect x="250" y="26" width="571" height="14" class="uA-pad"/>
+<text x="112" y="52" text-anchor="end" class="uA-s uA-mono">claimed_pos_y</text>
+<rect x="118" y="41" width="10" height="14" fill="#B2C8F8"><title>t=1 claimed_pos_y: z = -1.07</title></rect>
+<rect x="129" y="41" width="10" height="14" fill="#B4C9F8"><title>t=2 claimed_pos_y: z = -1.03</title></rect>
+<rect x="140" y="41" width="10" height="14" fill="#B6CBF8"><title>t=3 claimed_pos_y: z = -1.00</title></rect>
+<rect x="151" y="41" width="10" height="14" fill="#D1DEFB"><title>t=4 claimed_pos_y: z = -0.64</title></rect>
+<rect x="162" y="41" width="10" height="14" fill="#D3E0FB"><title>t=5 claimed_pos_y: z = -0.60</title></rect>
+<rect x="173" y="41" width="10" height="14" fill="#D6E1FB"><title>t=6 claimed_pos_y: z = -0.57</title></rect>
+<rect x="184" y="41" width="10" height="14" fill="#D8E3FB"><title>t=7 claimed_pos_y: z = -0.54</title></rect>
+<rect x="195" y="41" width="10" height="14" fill="#DAE5FC"><title>t=8 claimed_pos_y: z = -0.51</title></rect>
+<rect x="206" y="41" width="10" height="14" fill="#DDE6FC"><title>t=9 claimed_pos_y: z = -0.47</title></rect>
+<rect x="217" y="41" width="10" height="14" fill="#DFE8FC"><title>t=10 claimed_pos_y: z = -0.44</title></rect>
+<rect x="228" y="41" width="10" height="14" fill="#E1EAFC"><title>t=11 claimed_pos_y: z = -0.41</title></rect>
+<rect x="239" y="41" width="10" height="14" fill="#E4ECFD"><title>t=12 claimed_pos_y: z = -0.37</title></rect>
+<rect x="250" y="41" width="571" height="14" class="uA-pad"/>
+<text x="112" y="67" text-anchor="end" class="uA-s uA-mono">rx_pos_x</text>
+<rect x="118" y="56" width="10" height="14" fill="#EDF2FD"><title>t=1 rx_pos_x: z = -0.24</title></rect>
+<rect x="129" y="56" width="10" height="14" fill="#ECF1FD"><title>t=2 rx_pos_x: z = -0.27</title></rect>
+<rect x="140" y="56" width="10" height="14" fill="#EAF0FD"><title>t=3 rx_pos_x: z = -0.29</title></rect>
+<rect x="151" y="56" width="10" height="14" fill="#D7E2FB"><title>t=4 rx_pos_x: z = -0.56</title></rect>
+<rect x="162" y="56" width="10" height="14" fill="#D6E2FB"><title>t=5 rx_pos_x: z = -0.56</title></rect>
+<rect x="173" y="56" width="10" height="14" fill="#D6E2FB"><title>t=6 rx_pos_x: z = -0.56</title></rect>
+<rect x="184" y="56" width="10" height="14" fill="#D7E2FB"><title>t=7 rx_pos_x: z = -0.56</title></rect>
+<rect x="195" y="56" width="10" height="14" fill="#D7E2FB"><title>t=8 rx_pos_x: z = -0.55</title></rect>
+<rect x="206" y="56" width="10" height="14" fill="#D7E3FB"><title>t=9 rx_pos_x: z = -0.55</title></rect>
+<rect x="217" y="56" width="10" height="14" fill="#D8E3FB"><title>t=10 rx_pos_x: z = -0.54</title></rect>
+<rect x="228" y="56" width="10" height="14" fill="#D8E3FB"><title>t=11 rx_pos_x: z = -0.54</title></rect>
+<rect x="239" y="56" width="10" height="14" fill="#D8E3FB"><title>t=12 rx_pos_x: z = -0.53</title></rect>
+<rect x="250" y="56" width="571" height="14" class="uA-pad"/>
+<text x="112" y="82" text-anchor="end" class="uA-s uA-mono">rx_pos_y</text>
+<rect x="118" y="71" width="10" height="14" fill="#A1BCF6"><title>t=1 rx_pos_y: z = -1.29</title></rect>
+<rect x="129" y="71" width="10" height="14" fill="#A1BBF6"><title>t=2 rx_pos_y: z = -1.30</title></rect>
+<rect x="140" y="71" width="10" height="14" fill="#A0BBF6"><title>t=3 rx_pos_y: z = -1.31</title></rect>
+<rect x="151" y="71" width="10" height="14" fill="#98B5F6"><title>t=4 rx_pos_y: z = -1.42</title></rect>
+<rect x="162" y="71" width="10" height="14" fill="#96B4F5"><title>t=5 rx_pos_y: z = -1.45</title></rect>
+<rect x="173" y="71" width="10" height="14" fill="#93B2F5"><title>t=6 rx_pos_y: z = -1.48</title></rect>
+<rect x="184" y="71" width="10" height="14" fill="#91B0F5"><title>t=7 rx_pos_y: z = -1.52</title></rect>
+<rect x="195" y="71" width="10" height="14" fill="#8EAEF5"><title>t=8 rx_pos_y: z = -1.55</title></rect>
+<rect x="206" y="71" width="10" height="14" fill="#8CADF4"><title>t=9 rx_pos_y: z = -1.58</title></rect>
+<rect x="217" y="71" width="10" height="14" fill="#8AABF4"><title>t=10 rx_pos_y: z = -1.62</title></rect>
+<rect x="228" y="71" width="10" height="14" fill="#87A9F4"><title>t=11 rx_pos_y: z = -1.65</title></rect>
+<rect x="239" y="71" width="10" height="14" fill="#85A7F4"><title>t=12 rx_pos_y: z = -1.68</title></rect>
+<rect x="250" y="71" width="571" height="14" class="uA-pad"/>
+<text x="112" y="97" text-anchor="end" class="uA-s uA-mono">claimed_vel_x</text>
+<rect x="118" y="86" width="10" height="14" fill="#DDE7FC"><title>t=1 claimed_vel_x: z = -0.47</title></rect>
+<rect x="129" y="86" width="10" height="14" fill="#E1EAFC"><title>t=2 claimed_vel_x: z = -0.41</title></rect>
+<rect x="140" y="86" width="10" height="14" fill="#E0E9FC"><title>t=3 claimed_vel_x: z = -0.42</title></rect>
+<rect x="151" y="86" width="10" height="14" fill="#E0E9FC"><title>t=4 claimed_vel_x: z = -0.43</title></rect>
+<rect x="162" y="86" width="10" height="14" fill="#E0E9FC"><title>t=5 claimed_vel_x: z = -0.42</title></rect>
+<rect x="173" y="86" width="10" height="14" fill="#DDE7FC"><title>t=6 claimed_vel_x: z = -0.47</title></rect>
+<rect x="184" y="86" width="10" height="14" fill="#DBE5FC"><title>t=7 claimed_vel_x: z = -0.50</title></rect>
+<rect x="195" y="86" width="10" height="14" fill="#DBE5FC"><title>t=8 claimed_vel_x: z = -0.50</title></rect>
+<rect x="206" y="86" width="10" height="14" fill="#DBE5FC"><title>t=9 claimed_vel_x: z = -0.50</title></rect>
+<rect x="217" y="86" width="10" height="14" fill="#DEE7FC"><title>t=10 claimed_vel_x: z = -0.46</title></rect>
+<rect x="228" y="86" width="10" height="14" fill="#DDE7FC"><title>t=11 claimed_vel_x: z = -0.47</title></rect>
+<rect x="239" y="86" width="10" height="14" fill="#DFE8FC"><title>t=12 claimed_vel_x: z = -0.44</title></rect>
+<rect x="250" y="86" width="571" height="14" class="uA-pad"/>
+<text x="112" y="112" text-anchor="end" class="uA-s uA-mono">claimed_vel_y</text>
+<rect x="118" y="101" width="10" height="14" fill="#E19339"><title>t=1 claimed_vel_y: z = 2.39</title></rect>
+<rect x="129" y="101" width="10" height="14" fill="#E19238"><title>t=2 claimed_vel_y: z = 2.40</title></rect>
+<rect x="140" y="101" width="10" height="14" fill="#E19339"><title>t=3 claimed_vel_y: z = 2.39</title></rect>
+<rect x="151" y="101" width="10" height="14" fill="#E19237"><title>t=4 claimed_vel_y: z = 2.40</title></rect>
+<rect x="162" y="101" width="10" height="14" fill="#E19339"><title>t=5 claimed_vel_y: z = 2.39</title></rect>
+<rect x="173" y="101" width="10" height="14" fill="#E19339"><title>t=6 claimed_vel_y: z = 2.38</title></rect>
+<rect x="184" y="101" width="10" height="14" fill="#E19238"><title>t=7 claimed_vel_y: z = 2.39</title></rect>
+<rect x="195" y="101" width="10" height="14" fill="#E19338"><title>t=8 claimed_vel_y: z = 2.39</title></rect>
+<rect x="206" y="101" width="10" height="14" fill="#E19339"><title>t=9 claimed_vel_y: z = 2.39</title></rect>
+<rect x="217" y="101" width="10" height="14" fill="#E19238"><title>t=10 claimed_vel_y: z = 2.40</title></rect>
+<rect x="228" y="101" width="10" height="14" fill="#E19339"><title>t=11 claimed_vel_y: z = 2.38</title></rect>
+<rect x="239" y="101" width="10" height="14" fill="#E19339"><title>t=12 claimed_vel_y: z = 2.39</title></rect>
+<rect x="250" y="101" width="571" height="14" class="uA-pad"/>
+<text x="112" y="127" text-anchor="end" class="uA-s uA-mono">rx_vel_x</text>
+<rect x="118" y="116" width="10" height="14" fill="#9CB8F6"><title>t=1 rx_vel_x: z = -1.36</title></rect>
+<rect x="129" y="116" width="10" height="14" fill="#9BB7F6"><title>t=2 rx_vel_x: z = -1.38</title></rect>
+<rect x="140" y="116" width="10" height="14" fill="#9CB8F6"><title>t=3 rx_vel_x: z = -1.36</title></rect>
+<rect x="151" y="116" width="10" height="14" fill="#A8C0F7"><title>t=4 rx_vel_x: z = -1.20</title></rect>
+<rect x="162" y="116" width="10" height="14" fill="#FEFAF5"><title>t=5 rx_vel_x: z = 0.12</title></rect>
+<rect x="173" y="116" width="10" height="14" fill="#FCF5ED"><title>t=6 rx_vel_x: z = 0.21</title></rect>
+<rect x="184" y="116" width="10" height="14" fill="#FCF5EC"><title>t=7 rx_vel_x: z = 0.23</title></rect>
+<rect x="195" y="116" width="10" height="14" fill="#FCF4EB"><title>t=8 rx_vel_x: z = 0.24</title></rect>
+<rect x="206" y="116" width="10" height="14" fill="#FCF4EB"><title>t=9 rx_vel_x: z = 0.24</title></rect>
+<rect x="217" y="116" width="10" height="14" fill="#FCF3E9"><title>t=10 rx_vel_x: z = 0.27</title></rect>
+<rect x="228" y="116" width="10" height="14" fill="#FCF4EA"><title>t=11 rx_vel_x: z = 0.25</title></rect>
+<rect x="239" y="116" width="10" height="14" fill="#FCF4EB"><title>t=12 rx_vel_x: z = 0.24</title></rect>
+<rect x="250" y="116" width="571" height="14" class="uA-pad"/>
+<text x="112" y="142" text-anchor="end" class="uA-s uA-mono">rx_vel_y</text>
+<rect x="118" y="131" width="10" height="14" fill="#DFE8FC"><title>t=1 rx_vel_y: z = -0.44</title></rect>
+<rect x="129" y="131" width="10" height="14" fill="#DFE8FC"><title>t=2 rx_vel_y: z = -0.44</title></rect>
+<rect x="140" y="131" width="10" height="14" fill="#DEE7FC"><title>t=3 rx_vel_y: z = -0.45</title></rect>
+<rect x="151" y="131" width="10" height="14" fill="#ECF2FD"><title>t=4 rx_vel_y: z = -0.26</title></rect>
+<rect x="162" y="131" width="10" height="14" fill="#A1BCF6"><title>t=5 rx_vel_y: z = -1.29</title></rect>
+<rect x="173" y="131" width="10" height="14" fill="#A2BDF6"><title>t=6 rx_vel_y: z = -1.27</title></rect>
+<rect x="184" y="131" width="10" height="14" fill="#A3BDF7"><title>t=7 rx_vel_y: z = -1.27</title></rect>
+<rect x="195" y="131" width="10" height="14" fill="#A3BDF7"><title>t=8 rx_vel_y: z = -1.27</title></rect>
+<rect x="206" y="131" width="10" height="14" fill="#A2BDF6"><title>t=9 rx_vel_y: z = -1.28</title></rect>
+<rect x="217" y="131" width="10" height="14" fill="#A2BDF7"><title>t=10 rx_vel_y: z = -1.27</title></rect>
+<rect x="228" y="131" width="10" height="14" fill="#A3BDF7"><title>t=11 rx_vel_y: z = -1.27</title></rect>
+<rect x="239" y="131" width="10" height="14" fill="#A3BDF7"><title>t=12 rx_vel_y: z = -1.27</title></rect>
+<rect x="250" y="131" width="571" height="14" class="uA-pad"/>
+<text x="112" y="157" text-anchor="end" class="uA-s uA-mono">claimed_acl_x</text>
+<rect x="118" y="146" width="10" height="14" fill="#FEFAF7"><title>t=1 claimed_acl_x: z = 0.10</title></rect>
+<rect x="129" y="146" width="10" height="14" fill="#FBFCFF"><title>t=2 claimed_acl_x: z = -0.06</title></rect>
+<rect x="140" y="146" width="10" height="14" fill="#FFFEFE"><title>t=3 claimed_acl_x: z = 0.01</title></rect>
+<rect x="151" y="146" width="10" height="14" fill="#F3F7FE"><title>t=4 claimed_acl_x: z = -0.16</title></rect>
+<rect x="162" y="146" width="10" height="14" fill="#FEFDFB"><title>t=5 claimed_acl_x: z = 0.05</title></rect>
+<rect x="173" y="146" width="10" height="14" fill="#FFFFFF"><title>t=6 claimed_acl_x: z = 0.00</title></rect>
+<rect x="184" y="146" width="10" height="14" fill="#F9FBFE"><title>t=7 claimed_acl_x: z = -0.08</title></rect>
+<rect x="195" y="146" width="10" height="14" fill="#FCFDFF"><title>t=8 claimed_acl_x: z = -0.05</title></rect>
+<rect x="206" y="146" width="10" height="14" fill="#FEFCFA"><title>t=9 claimed_acl_x: z = 0.06</title></rect>
+<rect x="217" y="146" width="10" height="14" fill="#F7F9FE"><title>t=10 claimed_acl_x: z = -0.11</title></rect>
+<rect x="228" y="146" width="10" height="14" fill="#FEFDFA"><title>t=11 claimed_acl_x: z = 0.06</title></rect>
+<rect x="239" y="146" width="10" height="14" fill="#FEFAF7"><title>t=12 claimed_acl_x: z = 0.10</title></rect>
+<rect x="250" y="146" width="571" height="14" class="uA-pad"/>
+<text x="112" y="172" text-anchor="end" class="uA-s uA-mono">claimed_acl_y</text>
+<rect x="118" y="161" width="10" height="14" fill="#DCE6FC"><title>t=1 claimed_acl_y: z = -0.48</title></rect>
+<rect x="129" y="161" width="10" height="14" fill="#FBF2E7"><title>t=2 claimed_acl_y: z = 0.29</title></rect>
+<rect x="140" y="161" width="10" height="14" fill="#F9FBFE"><title>t=3 claimed_acl_y: z = -0.08</title></rect>
+<rect x="151" y="161" width="10" height="14" fill="#F4D9BA"><title>t=4 claimed_acl_y: z = 0.83</title></rect>
+<rect x="162" y="161" width="10" height="14" fill="#ECF1FD"><title>t=5 claimed_acl_y: z = -0.27</title></rect>
+<rect x="173" y="161" width="10" height="14" fill="#FDFEFF"><title>t=6 claimed_acl_y: z = -0.02</title></rect>
+<rect x="184" y="161" width="10" height="14" fill="#FBF0E3"><title>t=7 claimed_acl_y: z = 0.34</title></rect>
+<rect x="195" y="161" width="10" height="14" fill="#FCF6EE"><title>t=8 claimed_acl_y: z = 0.21</title></rect>
+<rect x="206" y="161" width="10" height="14" fill="#EBF1FD"><title>t=9 claimed_acl_y: z = -0.28</title></rect>
+<rect x="217" y="161" width="10" height="14" fill="#F8E8D4"><title>t=10 claimed_acl_y: z = 0.52</title></rect>
+<rect x="228" y="161" width="10" height="14" fill="#ECF1FD"><title>t=11 claimed_acl_y: z = -0.26</title></rect>
+<rect x="239" y="161" width="10" height="14" fill="#DAE4FC"><title>t=12 claimed_acl_y: z = -0.52</title></rect>
+<rect x="250" y="161" width="571" height="14" class="uA-pad"/>
+<text x="112" y="187" text-anchor="end" class="uA-s uA-mono">range</text>
+<rect x="118" y="176" width="10" height="14" fill="#FCFDFF"><title>t=1 range: z = -0.04</title></rect>
+<rect x="129" y="176" width="10" height="14" fill="#FAFBFF"><title>t=2 range: z = -0.07</title></rect>
+<rect x="140" y="176" width="10" height="14" fill="#F8FAFE"><title>t=3 range: z = -0.10</title></rect>
+<rect x="151" y="176" width="10" height="14" fill="#FDFDFF"><title>t=4 range: z = -0.03</title></rect>
+<rect x="162" y="176" width="10" height="14" fill="#FFFEFD"><title>t=5 range: z = 0.02</title></rect>
+<rect x="173" y="176" width="10" height="14" fill="#FEFBF8"><title>t=6 range: z = 0.08</title></rect>
+<rect x="184" y="176" width="10" height="14" fill="#FDF9F3"><title>t=7 range: z = 0.14</title></rect>
+<rect x="195" y="176" width="10" height="14" fill="#FCF6EE"><title>t=8 range: z = 0.20</title></rect>
+<rect x="206" y="176" width="10" height="14" fill="#FCF3EA"><title>t=9 range: z = 0.26</title></rect>
+<rect x="217" y="176" width="10" height="14" fill="#FBF1E5"><title>t=10 range: z = 0.32</title></rect>
+<rect x="228" y="176" width="10" height="14" fill="#FAEEE0"><title>t=11 range: z = 0.38</title></rect>
+<rect x="239" y="176" width="10" height="14" fill="#F9EBDB"><title>t=12 range: z = 0.44</title></rect>
+<rect x="250" y="176" width="571" height="14" class="uA-pad"/>
+<text x="112" y="202" text-anchor="end" class="uA-s uA-mono">bearing</text>
+<rect x="118" y="191" width="10" height="14" fill="#9AB7F6"><title>t=1 bearing: z = -1.39</title></rect>
+<rect x="129" y="191" width="10" height="14" fill="#96B4F5"><title>t=2 bearing: z = -1.44</title></rect>
+<rect x="140" y="191" width="10" height="14" fill="#92B1F5"><title>t=3 bearing: z = -1.50</title></rect>
+<rect x="151" y="191" width="10" height="14" fill="#F0C89B"><title>t=4 bearing: z = 1.21</title></rect>
+<rect x="162" y="191" width="10" height="14" fill="#F0C99D"><title>t=5 bearing: z = 1.18</title></rect>
+<rect x="173" y="191" width="10" height="14" fill="#F0CA9D"><title>t=6 bearing: z = 1.18</title></rect>
+<rect x="184" y="191" width="10" height="14" fill="#F0CA9E"><title>t=7 bearing: z = 1.17</title></rect>
+<rect x="195" y="191" width="10" height="14" fill="#F0CA9E"><title>t=8 bearing: z = 1.17</title></rect>
+<rect x="206" y="191" width="10" height="14" fill="#F0CA9E"><title>t=9 bearing: z = 1.17</title></rect>
+<rect x="217" y="191" width="10" height="14" fill="#F0CA9E"><title>t=10 bearing: z = 1.17</title></rect>
+<rect x="228" y="191" width="10" height="14" fill="#F0CA9E"><title>t=11 bearing: z = 1.17</title></rect>
+<rect x="239" y="191" width="10" height="14" fill="#F0CA9E"><title>t=12 bearing: z = 1.16</title></rect>
+<rect x="250" y="191" width="571" height="14" class="uA-pad"/>
+<text x="112" y="217" text-anchor="end" class="uA-s uA-mono">log_dtau</text>
+<rect x="118" y="206" width="10" height="14" fill="#FFFFFF"><title>t=1 log_dtau: z = 0.00</title></rect>
+<rect x="129" y="206" width="10" height="14" fill="#FDF7F0"><title>t=2 log_dtau: z = 0.18</title></rect>
+<rect x="140" y="206" width="10" height="14" fill="#FDF7F0"><title>t=3 log_dtau: z = 0.18</title></rect>
+<rect x="151" y="206" width="10" height="14" fill="#D97706"><title>t=4 log_dtau: z = 3.91</title></rect>
+<rect x="162" y="206" width="10" height="14" fill="#FDF7F0"><title>t=5 log_dtau: z = 0.18</title></rect>
+<rect x="173" y="206" width="10" height="14" fill="#FDF7F0"><title>t=6 log_dtau: z = 0.18</title></rect>
+<rect x="184" y="206" width="10" height="14" fill="#FDF7F0"><title>t=7 log_dtau: z = 0.18</title></rect>
+<rect x="195" y="206" width="10" height="14" fill="#FDF7F0"><title>t=8 log_dtau: z = 0.18</title></rect>
+<rect x="206" y="206" width="10" height="14" fill="#FDF7F0"><title>t=9 log_dtau: z = 0.18</title></rect>
+<rect x="217" y="206" width="10" height="14" fill="#FDF7F0"><title>t=10 log_dtau: z = 0.18</title></rect>
+<rect x="228" y="206" width="10" height="14" fill="#FDF7F0"><title>t=11 log_dtau: z = 0.18</title></rect>
+<rect x="239" y="206" width="10" height="14" fill="#FDF7F0"><title>t=12 log_dtau: z = 0.18</title></rect>
+<rect x="250" y="206" width="571" height="14" class="uA-pad"/>
+<text x="112" y="240" text-anchor="end" class="uA-s uA-mono" font-weight="700">mask</text>
+<rect x="118" y="229" width="10" height="14" class="uA-m1"/>
+<rect x="129" y="229" width="10" height="14" class="uA-m1"/>
+<rect x="140" y="229" width="10" height="14" class="uA-m1"/>
+<rect x="151" y="229" width="10" height="14" class="uA-m1"/>
+<rect x="162" y="229" width="10" height="14" class="uA-m1"/>
+<rect x="173" y="229" width="10" height="14" class="uA-m1"/>
+<rect x="184" y="229" width="10" height="14" class="uA-m1"/>
+<rect x="195" y="229" width="10" height="14" class="uA-m1"/>
+<rect x="206" y="229" width="10" height="14" class="uA-m1"/>
+<rect x="217" y="229" width="10" height="14" class="uA-m1"/>
+<rect x="228" y="229" width="10" height="14" class="uA-m1"/>
+<rect x="239" y="229" width="10" height="14" class="uA-m1"/>
+<rect x="250" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="261" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="272" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="283" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="294" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="305" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="316" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="327" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="338" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="349" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="360" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="371" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="382" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="393" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="404" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="415" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="426" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="437" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="448" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="459" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="470" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="481" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="492" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="503" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="514" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="525" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="536" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="547" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="558" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="569" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="580" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="591" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="602" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="613" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="624" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="635" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="646" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="657" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="668" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="679" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="690" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="701" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="712" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="723" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="734" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="745" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="756" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="767" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="778" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="789" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="800" y="229" width="10" height="14" class="uA-m0"/>
+<rect x="811" y="229" width="10" height="14" class="uA-m0"/>
+<text x="184.0" y="240" text-anchor="middle" class="uA-w">12 × 1</text>
+<text x="536.0" y="240" text-anchor="middle" class="uA-s uA-m">52 × 0</text>
+<text x="118" y="266" class="uA-s uA-m">z-score:</text>
+<rect x="176" y="255" width="28" height="13" fill="#2563EB" stroke="#CBD5E1" stroke-width=".5"/>
+<text x="190" y="280" text-anchor="middle" class="uA-s uA-m">-3</text>
+<rect x="206" y="255" width="28" height="13" fill="#6E97F2" stroke="#CBD5E1" stroke-width=".5"/>
+<text x="220" y="280" text-anchor="middle" class="uA-s uA-m">-2</text>
+<rect x="236" y="255" width="28" height="13" fill="#B6CBF8" stroke="#CBD5E1" stroke-width=".5"/>
+<text x="250" y="280" text-anchor="middle" class="uA-s uA-m">-1</text>
+<rect x="266" y="255" width="28" height="13" fill="#FFFFFF" stroke="#CBD5E1" stroke-width=".5"/>
+<text x="280" y="280" text-anchor="middle" class="uA-s uA-m">0</text>
+<rect x="296" y="255" width="28" height="13" fill="#F2D2AC" stroke="#CBD5E1" stroke-width=".5"/>
+<text x="310" y="280" text-anchor="middle" class="uA-s uA-m">+1</text>
+<rect x="326" y="255" width="28" height="13" fill="#E6A459" stroke="#CBD5E1" stroke-width=".5"/>
+<text x="340" y="280" text-anchor="middle" class="uA-s uA-m">+2</text>
+<rect x="356" y="255" width="28" height="13" fill="#D97706" stroke="#CBD5E1" stroke-width=".5"/>
+<text x="370" y="280" text-anchor="middle" class="uA-s uA-m">+3</text>
+<rect x="410" y="255" width="28" height="13" class="uA-pad"/><text x="444" y="266" class="uA-s uA-m">padding row (mask 0)</text>
+</svg></div>
+    <div class="col">
+      <div class="uA-chips"><span class="uA-chip">x: 64 × 13</span><span class="uA-chip">mask: 64</span></div>
+      <div class="card warn"><b>What is missing</b>No class (benign or attack), no sender id, no time of day. The file holds only <code>id</code>, <code>x</code> and <code>mask</code>.</div>
+    </div>
+  </div>
+  <div class="uA-tblwrap">
+    <span class="uA-tag">first 6 real rows · normalised with train statistics (z-scores)</span>
+    <table class="tbl uA-tbl"><thead><tr><th>t</th><th class="uA-num">c_pos_x</th><th class="uA-num">c_pos_y</th><th class="uA-num">rx_pos_x</th><th class="uA-num">rx_pos_y</th><th class="uA-num">c_vel_x</th><th class="uA-num">c_vel_y</th><th class="uA-num">rx_vel_x</th><th class="uA-num">rx_vel_y</th><th class="uA-num">c_acl_x</th><th class="uA-num">c_acl_y</th><th class="uA-num">range</th><th class="uA-num">bearing</th><th class="uA-num">log_dtau</th></tr></thead><tbody><tr><td>1</td><td class="uA-num">-0.50</td><td class="uA-num">-1.07</td><td class="uA-num">-0.24</td><td class="uA-num">-1.29</td><td class="uA-num">-0.47</td><td class="uA-num">2.39</td><td class="uA-num">-1.36</td><td class="uA-num">-0.44</td><td class="uA-num">0.10</td><td class="uA-num">-0.48</td><td class="uA-num">-0.04</td><td class="uA-num">-1.39</td><td class="uA-num">0.00</td></tr><tr><td>2</td><td class="uA-num">-0.51</td><td class="uA-num">-1.03</td><td class="uA-num">-0.27</td><td class="uA-num">-1.30</td><td class="uA-num">-0.41</td><td class="uA-num">2.40</td><td class="uA-num">-1.38</td><td class="uA-num">-0.44</td><td class="uA-num">-0.06</td><td class="uA-num">0.29</td><td class="uA-num">-0.07</td><td class="uA-num">-1.44</td><td class="uA-num">0.18</td></tr><tr><td>3</td><td class="uA-num">-0.51</td><td class="uA-num">-1.00</td><td class="uA-num">-0.29</td><td class="uA-num">-1.31</td><td class="uA-num">-0.42</td><td class="uA-num">2.39</td><td class="uA-num">-1.36</td><td class="uA-num">-0.45</td><td class="uA-num">0.01</td><td class="uA-num">-0.08</td><td class="uA-num">-0.10</td><td class="uA-num">-1.50</td><td class="uA-num">0.18</td></tr><tr><td>4</td><td class="uA-num">-0.56</td><td class="uA-num">-0.64</td><td class="uA-num">-0.56</td><td class="uA-num">-1.42</td><td class="uA-num">-0.43</td><td class="uA-num">2.40</td><td class="uA-num">-1.20</td><td class="uA-num">-0.26</td><td class="uA-num">-0.16</td><td class="uA-num">0.83</td><td class="uA-num">-0.03</td><td class="uA-num">1.21</td><td class="uA-num">3.91</td></tr><tr><td>5</td><td class="uA-num">-0.56</td><td class="uA-num">-0.60</td><td class="uA-num">-0.56</td><td class="uA-num">-1.45</td><td class="uA-num">-0.42</td><td class="uA-num">2.39</td><td class="uA-num">0.12</td><td class="uA-num">-1.29</td><td class="uA-num">0.05</td><td class="uA-num">-0.27</td><td class="uA-num">0.02</td><td class="uA-num">1.18</td><td class="uA-num">0.18</td></tr><tr><td>6</td><td class="uA-num">-0.57</td><td class="uA-num">-0.57</td><td class="uA-num">-0.56</td><td class="uA-num">-1.48</td><td class="uA-num">-0.47</td><td class="uA-num">2.38</td><td class="uA-num">0.21</td><td class="uA-num">-1.27</td><td class="uA-num">0.00</td><td class="uA-num">-0.02</td><td class="uA-num">0.08</td><td class="uA-num">1.18</td><td class="uA-num">0.18</td></tr><tr class="uA-more"><td>…</td><td colspan="13">6 more real rows (t = 7–12) · then rows 13–64 are all 0.00 with mask 0</td></tr></tbody></table>
+  </div>
+  <div class="note">Speaker note: this is what one of the 338,001 train windows looks like to the model — a 64 × 13 block of numbers plus a 0/1 mask. Rows 13–64 are exactly zero and the mask tells the encoder to ignore them. Note row 4: a big jump in log_dtau (z = 3.91): the listener heard nothing from this pseudonym for 11 s before that message.</div>
+</section>
+
+<section class="slide uA" data-title="The same window in real units">
+  <div class="kicker">Example · one training window</div>
+  <h2>The same window in real units</h2>
+  <p class="lead">Undo the normalisation and the 12 rows become a story: a car claims to drive straight north at about 14.5 m/s while the listener drives away and turns.</p>
+  <div class="cols uA-c12">
+    <div class="col">
+      <table class="tbl uA-tbl uA-tbl2"><thead><tr><th>t</th><th class="uA-num">claimed x (m)</th><th class="uA-num">claimed y (m)</th><th class="uA-num">receiver x (m)</th><th class="uA-num">receiver y (m)</th><th class="uA-num">claimed |v| (m/s)</th><th class="uA-num">range (m)</th><th class="uA-num">Δτ (s)</th></tr></thead><tbody><tr><td>1</td><td class="uA-num">244</td><td class="uA-num">186</td><td class="uA-num">384</td><td class="uA-num">257</td><td class="uA-num">14.4</td><td class="uA-num">157</td><td class="uA-num">—</td></tr><tr><td>2</td><td class="uA-num">242</td><td class="uA-num">200</td><td class="uA-num">375</td><td class="uA-num">254</td><td class="uA-num">14.5</td><td class="uA-num">143</td><td class="uA-num">1.0</td></tr><tr><td>3</td><td class="uA-num">240</td><td class="uA-num">214</td><td class="uA-num">365</td><td class="uA-num">250</td><td class="uA-num">14.4</td><td class="uA-num">130</td><td class="uA-num">1.0</td></tr><tr class="uA-gap"><td>4</td><td class="uA-num">217</td><td class="uA-num">372</td><td class="uA-num">260</td><td class="uA-num">217</td><td class="uA-num">14.5</td><td class="uA-num">161</td><td class="uA-num">11.0</td></tr><tr><td>5</td><td class="uA-num">214</td><td class="uA-num">386</td><td class="uA-num">258</td><td class="uA-num">208</td><td class="uA-num">14.4</td><td class="uA-num">183</td><td class="uA-num">1.0</td></tr><tr><td>6</td><td class="uA-num">212</td><td class="uA-num">400</td><td class="uA-num">259</td><td class="uA-num">198</td><td class="uA-num">14.4</td><td class="uA-num">208</td><td class="uA-num">1.0</td></tr><tr><td>7</td><td class="uA-num">210</td><td class="uA-num">415</td><td class="uA-num">261</td><td class="uA-num">188</td><td class="uA-num">14.5</td><td class="uA-num">232</td><td class="uA-num">1.0</td></tr><tr><td>8</td><td class="uA-num">207</td><td class="uA-num">429</td><td class="uA-num">262</td><td class="uA-num">178</td><td class="uA-num">14.5</td><td class="uA-num">257</td><td class="uA-num">1.0</td></tr><tr><td>9</td><td class="uA-num">205</td><td class="uA-num">443</td><td class="uA-num">264</td><td class="uA-num">168</td><td class="uA-num">14.5</td><td class="uA-num">282</td><td class="uA-num">1.0</td></tr><tr><td>10</td><td class="uA-num">202</td><td class="uA-num">457</td><td class="uA-num">266</td><td class="uA-num">158</td><td class="uA-num">14.5</td><td class="uA-num">306</td><td class="uA-num">1.0</td></tr><tr><td>11</td><td class="uA-num">200</td><td class="uA-num">472</td><td class="uA-num">268</td><td class="uA-num">147</td><td class="uA-num">14.4</td><td class="uA-num">331</td><td class="uA-num">1.0</td></tr><tr><td>12</td><td class="uA-num">198</td><td class="uA-num">486</td><td class="uA-num">269</td><td class="uA-num">137</td><td class="uA-num">14.4</td><td class="uA-num">356</td><td class="uA-num">1.0</td></tr></tbody></table>
+    </div>
+    <div class="col">
+      <svg class="uA-svg uA-map" viewBox="0 0 306 469" role="img" aria-labelledby="uA-t2"><title id="uA-t2">Map in SUMO metres, equal axes: the claimed path runs north about 300 metres in a straight line; the receiver's own path runs south-west then turns south. Circles mark the start, squares the end; dashed lines show the range between them at three moments; scale bar 100 metres.</title>
+<rect x="50" y="20" width="236.3" height="398.7" class="uA-frame"/>
+<line x1="120.9" y1="345.1" x2="261.3" y2="274.0" class="uA-rng"/>
+<line x1="93.7" y1="159.2" x2="137.4" y2="314.3" class="uA-rng"/>
+<line x1="75.0" y1="45.0" x2="146.4" y2="393.7" class="uA-rng"/>
+<path d="M120.9,345.1 L118.8,330.8 L116.8,316.5 L93.7,159.2 L91.4,144.9 L88.9,130.6 L86.6,116.4 L84.1,102.1 L81.6,87.8 L79.4,73.5 L77.3,59.3 L75.0,45.0" class="uA-pc"/>
+<path d="M261.3,274.0 L251.5,277.4 L241.8,280.8 L137.4,314.3 L134.5,322.6 L136.1,332.8 L137.5,343.0 L139.1,353.2 L140.8,363.3 L142.8,373.4 L144.7,383.5 L146.4,393.7" class="uA-pr"/>
+<circle cx="120.9" cy="345.1" r="3" class="uA-dc"/><circle cx="261.3" cy="274.0" r="3" class="uA-dr"/>
+<circle cx="118.8" cy="330.8" r="3" class="uA-dc"/><circle cx="251.5" cy="277.4" r="3" class="uA-dr"/>
+<circle cx="116.8" cy="316.5" r="3" class="uA-dc"/><circle cx="241.8" cy="280.8" r="3" class="uA-dr"/>
+<circle cx="93.7" cy="159.2" r="3" class="uA-dc"/><circle cx="137.4" cy="314.3" r="3" class="uA-dr"/>
+<circle cx="91.4" cy="144.9" r="3" class="uA-dc"/><circle cx="134.5" cy="322.6" r="3" class="uA-dr"/>
+<circle cx="88.9" cy="130.6" r="3" class="uA-dc"/><circle cx="136.1" cy="332.8" r="3" class="uA-dr"/>
+<circle cx="86.6" cy="116.4" r="3" class="uA-dc"/><circle cx="137.5" cy="343.0" r="3" class="uA-dr"/>
+<circle cx="84.1" cy="102.1" r="3" class="uA-dc"/><circle cx="139.1" cy="353.2" r="3" class="uA-dr"/>
+<circle cx="81.6" cy="87.8" r="3" class="uA-dc"/><circle cx="140.8" cy="363.3" r="3" class="uA-dr"/>
+<circle cx="79.4" cy="73.5" r="3" class="uA-dc"/><circle cx="142.8" cy="373.4" r="3" class="uA-dr"/>
+<circle cx="77.3" cy="59.3" r="3" class="uA-dc"/><circle cx="144.7" cy="383.5" r="3" class="uA-dr"/>
+<circle cx="75.0" cy="45.0" r="3" class="uA-dc"/><circle cx="146.4" cy="393.7" r="3" class="uA-dr"/>
+<circle cx="120.9" cy="345.1" r="7" class="uA-dc uA-start"/>
+<rect x="69.0" y="39.0" width="12" height="12" class="uA-dc"/>
+<circle cx="261.3" cy="274.0" r="7" class="uA-dr uA-start"/>
+<rect x="140.4" y="387.7" width="12" height="12" class="uA-dr"/>
+<text x="110.9" y="349.1" text-anchor="end" class="uA-s">start</text>
+<text x="85.0" y="49.0" class="uA-s">end</text>
+<text x="261.3" y="263.0" text-anchor="middle" class="uA-s">start</text>
+<text x="156.4" y="397.7" class="uA-s">end</text>
+<text x="97.2" y="237.9" text-anchor="end" class="uA-s uA-m">11 s gap</text>
+<line x1="50" y1="440.69" x2="150.0" y2="440.69" class="uA-sb"/><line x1="50" y1="435.69" x2="50" y2="445.69" class="uA-sb"/><line x1="150.0" y1="435.69" x2="150.0" y2="445.69" class="uA-sb"/>
+<text x="100.0" y="458.69" text-anchor="middle" class="uA-s">100 m</text>
+<text x="44" y="28" text-anchor="end" class="uA-s uA-m">y = 511</text>
+<text x="44" y="418.69" text-anchor="end" class="uA-s uA-m">112</text>
+</svg>
+      <div class="uA-key"><span><i></i>claimed path (what the sender broadcast)</span><span><i class="r"></i>receiver's own GPS path</span><span>● start · ■ end</span></div>
+    </div>
+  </div>
+  <div class="note">Values are rounded; positions are SUMO metres, not GPS. |v| = √(vx² + vy²) of the claimed velocity; Δτ = exp(log_dtau) is the time since this pseudonym was last heard — row 1 has no previous message (stored as z = 0), row 4 (highlighted) comes after an 11 s gap. Speaker note: nothing here says "honest" or "attack"; pretraining has to learn what normal motion looks like from hundreds of thousands of windows like this.</div>
+</section>
+<!-- slides_unlabelled_b -->
+<style>
+.slide.uB svg { max-height: 13em; width: 100%; height: auto; }
+.uB svg text { font-family: inherit; fill: var(--text); }
+.uB .uB-svg .uB-t { font-size: 17px; font-weight: 700; }
+.uB .uB-svg .uB-s { font-size: 14px; fill: var(--text-2); }
+.uB .uB-svg .uB-m { font-size: 13px; fill: var(--muted); }
+.uB .uB-svg .uB-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; }
+.uB .uB-svg .uB-file { fill: var(--card); stroke: var(--primary); stroke-width: 2; }
+.uB .uB-svg .uB-file-lab { fill: var(--alt); stroke: var(--divider); stroke-width: 2; stroke-dasharray: 6 4; }
+.uB .uB-svg .uB-code { fill: var(--fill-info); stroke: var(--primary); stroke-width: 2; }
+.uB .uB-svg .uB-eval { fill: var(--alt); stroke: var(--muted); stroke-width: 1.5; }
+.uB .uB-svg .uB-wall { fill: var(--fill-bad); stroke: var(--bad); stroke-width: 2; }
+.uB .uB-svg .uB-wall-t { fill: var(--fill-bad-text); font-size: 13px; font-weight: 700; }
+.uB .uB-svg .uB-ok { stroke: var(--good); stroke-width: 3; fill: none; }
+.uB .uB-svg .uB-okh { fill: var(--good); }
+.uB .uB-svg .uB-no { stroke: var(--bad); stroke-width: 3; fill: none; stroke-dasharray: 7 5; }
+.uB .uB-svg .uB-noh { fill: var(--bad); }
+.uB .uB-svg .uB-later { stroke: var(--muted); stroke-width: 1.5; fill: none; stroke-dasharray: 3 4; }
+.uB .uB-learn { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.1cqw; }
+.uB .uB-learn .card { font-size: .86em; }
+.uB .uB-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2cqw; margin-top: .8em; }
+.uB .uB-win { display: flex; flex-direction: column; gap: .45em; min-width: 0; }
+.uB .uB-win h3 { font-size: 1em; color: var(--text); font-weight: 700; display: flex; align-items: center; gap: .5em; flex-wrap: wrap; }
+.uB .uB-map .uB-frame { fill: var(--page); stroke: var(--border); stroke-width: 1; }
+.uB .uB-map .uB-cl { fill: none; stroke: var(--primary); stroke-width: 2.5; stroke-linejoin: round; }
+.uB .uB-map .uB-rx { fill: none; stroke: var(--muted); stroke-width: 2; stroke-dasharray: 6 4; stroke-linejoin: round; }
+.uB .uB-map .uB-dot.uB-clm { fill: var(--primary); }
+.uB .uB-map .uB-dot.uB-rxm { fill: var(--muted); }
+.uB .uB-map .uB-start { fill: var(--card); stroke-width: 2; }
+.uB .uB-map .uB-start.uB-clm { stroke: var(--primary); }
+.uB .uB-map .uB-start.uB-rxm { stroke: var(--muted); }
+.uB .uB-map .uB-end.uB-clm { fill: var(--primary); }
+.uB .uB-map .uB-end.uB-rxm { fill: var(--muted); }
+.uB .uB-map .uB-bar { stroke: var(--text); stroke-width: 2; }
+.uB .uB-map .uB-small { font-size: 12px; }
+.uB .uB-map .uB-mut { fill: var(--muted); }
+.uB .uB-nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6em; }
+.uB .uB-nums .kpi b { font-size: 1.35em; }
+.uB .uB-legend { font-size: .78em; color: var(--muted); display: flex; gap: 1.2em; flex-wrap: wrap; align-items: center; }
+.uB .uB-sw { display: inline-block; width: 1.8em; height: 0; border-top: 3px solid var(--primary); vertical-align: middle; margin-right: .35em; }
+.uB .uB-sw.uB-rxsw { border-top: 2px dashed var(--muted); }
+.uB .uB-q { display: inline-block; font-size: .78em; font-weight: 600; padding: .1em .6em; border-radius: 999px; background: var(--alt); color: var(--muted); border: 1px dashed var(--divider); }
+.uB .uB-ans { display: none; font-size: .78em; font-weight: 700; padding: .1em .6em; border-radius: 999px; color: #fff; }
+.uB .uB-ans.uB-benign { background: var(--c-benign); }
+.uB .uB-ans.uB-grid { background: var(--c-grid); }
+.uB.uB-revealed .uB-ans { display: inline-block; }
+.uB.uB-revealed .uB-q { display: none; }
+.uB .uB-bar-row { display: flex; align-items: center; gap: .8em; flex-wrap: wrap; }
+.uB .uB-btn { font: inherit; font-size: .85em; font-weight: 600; background: var(--card); color: var(--primary-dark); border: 1.5px solid var(--primary); border-radius: 8px; padding: .3em .9em; cursor: pointer; }
+.uB .uB-btn:hover { background: var(--fill-info); }
+.uB .uB-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.uB .uB-badge { visibility: hidden; font-size: .78em; font-weight: 600; padding: .15em .65em; border-radius: 999px; background: var(--fill-warn); color: var(--fill-warn-text); border: 1px solid #FDE68A; }
+.uB.uB-revealed .uB-badge { visibility: visible; }
+@media (max-width: 700px) {
+  .uB .uB-learn, .uB .uB-pair { grid-template-columns: 1fr; }
+}
+@media print { .uB .uB-ans { display: inline-block; } .uB .uB-q { display: none; } .uB .uB-badge { visibility: visible; } }
+</style>
+
+<section class="slide uB" data-title="Where the labels live">
+  <div class="kicker">Unlabelled data · Two files per shard</div>
+  <h2>Where the labels live (and why pretraining can't see them)</h2>
+  <p class="lead">Every shard is written as two files. Pretraining reads only the feature file; the labels sit in a sibling <code>_info</code> file that the loader refuses to open.</p>
+  <svg class="uB-svg" viewBox="0 0 960 300" role="img" aria-labelledby="uB-t1">
+    <title id="uB-t1">Two files per shard: part-00000.json with id, x 64 by 13 and mask 64 flows into the pretraining code; part-00000_info.json with label, sender, receiver and n_messages is blocked by the LabelFirewall and is read only later, for evaluation</title>
+    <defs>
+      <marker id="uB-aok" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="uB-okh" d="M0 0 L10 5 L0 10 z"/></marker>
+      <marker id="uB-ano" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="uB-noh" d="M0 0 L10 5 L0 10 z"/></marker>
+    </defs>
+    <!-- feature file -->
+    <rect class="uB-file" x="10" y="14" width="300" height="122" rx="10"/>
+    <text class="uB-t uB-mono" x="26" y="42">part-00000.json</text>
+    <text class="uB-s uB-mono" x="26" y="70">x     64 × 13  (normalised)</text>
+    <text class="uB-s uB-mono" x="26" y="94">mask  64       (1 real, 0 pad)</text>
+    <text class="uB-m uB-mono" x="26" y="118">id    lookup key, not an input</text>
+    <!-- info file -->
+    <rect class="uB-file-lab" x="10" y="164" width="300" height="122" rx="10"/>
+    <text class="uB-t uB-mono" x="26" y="192">part-00000_info.json</text>
+    <text class="uB-s uB-mono" x="26" y="220">label      Benign / GridSybil</text>
+    <text class="uB-s uB-mono" x="26" y="244">sender, receiver</text>
+    <text class="uB-s uB-mono" x="26" y="268">n_messages</text>
+    <!-- pretraining code -->
+    <rect class="uB-code" x="640" y="40" width="310" height="96" rx="10"/>
+    <text class="uB-t" x="660" y="72">Pretraining code</text>
+    <text class="uB-s" x="660" y="98">reads x and mask only</text>
+    <text class="uB-m uB-mono" x="660" y="122">env.json: label_files_opened = 0</text>
+    <!-- allowed arrow -->
+    <path class="uB-ok" d="M312 76 H636" marker-end="url(#uB-aok)"/>
+    <text class="uB-s" x="400" y="66">allowed: feature shard</text>
+    <!-- blocked arrow -->
+    <path class="uB-no" d="M312 222 H470 Q500 222 500 190 V150" />
+    <rect class="uB-wall" x="440" y="118" width="120" height="30" rx="6"/>
+    <text class="uB-wall-t" x="500" y="138" text-anchor="middle">LabelFirewall</text>
+    <text class="uB-m" x="574" y="160">PermissionError</text>
+    <text class="uB-m" x="574" y="178">for any *_info file</text>
+    <!-- evaluation later -->
+    <rect class="uB-eval" x="640" y="196" width="310" height="76" rx="10"/>
+    <text class="uB-s" x="660" y="226"><tspan font-weight="700" fill="var(--text)">Evaluation, later</tspan></text>
+    <text class="uB-m" x="660" y="250">probes, few-shot, transfer: labels read here</text>
+    <path class="uB-later" d="M500 222 H636"/>
+  </svg>
+  <div class="uB-learn">
+    <div class="card info"><b>Hide &amp; rebuild</b>Some real rows are hidden; the model rebuilds them from the rows around them. The window is its own target.</div>
+    <div class="card info"><b>Two views of one window</b>The window is shifted, stretched or cropped twice; the model learns that both views belong together and differ from other windows.</div>
+    <div class="card info"><b>Violations we inject</b>We break the physics ourselves (P1–P3) in half of the windows, so we know where the error is without any attack label.</div>
+  </div>
+  <div class="note">Speaker note: the split into two files is the safeguard. The loader only accepts files named <code>part-XXXXX.json</code> in the train folder and raises an error for anything with <code>_info</code>; each run records <code>"label_files_opened": 0</code> in its env.json. 338,001 train windows like these feed pretraining with no class, sender or receiver attached.</div>
+</section>
+
+<section class="slide uB" data-title="Two unlabelled windows">
+  <div class="kicker">Unlabelled data · Two real training windows</div>
+  <h2>Two unlabelled windows: which one is the attack?</h2>
+  <p class="lead">Two real windows from the first train shard, drawn from their raw values (claimed path of the sender vs. the receiver's own path). This is all the information the encoder gets.</p>
+  <div class="uB-bar-row">
+    <button class="uB-btn" type="button" aria-pressed="false">Reveal the labels</button>
+    <span class="uB-badge">Evaluation only: read from the <code>_info</code> file, never by pretraining</span>
+  </div>
+  <div class="uB-pair">
+    <div class="uB-win">
+      <h3>Window A <span class="uB-q">label hidden</span><span class="uB-ans uB-benign">Benign</span></h3>
+      <svg class="uB-map" viewBox="0 0 300 230" role="img" aria-labelledby="uB-mA"><title id="uB-mA">Window A: claimed path of the sender (solid) and the receiver's own path (dashed), SUMO metres, equal axes</title><rect class="uB-frame" x="1" y="1" width="298" height="228" rx="8"/><path class="uB-rx" d="M191.7 132.4 L187.3 134.0 L183.0 135.5 L136.2 150.5 L135.0 154.2 L135.6 158.8 L136.3 163.3 L137.0 167.9 L137.8 172.4 L138.6 176.9 L139.5 181.4 L140.3 186.0"/><circle class="uB-start uB-rxm" cx="191.7" cy="132.4" r="5"/><rect class="uB-end uB-rxm" x="135.8" y="181.5" width="9" height="9"/><circle class="uB-dot uB-rxm" cx="191.7" cy="132.4" r="2.2"/><circle class="uB-dot uB-rxm" cx="187.3" cy="134.0" r="2.2"/><circle class="uB-dot uB-rxm" cx="183.0" cy="135.5" r="2.2"/><circle class="uB-dot uB-rxm" cx="136.2" cy="150.5" r="2.2"/><circle class="uB-dot uB-rxm" cx="135.0" cy="154.2" r="2.2"/><circle class="uB-dot uB-rxm" cx="135.6" cy="158.8" r="2.2"/><circle class="uB-dot uB-rxm" cx="136.3" cy="163.3" r="2.2"/><circle class="uB-dot uB-rxm" cx="137.0" cy="167.9" r="2.2"/><circle class="uB-dot uB-rxm" cx="137.8" cy="172.4" r="2.2"/><circle class="uB-dot uB-rxm" cx="138.6" cy="176.9" r="2.2"/><circle class="uB-dot uB-rxm" cx="139.5" cy="181.4" r="2.2"/><circle class="uB-dot uB-rxm" cx="140.3" cy="186.0" r="2.2"/><path class="uB-cl" d="M128.8 164.3 L127.9 157.9 L127.0 151.5 L116.7 81.1 L115.7 74.7 L114.6 68.3 L113.5 61.9 L112.4 55.6 L111.3 49.2 L110.3 42.8 L109.4 36.4 L108.3 30.0"/><circle class="uB-start uB-clm" cx="128.8" cy="164.3" r="5"/><rect class="uB-end uB-clm" x="103.8" y="25.5" width="9" height="9"/><circle class="uB-dot uB-clm" cx="128.8" cy="164.3" r="2.2"/><circle class="uB-dot uB-clm" cx="127.9" cy="157.9" r="2.2"/><circle class="uB-dot uB-clm" cx="127.0" cy="151.5" r="2.2"/><circle class="uB-dot uB-clm" cx="116.7" cy="81.1" r="2.2"/><circle class="uB-dot uB-clm" cx="115.7" cy="74.7" r="2.2"/><circle class="uB-dot uB-clm" cx="114.6" cy="68.3" r="2.2"/><circle class="uB-dot uB-clm" cx="113.5" cy="61.9" r="2.2"/><circle class="uB-dot uB-clm" cx="112.4" cy="55.6" r="2.2"/><circle class="uB-dot uB-clm" cx="111.3" cy="49.2" r="2.2"/><circle class="uB-dot uB-clm" cx="110.3" cy="42.8" r="2.2"/><circle class="uB-dot uB-clm" cx="109.4" cy="36.4" r="2.2"/><circle class="uB-dot uB-clm" cx="108.3" cy="30.0" r="2.2"/><line class="uB-bar" x1="263.6" y1="216" x2="286" y2="216"/><text class="uB-small" x="274.8" y="210" text-anchor="middle">50 m</text><text class="uB-small uB-mut" x="12" y="220">12 real rows · 1 dot = 1 message</text></svg>
+      <div class="uB-nums kpis">
+        <div class="kpi"><b>12</b><span>real rows (of 64)</span></div>
+        <div class="kpi"><b>220 m</b><span>median range</span></div>
+        <div class="kpi"><b>14.5 m/s</b><span>median claimed speed</span></div>
+      </div>
+    </div>
+    <div class="uB-win">
+      <h3>Window B <span class="uB-q">label hidden</span><span class="uB-ans uB-grid">GridSybil</span></h3>
+      <svg class="uB-map" viewBox="0 0 300 230" role="img" aria-labelledby="uB-mB"><title id="uB-mB">Window B: claimed path of the sender (solid) and the receiver's own path (dashed), SUMO metres, equal axes</title><rect class="uB-frame" x="1" y="1" width="298" height="228" rx="8"/><path class="uB-rx" d="M72.0 133.9 L80.6 127.1 L89.1 120.4 L97.7 114.1 L107.3 108.9 L117.7 105.5 L128.3 102.8 L138.6 100.1 L149.2 97.4 L159.9 94.7 L170.6 92.0 L181.1 89.3 L191.5 86.6"/><circle class="uB-start uB-rxm" cx="72.0" cy="133.9" r="5"/><rect class="uB-end uB-rxm" x="187.0" y="82.1" width="9" height="9"/><circle class="uB-dot uB-rxm" cx="72.0" cy="133.9" r="2.2"/><circle class="uB-dot uB-rxm" cx="80.6" cy="127.1" r="2.2"/><circle class="uB-dot uB-rxm" cx="89.1" cy="120.4" r="2.2"/><circle class="uB-dot uB-rxm" cx="97.7" cy="114.1" r="2.2"/><circle class="uB-dot uB-rxm" cx="107.3" cy="108.9" r="2.2"/><circle class="uB-dot uB-rxm" cx="117.7" cy="105.5" r="2.2"/><circle class="uB-dot uB-rxm" cx="128.3" cy="102.8" r="2.2"/><circle class="uB-dot uB-rxm" cx="138.6" cy="100.1" r="2.2"/><circle class="uB-dot uB-rxm" cx="149.2" cy="97.4" r="2.2"/><circle class="uB-dot uB-rxm" cx="159.9" cy="94.7" r="2.2"/><circle class="uB-dot uB-rxm" cx="170.6" cy="92.0" r="2.2"/><circle class="uB-dot uB-rxm" cx="181.1" cy="89.3" r="2.2"/><circle class="uB-dot uB-rxm" cx="191.5" cy="86.6" r="2.2"/><path class="uB-cl" d="M228.0 82.1 L217.0 84.9 L206.1 87.8 L195.1 90.6 L184.1 93.5 L173.0 96.3 L161.9 99.1 L150.8 102.0 L140.1 104.8 L129.0 107.6 L117.9 110.4 L106.9 114.2 L97.3 120.1"/><circle class="uB-start uB-clm" cx="228.0" cy="82.1" r="5"/><rect class="uB-end uB-clm" x="92.8" y="115.6" width="9" height="9"/><circle class="uB-dot uB-clm" cx="228.0" cy="82.1" r="2.2"/><circle class="uB-dot uB-clm" cx="217.0" cy="84.9" r="2.2"/><circle class="uB-dot uB-clm" cx="206.1" cy="87.8" r="2.2"/><circle class="uB-dot uB-clm" cx="195.1" cy="90.6" r="2.2"/><circle class="uB-dot uB-clm" cx="184.1" cy="93.5" r="2.2"/><circle class="uB-dot uB-clm" cx="173.0" cy="96.3" r="2.2"/><circle class="uB-dot uB-clm" cx="161.9" cy="99.1" r="2.2"/><circle class="uB-dot uB-clm" cx="150.8" cy="102.0" r="2.2"/><circle class="uB-dot uB-clm" cx="140.1" cy="104.8" r="2.2"/><circle class="uB-dot uB-clm" cx="129.0" cy="107.6" r="2.2"/><circle class="uB-dot uB-clm" cx="117.9" cy="110.4" r="2.2"/><circle class="uB-dot uB-clm" cx="106.9" cy="114.2" r="2.2"/><circle class="uB-dot uB-clm" cx="97.3" cy="120.1" r="2.2"/><line class="uB-bar" x1="246.9" y1="216" x2="286" y2="216"/><text class="uB-small" x="266.4" y="210" text-anchor="middle">50 m</text><text class="uB-small uB-mut" x="12" y="220">13 real rows · 1 dot = 1 message</text></svg>
+      <div class="uB-nums kpis">
+        <div class="kpi"><b>13</b><span>real rows (of 64)</span></div>
+        <div class="kpi"><b>100 m</b><span>median range</span></div>
+        <div class="kpi"><b>14.6 m/s</b><span>median claimed speed</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="uB-legend"><span><i class="uB-sw"></i>claimed path (sender)</span><span><i class="uB-sw uB-rxsw"></i>receiver's own path</span><span>○ start · ■ end</span><span>SUMO metres, equal axes, each map has its own scale</span></div>
+  <div class="note">Speaker note: the point is that the window carries no answer. Both look like an ordinary car driving at about 14.5 m/s, and nothing in the 64 × 13 numbers says which is which. The encoder has to learn motion patterns on its own; only later, with a few labels, do we check whether those patterns separate windows like these. Values are rounded; the label shown after the click comes from the <code>_info</code> file and is used for evaluation only.</div>
+  <script>
+  (function () {
+    var s = document.currentScript.parentNode;
+    var b = s.querySelector('.uB-btn');
+    b.addEventListener('click', function () {
+      var on = s.classList.toggle('uB-revealed');
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.textContent = on ? 'Hide the labels' : 'Reveal the labels';
+    });
+  })();
+  </script>
+</section>
+
 
 <section class="slide sP" data-title="Quality checks">
   <div class="kicker">Pipeline · audit</div>
@@ -1759,7 +2285,7 @@
 <section class="slide sE" data-title="From window to vector: the encoder">
   <div class="kicker">Encoder · overview</div>
   <h2>From window to vector: the encoder</h2>
-  <p class="lead">A mask-aware TimesNet turns one 64 &times; 13 window into a vector per message (H) and one vector per window (z). Built in <code>src/model/benign_gridsybil/timesnet_encoder_T64.ipynb</code>; not trained yet.</p>
+  <p class="lead">A mask-aware TimesNet turns one 64 &times; 13 window into a vector per message (H) and one vector per window (z). Built in <code>src/model/benign_gridsybil/encoder_T64.ipynb</code>; not trained yet.</p>
   <svg class="sE-svg" viewBox="0 0 1000 300" role="img" aria-labelledby="sE-t1">
     <title id="sE-t1">Encoder pipeline: window x of 64 by 13 plus mask goes into an embedding (Conv1d with zero padding plus sinusoidal position, no time of day), then 4 TimesBlocks (periods from an FFT over real rows, fold into a 2D grid, Inception convolutions, output times mask), giving H of 64 by 128 (one vector per message, zero at padding) and z of 128 (masked mean of H). Untrained heads read H (reconstruction, physics P1 to P3) and z (projection for contrastive).</title>
     <defs>
@@ -1811,10 +2337,10 @@
     <text x="10" y="266" class="sE-m sE-mono">H (B, 64, 128), z (B, 128)</text>
   </svg>
   <div class="kpis">
-    <div class="kpi"><b>2,301,312</b><span>encoder parameters (WBS F9: 2.30 M, +0.06%)</span></div>
-    <div class="kpi"><b>4 · 128 · 64</b><span>TimesBlocks · d · d_ff (3 Inception kernels)</span></div>
+    <div class="kpi"><b>2,301,312</b><span>encoder parameters (D12: d = 128, d_ff = 64, the professor's plan; ≈ 2.30 M)</span></div>
+    <div class="kpi"><b>4 · 128 · 64</b><span>TimesBlocks · d · d_ff (128 → 64 → 128, 3 Inception kernels)</span></div>
     <div class="kpi"><b>top-3</b><span>periods per window, from its real rows</span></div>
-    <div class="kpi"><b>2,377,488</b><span>parameters with the untrained heads</span></div>
+    <div class="kpi"><b>2,402,448</b><span>parameters with the untrained heads</span></div>
   </div>
   <div class="note">Speaker note: the embedding turns the 13 features of each message into 128 numbers; four TimesBlocks then mix each message with its neighbours and with messages one rhythm earlier. H keeps one vector per message for the reconstruction and physics heads; z averages the real rows into one vector for the window, which the contrastive head and later the probes use.</div>
 </section>
@@ -1936,12 +2462,11 @@
         <thead><tr><th>Check</th><th>Result</th></tr></thead>
         <tbody>
           <tr><td>Garbage in padding rows</td><td><span class="sE-ok">✓</span> output changes by 0</td></tr>
-          <tr><td>Same window alone vs inside a batch</td><td><span class="sE-ok">✓</span> |&Delta;z| 7e-7</td></tr>
+          <tr><td>Same window alone vs inside a batch</td><td><span class="sE-ok">✓</span> |&Delta;z| &le; 1e-6</td></tr>
           <tr><td>NaN / Inf in H, z</td><td><span class="sE-ok">✓</span> none</td></tr>
           <tr><td>Same seed twice</td><td><span class="sE-ok">✓</span> same output</td></tr>
-          <tr><td>CPU vs Apple MPS</td><td><span class="sE-ok">✓</span> |&Delta;z| 1.7e-6</td></tr>
-          <tr><td>Forward pass, 256 windows</td><td><span class="sE-ok">✓</span> CPU ~1.4 s · MPS ~0.3 s</td></tr>
-          <tr><td>Parameter count vs WBS F9 (2.30 M)</td><td><span class="sE-ok">✓</span> 2,301,312 (+0.06%)</td></tr>
+          <tr><td>CPU vs Apple MPS</td><td><span class="sE-ok">✓</span> |&Delta;z| ~1.4e-6</td></tr>
+          <tr><td>Parameter count (D12, d = 128, d_ff = 64)</td><td><span class="sE-ok">✓</span> 2,301,312 (exact)</td></tr>
           <tr><td>Periods from real rows (synthetic)</td><td><span class="sE-ok">✓</span> 10/10 (zero-padded FFT: 9/10)</td></tr>
           <tr><td>Untrained &Vert;z&Vert; vs window length</td><td>Spearman &minus;0.24 (a probe must beat length-only AUC 0.531)</td></tr>
         </tbody>
@@ -1971,7 +2496,7 @@
           <tr><td>S1.2.1&ndash;S1.2.3 TimesNet encoder</td><td><span class="sE-st done">built</span></td></tr>
           <tr><td>S1.2.4 encoder tests</td><td><span class="sE-st part">partly</span> in the notebook</td></tr>
           <tr><td>S1.2.6 forward pass on real data</td><td><span class="sE-st part">partly</span> one batch, untrained</td></tr>
-          <tr><td>S1.2.5 Transformer ablation</td><td><span class="sE-st todo">not started</span></td></tr>
+          <tr><td>S1.2.5 Transformer ablation</td><td><span class="sE-st todo">removed from the code for now (D11)</span></td></tr>
           <tr><td>S1.3 objectives, injectors, augmentations, joint loss, training loop</td><td><span class="sE-st todo">not started</span></td></tr>
           <tr><td>S1.4 frozen-encoder evaluation</td><td><span class="sE-st todo">not started</span></td></tr>
         </tbody>
@@ -1997,8 +2522,8 @@
       <div class="card warn"><b>Minimum window length</b>Keep 1&ndash;3-message windows, or set a floor (<code>min_messages</code>, e.g. 4) against the length shortcut: open.</div>
     </div>
     <div class="col">
-      <div class="card good"><b>Done: S1.2 TimesNet encoder (built, not trained)</b>Mask-aware, 2,301,312 parameters, all checks pass; torch environment pinned (<code>requirements-train.txt</code>).</div>
-      <div class="card info"><b>Next: Stage 1 pretraining objectives (S1.3)</b>Masked reconstruction, physics heads P1&ndash;P3 on injected violations, contrastive, joint loss and training loop, on these windows. Training starts only when the student says so.</div>
+      <div class="card good"><b>Done: S1.2 TimesNet encoder (built, not trained)</b>Mask-aware, 2,301,312 parameters (d = 128, d_ff = 64, D12), all checks pass; torch environment pinned (<code>requirements-train.txt</code>).</div>
+      <div class="card info"><b>Next: pretraining objectives (S1.3)</b>Masked reconstruction, physics heads P1&ndash;P3 on injected violations, contrastive, joint loss and training loop, on these windows. Training starts only when the student says so.</div>
     </div>
   </div>
   <div class="note">Speaker note: the two open questions are decisions for the professor and student; training can start before they are settled.</div>

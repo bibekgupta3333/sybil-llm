@@ -66,6 +66,8 @@ _ATTACK_TRACE_STRATEGY: dict[str, str] = {"GridSybil": _FAKE_PSEUDONYM}
 def attack_trace_strategy(family: str) -> str:
     """`fake_pseudonym` for GridSybil, `all_pseudonyms` for DataReplay / DoSRandom / DoSDisruptive."""
     return _ATTACK_TRACE_STRATEGY.get(family, _ALL_PSEUDONYMS)
+
+
 _MIN_FORGED_STEPS = _WINDOW  # need at least one full window for the heatmap/consistency views
 _CLASS_PALETTE: dict[str, str] = {
     "Benign": "#16A34A",
@@ -167,8 +169,7 @@ class WindowStore:
     def identity_table(self) -> pd.DataFrame:
         """One row per sender_uid with its static metadata and window count."""
         first = self.meta.drop_duplicates("sender_uid").set_index("sender_uid")
-        first = first[["family", "group", "subfolder", "senderPseudo", "attack_code",
-                       "attack_label", "is_attacker"]]
+        first = first[["family", "group", "subfolder", "senderPseudo", "attack_code", "attack_label", "is_attacker"]]
         return first.join(self.window_counts().rename("n_windows"))
 
 
@@ -209,7 +210,7 @@ class IdentityStitcher:
     @staticmethod
     def _verify_reslice(steps: np.ndarray, windows: np.ndarray, uid: str) -> None:
         for k in range(len(windows)):
-            if not np.array_equal(steps[k * _STRIDE: k * _STRIDE + _WINDOW], windows[k]):
+            if not np.array_equal(steps[k * _STRIDE : k * _STRIDE + _WINDOW], windows[k]):
                 raise StitchError(f"{uid}: re-slicing window {k} does not reproduce the source")
 
     def _anchor_times(self, steps: np.ndarray, sub: pd.DataFrame, uid: str) -> np.ndarray:
@@ -221,7 +222,7 @@ class IdentityStitcher:
         for k, t0 in enumerate(start_t):
             lo, hi = k * _STRIDE, (k * _STRIDE + _WINDOW if k == len(start_t) - 1 else (k + 1) * _STRIDE)
             times[lo:hi] = t0 + np.cumsum(dt[lo:hi]) - dt[lo]
-            anchored_end = t0 + np.sum(dt[lo + 1: k * _STRIDE + _WINDOW])
+            anchored_end = t0 + np.sum(dt[lo + 1 : k * _STRIDE + _WINDOW])
             if abs(anchored_end - end_t[k]) >= 1e-2:
                 raise StitchError(f"{uid}: window {k} end_time drifts by {anchored_end - end_t[k]:.4f}s")
         if np.any(np.diff(times) < 0):
@@ -286,7 +287,9 @@ class PseudonymResolver:
         return table
 
 
-def _rows_to_forged_trajectory(rows: Sequence[Mapping[str, Any]], feature_cols: Sequence[str]) -> tuple[np.ndarray, np.ndarray]:
+def _rows_to_forged_trajectory(
+    rows: Sequence[Mapping[str, Any]], feature_cols: Sequence[str]
+) -> tuple[np.ndarray, np.ndarray]:
     """Sorts broadcast rows by ``sendTime`` and derives dt/dpos/dspd the same way FeatureEngineer does.
 
     Pure function of already-parsed rows (each a decoded type-3 JSON object) -- no file I/O, so it's
@@ -309,9 +312,19 @@ def _rows_to_forged_trajectory(rows: Sequence[Mapping[str, Any]], feature_cols: 
         return d
 
     columns = {
-        "pos_x": pos_x, "pos_y": pos_y, "spd_x": spd_x, "spd_y": spd_y, "acl_x": acl_x, "acl_y": acl_y,
-        "hed_x": hed_x, "hed_y": hed_y, "dt": _diff(times),
-        "dpos_x": _diff(pos_x), "dpos_y": _diff(pos_y), "dspd_x": _diff(spd_x), "dspd_y": _diff(spd_y),
+        "pos_x": pos_x,
+        "pos_y": pos_y,
+        "spd_x": spd_x,
+        "spd_y": spd_y,
+        "acl_x": acl_x,
+        "acl_y": acl_y,
+        "hed_x": hed_x,
+        "hed_y": hed_y,
+        "dt": _diff(times),
+        "dpos_x": _diff(pos_x),
+        "dpos_y": _diff(pos_y),
+        "dspd_x": _diff(spd_x),
+        "dspd_y": _diff(spd_y),
     }
     steps = np.zeros((len(ordered), len(feature_cols)), dtype=np.float32)
     for name, values in columns.items():
@@ -329,7 +342,9 @@ class BroadcastForger:
     def __init__(self, raw_dir: pathlib.Path) -> None:
         self._raw_dir = raw_dir
 
-    def scan(self, family: str, group: str, subfolder: str, target_senders: set[int]) -> dict[int, dict[int, dict[int, dict[str, Any]]]]:
+    def scan(
+        self, family: str, group: str, subfolder: str, target_senders: set[int]
+    ) -> dict[int, dict[int, dict[int, dict[str, Any]]]]:
         """``sender -> fake senderPseudo -> messageID -> row``, deduplicated across receivers."""
         if not target_senders:
             return {}
@@ -362,7 +377,6 @@ class BroadcastForger:
         pseudo, rows = max(eligible.items(), key=lambda kv: len(kv[1]))
         return pseudo, list(rows.values())
 
-
     @staticmethod
     def pick_all_pseudonyms(
         scanned: Mapping[int, Mapping[int, Mapping[int, Mapping[str, Any]]]],
@@ -382,8 +396,12 @@ class BroadcastForger:
 
     @classmethod
     def pick_attack_trace(
-        cls, scanned: Mapping[int, Mapping[int, Mapping[int, Mapping[str, Any]]]], sender: int, family: str,
-        real_pseudonyms: set[int], min_steps: int = _MIN_FORGED_STEPS,
+        cls,
+        scanned: Mapping[int, Mapping[int, Mapping[int, Mapping[str, Any]]]],
+        sender: int,
+        family: str,
+        real_pseudonyms: set[int],
+        min_steps: int = _MIN_FORGED_STEPS,
     ) -> tuple[str, int, list[dict[str, Any]], int] | None:
         """`(strategy, pseudonym, rows, n_pseudonyms)` using the family's strategy, or None."""
         if attack_trace_strategy(family) == _FAKE_PSEUDONYM:
@@ -419,10 +437,16 @@ class BenignMatcher:
     def __init__(self, meta: pd.DataFrame) -> None:
         benign = meta[meta["attack_label"] == _BENIGN]
         self._spans = benign.groupby("sender_uid").agg(
-            family=("family", "first"), group=("group", "first"), subfolder=("subfolder", "first"),
-            t0=("start_time", "min"), t1=("end_time", "max"))
+            family=("family", "first"),
+            group=("group", "first"),
+            subfolder=("subfolder", "first"),
+            t0=("start_time", "min"),
+            t1=("end_time", "max"),
+        )
 
-    def candidates(self, family: str, group: str, subfolder: str, t0: float, t1: float) -> list[tuple[str, float, float]]:
+    def candidates(
+        self, family: str, group: str, subfolder: str, t0: float, t1: float
+    ) -> list[tuple[str, float, float]]:
         """`(uid, overlap_start, overlap_end)` for every benign uid overlapping `[t0, t1]`, longest first."""
         s = self._spans
         cell = s[(s["family"] == family) & (s["group"] == group) & (s["subfolder"] == subfolder)]
@@ -448,8 +472,7 @@ class SampledIdentity:
 class StratifiedSampler:
     """Chooses identities per (class, group) cell. Pure logic; no I/O."""
 
-    def __init__(self, identities: pd.DataFrame, config: SampleConfig,
-                 sender_lookup: Mapping[str, int | None]) -> None:
+    def __init__(self, identities: pd.DataFrame, config: SampleConfig, sender_lookup: Mapping[str, int | None]) -> None:
         self._ids = identities
         self._cfg = config
         self._sender = sender_lookup
@@ -464,11 +487,12 @@ class StratifiedSampler:
                 picks = self._sample_benign(cell) if label == _BENIGN else self._sample_by_sender(cell)
                 chosen.extend(SampledIdentity(uid) for uid in picks)
             longest = normal[normal["attack_label"] == label].sort_values("n_windows", ascending=False)
-            chosen.extend(SampledIdentity(uid, tags=("stress",))
-                          for uid in longest.index[: self._cfg.stress_per_class])
+            chosen.extend(SampledIdentity(uid, tags=("stress",)) for uid in longest.index[: self._cfg.stress_per_class])
         spliced = self._ids[self._ids["n_windows"] > self._cfg.max_normal_windows]
-        chosen.extend(SampledIdentity(uid, tags=("defect_demo",), max_windows=self._cfg.defect_demo_windows)
-                      for uid in spliced.index)
+        chosen.extend(
+            SampledIdentity(uid, tags=("defect_demo",), max_windows=self._cfg.defect_demo_windows)
+            for uid in spliced.index
+        )
         return self._dedupe(chosen)
 
     def _sample_benign(self, cell: pd.DataFrame) -> list[str]:
@@ -515,8 +539,9 @@ class SampleWriter:
         times_bytes = np.ascontiguousarray(times, dtype=np.float64).tobytes()
         (out / "steps.f32").write_bytes(steps_bytes)
         (out / "times.f64").write_bytes(times_bytes)
-        benign_rows = np.concatenate([np.arange(r["row_offset"], r["row_offset"] + r["n_steps"])
-                                      for r in records if r["label"] == _BENIGN])
+        benign_rows = np.concatenate(
+            [np.arange(r["row_offset"], r["row_offset"] + r["n_steps"]) for r in records if r["label"] == _BENIGN]
+        )
         px, py = self._store.feature_index("pos_x"), self._store.feature_index("pos_y")
         manifest = {
             "version": 1,
@@ -528,14 +553,26 @@ class SampleWriter:
             "norm_std": self._store.config["norm_std"],
             "label_to_int": self._store.config["label_to_int"],
             "class_palette": _CLASS_PALETTE,
-            "road_bbox": [float(steps[benign_rows, px].min()), float(steps[benign_rows, py].min()),
-                          float(steps[benign_rows, px].max()), float(steps[benign_rows, py].max())],
+            "road_bbox": [
+                float(steps[benign_rows, px].min()),
+                float(steps[benign_rows, py].min()),
+                float(steps[benign_rows, px].max()),
+                float(steps[benign_rows, py].max()),
+            ],
             "total_steps": int(len(steps)),
             "binaries": {
-                "steps": {"file": "steps.f32", "dtype": "float32", "shape": [int(len(steps)), steps.shape[1]],
-                          "sha256": hashlib.sha256(steps_bytes).hexdigest()},
-                "times": {"file": "times.f64", "dtype": "float64", "shape": [int(len(times))],
-                          "sha256": hashlib.sha256(times_bytes).hexdigest()},
+                "steps": {
+                    "file": "steps.f32",
+                    "dtype": "float32",
+                    "shape": [int(len(steps)), steps.shape[1]],
+                    "sha256": hashlib.sha256(steps_bytes).hexdigest(),
+                },
+                "times": {
+                    "file": "times.f64",
+                    "dtype": "float64",
+                    "shape": [int(len(times))],
+                    "sha256": hashlib.sha256(times_bytes).hexdigest(),
+                },
             },
             "identities": records,
         }
@@ -555,9 +592,12 @@ class Exporter:
     def run(self) -> dict[str, Any]:
         ids = self._store.identity_table()
         self._resolver.load_or_build(
-            (r["family"], r["group"], r["subfolder"]) for _, r in ids.drop_duplicates("subfolder").iterrows())
-        sender_lookup = {uid: self._resolver.sender_of(r["family"], r["group"], r["subfolder"], int(r["senderPseudo"]))
-                         for uid, r in ids.iterrows()}
+            (r["family"], r["group"], r["subfolder"]) for _, r in ids.drop_duplicates("subfolder").iterrows()
+        )
+        sender_lookup = {
+            uid: self._resolver.sender_of(r["family"], r["group"], r["subfolder"], int(r["senderPseudo"]))
+            for uid, r in ids.iterrows()
+        }
         surviving = self._surviving_counts(ids, sender_lookup)
         chosen = StratifiedSampler(ids, self._cfg, sender_lookup).sample()
         _LOG.info("sampled %d identities", len(chosen))
@@ -587,20 +627,34 @@ class Exporter:
         matched = 0
         for anchor_uid, demo in pairs:
             forged_id = len(records)
-            records.append({
-                "id": forged_id, "sender_uid": f"{demo.family}_{demo.group}/{demo.subfolder}/broadcast_{demo.sender}_{demo.fake_pseudonym}",
-                "label": demo.label, "label_int": int(self._store.config["label_to_int"][demo.label]),
-                "family": demo.family, "group": demo.group, "subfolder": demo.subfolder,
-                "sender_pseudo": demo.fake_pseudonym, "sender": demo.sender,
-                "pseudonyms_total": None, "pseudonyms_surviving": 1,
-                "tags": [_FORGED_TAG], "row_offset": offset, "n_steps": int(len(demo.steps)),
-                "n_windows": max(0, (len(demo.steps) - _WINDOW) // _STRIDE + 1),
-                "x_windows_rows": [-1],  # never part of X_windows.npy -- observed broadcast, not prepared data
-                "t_start": float(demo.times[0]), "t_end": float(demo.times[-1]),
-                "data_source": "raw_veremi", "paired_identity_id": uid_to_id[anchor_uid],
-                "benign_match_id": None, "overlap": None,
-                "attack_trace": demo.attack_trace, "broadcast_pseudonyms": demo.n_pseudonyms,
-            })
+            records.append(
+                {
+                    "id": forged_id,
+                    "sender_uid": f"{demo.family}_{demo.group}/{demo.subfolder}/broadcast_{demo.sender}_{demo.fake_pseudonym}",
+                    "label": demo.label,
+                    "label_int": int(self._store.config["label_to_int"][demo.label]),
+                    "family": demo.family,
+                    "group": demo.group,
+                    "subfolder": demo.subfolder,
+                    "sender_pseudo": demo.fake_pseudonym,
+                    "sender": demo.sender,
+                    "pseudonyms_total": None,
+                    "pseudonyms_surviving": 1,
+                    "tags": [_FORGED_TAG],
+                    "row_offset": offset,
+                    "n_steps": int(len(demo.steps)),
+                    "n_windows": max(0, (len(demo.steps) - _WINDOW) // _STRIDE + 1),
+                    "x_windows_rows": [-1],  # never part of X_windows.npy -- observed broadcast, not prepared data
+                    "t_start": float(demo.times[0]),
+                    "t_end": float(demo.times[-1]),
+                    "data_source": "raw_veremi",
+                    "paired_identity_id": uid_to_id[anchor_uid],
+                    "benign_match_id": None,
+                    "overlap": None,
+                    "attack_trace": demo.attack_trace,
+                    "broadcast_pseudonyms": demo.n_pseudonyms,
+                }
+            )
             records[uid_to_id[anchor_uid]]["paired_identity_id"] = forged_id
             step_blocks.append(demo.steps)
             time_blocks.append(demo.times)
@@ -608,7 +662,11 @@ class Exporter:
 
             match = self._match_benign(matcher, demo)
             if match is None:
-                _LOG.warning("no time-overlapping benign vehicle for forged pseudonym %d in %s", demo.fake_pseudonym, demo.subfolder)
+                _LOG.warning(
+                    "no time-overlapping benign vehicle for forged pseudonym %d in %s",
+                    demo.fake_pseudonym,
+                    demo.subfolder,
+                )
                 continue
             benign_uid, stitched, lo, hi = match
             benign_id = uid_to_id.get(benign_uid)
@@ -626,46 +684,74 @@ class Exporter:
         return manifest
 
     def _prepared_record(
-        self, rid: int, uid: str, tags: Sequence[str], stitched: StitchedIdentity, offset: int,
-        ids: pd.DataFrame, sender_lookup: Mapping[str, int | None],
+        self,
+        rid: int,
+        uid: str,
+        tags: Sequence[str],
+        stitched: StitchedIdentity,
+        offset: int,
+        ids: pd.DataFrame,
+        sender_lookup: Mapping[str, int | None],
         surviving: Mapping[tuple[str, int | None], int],
     ) -> dict[str, Any]:
         meta = ids.loc[uid]
         sender = sender_lookup[uid]
         return {
-            "id": rid, "sender_uid": uid, "label": meta["attack_label"],
+            "id": rid,
+            "sender_uid": uid,
+            "label": meta["attack_label"],
             "label_int": int(self._store.config["label_to_int"][meta["attack_label"]]),
-            "family": meta["family"], "group": meta["group"], "subfolder": meta["subfolder"],
-            "sender_pseudo": int(meta["senderPseudo"]), "sender": sender,
-            "pseudonyms_total": (self._resolver.pseudonym_total(meta["family"], meta["group"], meta["subfolder"], sender)
-                                 if sender is not None else None),
+            "family": meta["family"],
+            "group": meta["group"],
+            "subfolder": meta["subfolder"],
+            "sender_pseudo": int(meta["senderPseudo"]),
+            "sender": sender,
+            "pseudonyms_total": (
+                self._resolver.pseudonym_total(meta["family"], meta["group"], meta["subfolder"], sender)
+                if sender is not None
+                else None
+            ),
             "pseudonyms_surviving": surviving.get((meta["subfolder"], sender), 1),
-            "tags": list(tags), "row_offset": offset, "n_steps": int(len(stitched.steps)),
-            "n_windows": stitched.n_windows, "x_windows_rows": stitched.window_rows.tolist(),
-            "t_start": float(stitched.times[0]), "t_end": float(stitched.times[-1]),
-            "data_source": "prepared", "paired_identity_id": None,
-            "benign_match_id": None, "overlap": None,
-            "attack_trace": None, "broadcast_pseudonyms": None,
+            "tags": list(tags),
+            "row_offset": offset,
+            "n_steps": int(len(stitched.steps)),
+            "n_windows": stitched.n_windows,
+            "x_windows_rows": stitched.window_rows.tolist(),
+            "t_start": float(stitched.times[0]),
+            "t_end": float(stitched.times[-1]),
+            "data_source": "prepared",
+            "paired_identity_id": None,
+            "benign_match_id": None,
+            "overlap": None,
+            "attack_trace": None,
+            "broadcast_pseudonyms": None,
         }
 
-    def _match_benign(self, matcher: BenignMatcher, demo: ForgedDemo, max_tries: int = 5,
-                      ) -> tuple[str, StitchedIdentity, float, float] | None:
+    def _match_benign(
+        self,
+        matcher: BenignMatcher,
+        demo: ForgedDemo,
+        max_tries: int = 5,
+    ) -> tuple[str, StitchedIdentity, float, float] | None:
         """The benign identity overlapping `demo` longest, with >= one window of steps on both sides."""
-        candidates = matcher.candidates(demo.family, demo.group, demo.subfolder,
-                                        float(demo.times[0]), float(demo.times[-1]))
+        candidates = matcher.candidates(
+            demo.family, demo.group, demo.subfolder, float(demo.times[0]), float(demo.times[-1])
+        )
         for uid, lo, hi in candidates[:max_tries]:
             try:
                 stitched = IdentityStitcher(self._store).stitch(uid)
             except StitchError as err:
                 _LOG.warning("skipping benign candidate %s: %s", uid, err)
                 continue
-            if (_steps_within(stitched.times, lo, hi) >= _WINDOW
-                    and _steps_within(demo.times, lo, hi) >= _WINDOW):
+            if _steps_within(stitched.times, lo, hi) >= _WINDOW and _steps_within(demo.times, lo, hi) >= _WINDOW:
                 return uid, stitched, lo, hi
         return None
 
     def _find_forged_demos(
-        self, ids: pd.DataFrame, sender_lookup: Mapping[str, int | None], chosen: Sequence[SampledIdentity],
+        self,
+        ids: pd.DataFrame,
+        sender_lookup: Mapping[str, int | None],
+        chosen: Sequence[SampledIdentity],
     ) -> list[tuple[str, ForgedDemo]]:
         """Forged-broadcast companions for up to `forged_pairs_per_cell` sampled attackers per cell.
 
@@ -704,18 +790,27 @@ class Exporter:
                     continue
                 strategy, fake_pseudonym, rows, n_pseudonyms = found
                 steps, times = _rows_to_forged_trajectory(rows, self._store.feature_cols)
-                demo = ForgedDemo(family, group, subfolder, family, sender, fake_pseudonym, steps, times,
-                                  strategy, n_pseudonyms)
+                demo = ForgedDemo(
+                    family, group, subfolder, family, sender, fake_pseudonym, steps, times, strategy, n_pseudonyms
+                )
                 pairs.append((anchor, demo))
                 paired_in_cell += 1
-                _LOG.info("attack trace: %s sender %d, %s, %d pseudonym(s), %d messages",
-                          family, sender, strategy, n_pseudonyms, len(steps))
+                _LOG.info(
+                    "attack trace: %s sender %d, %s, %d pseudonym(s), %d messages",
+                    family,
+                    sender,
+                    strategy,
+                    n_pseudonyms,
+                    len(steps),
+                )
             if paired_in_cell == 0:
                 _LOG.warning("no forged broadcast pseudonym found for any sampled attacker in %s/%s", family, subfolder)
         return pairs
 
     @staticmethod
-    def _surviving_counts(ids: pd.DataFrame, sender_lookup: Mapping[str, int | None]) -> dict[tuple[str, int | None], int]:
+    def _surviving_counts(
+        ids: pd.DataFrame, sender_lookup: Mapping[str, int | None]
+    ) -> dict[tuple[str, int | None], int]:
         counts: dict[tuple[str, int | None], int] = {}
         for uid, row in ids.iterrows():
             key = (row["subfolder"], sender_lookup[uid])
@@ -728,8 +823,13 @@ class Exporter:
         by_cell: dict[tuple[str, str], int] = {}
         for r in manifest["identities"]:
             by_cell[(r["label"], r["group"])] = by_cell.get((r["label"], r["group"]), 0) + 1
-        _LOG.info("wrote %d identities, %d steps, %.2f MB to %s", len(manifest["identities"]),
-                  manifest["total_steps"], total / 1e6, out)
+        _LOG.info(
+            "wrote %d identities, %d steps, %.2f MB to %s",
+            len(manifest["identities"]),
+            manifest["total_steps"],
+            total / 1e6,
+            out,
+        )
         for (label, group), n in sorted(by_cell.items()):
             _LOG.info("  %-20s %s  %3d identities", label, group, n)
         paired = sum(1 for r in manifest["identities"] if r["data_source"] == "raw_veremi")
@@ -745,8 +845,14 @@ def _parse_args(argv: Sequence[str] | None) -> SampleConfig:
     parser.add_argument("--raw-dir", type=pathlib.Path, default=SampleConfig.raw_dir)
     parser.add_argument("--cache-dir", type=pathlib.Path, default=SampleConfig.cache_dir)
     args = parser.parse_args(argv)
-    return SampleConfig(seed=args.seed, pseudonyms_per_cell=args.per_cell, prepared_dir=args.prepared_dir,
-                        raw_dir=args.raw_dir, out_dir=args.out, cache_dir=args.cache_dir)
+    return SampleConfig(
+        seed=args.seed,
+        pseudonyms_per_cell=args.per_cell,
+        prepared_dir=args.prepared_dir,
+        raw_dir=args.raw_dir,
+        out_dir=args.out,
+        cache_dir=args.cache_dir,
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:

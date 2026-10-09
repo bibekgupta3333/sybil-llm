@@ -1,7 +1,7 @@
 # agent.md — rules for all work in `src/`
 
-**Scope.** `src/` holds **all new code for the adopted TimesNet plan**: Stage 1 (self-supervised TimesNet
-pretraining, now) and Stage 2 (few-shot fine-tuning + memory bank, deferred). Older v1 code (`scripts/`,
+**Scope.** `src/` holds **all new code for the adopted TimesNet plan**: self-supervised TimesNet
+pretraining (now) and few-shot fine-tuning + memory bank (deferred). Older v1 code (`scripts/`,
 `models/transformer_model.ipynb`) stays where it is; do not extend it for the new plan.
 
 **Read first, in this order:**
@@ -10,9 +10,10 @@ pretraining, now) and Stage 2 (few-shot fine-tuning + memory bank, deferred). Ol
 3. `docs/plan/stage1-ssl-wbs.md` — the task list: S1.0–S1.4 now, S2.0–S2.3 deferred, with acceptance criteria.
 4. This file.
 
-**Status (2026-10-06):** decisions D1–D9 adopted; nothing in `src/` is implemented yet. Next tasks with no
-`data/` write: S1.1.1 (leak audit) and S1.2.x (TimesNet encoder). S1.1.2 needs the user's OK to write
-`data/prepared_receiver/`. Progress pages: `stage1-plan.html` (per task) and `tracker.html` (whole thesis).
+**Status (2026-10-08):** input representation and the benign + GridSybil encoder input are built (notebooks);
+the self-supervised pretraining package `src/model/benign_gridsybil/timesnet/` is built (TimesNet only, d = 128,
+d_ff = 64, D12) and `--check` passes; nothing is trained. The current state is in the root `agent.md` §1–§6.
+Progress pages: `stage1-plan.html` (per task) and `tracker.html` (whole thesis).
 
 **Code paradigm (user's choice):** about **90% object-oriented, 10% small pure functions**, Google Python Style,
 readability first. OOP is preferred for readability and for managing a growing research codebase.
@@ -28,18 +29,18 @@ readability first. OOP is preferred for readability and for managing a growing r
 |---|---|
 | Beacon rate | **1 Hz** (Δτ median 1.000 s; `rcvTime == sendTime` in every type-3 record) |
 | Sequence unit | network-heard pseudonym sequence, de-duplicated by `messageID` (D1) |
-| T | **64** primary, **128** sensitivity; exactly T messages, no padding, equal windows per vehicle |
+| T | **64** primary, **128** sensitivity; links cropped at 64, every window padded to 64 rows + mask (1 = real) |
 | d_in | **13** (list below) |
-| Encoder | TimesNet, 4 TimesBlocks, d ∈ {128, 256, 512}, **d_ff = 64**, **3** Inception kernels, **top-k = 3** periods **per sample**, FFT bins f ≥ 2, dropout 0.1, no time-of-day embedding; outputs `(H: B×T×d, z: B×d)` via GAP over T |
-| Param budget | 2.30M / 4.60M / 9.20M at d = 128 / 256 / 512 (±0.1%); Transformer ablation ≈ 1.19M at d = 128 |
+| Encoder | TimesNet, 4 TimesBlocks, **d = 128, d_ff = 64** (the plan's bottleneck, D12; d_ff = 128 and d = 256 / 512 are ablations), **3** Inception kernels, **top-k = 3** periods **per sample**, FFT bins f ≥ 2, dropout 0.1, no time-of-day embedding; outputs `(H: B×T×d, z: B×d)` via GAP over T |
+| Param budget | encoder exactly 2,301,312 at d = 128, d_ff = 64 (D12); heads 101,136 (P1–P3 hidden width d); 4.60M with d_ff = 128 (ablation); Transformer ablation removed from the code (D11) |
 | Masking | per sample, 50/50: random **exactly 25% of T**, or one block of round(r·T), r ~ U(0.20, 0.30) (13–19 steps at T = 64); learned mask token, no zero-fill |
 | Reconstruction | 2-layer MLP on H[:, masked]; masked MSE on sender pos (window-relative), velocity, acceleration, log-Δτ; must beat linear interpolation on block masks |
 | P1–P3 | injected violations, **p = 0.5** per window: P1 speed spike / position jump, P2 speed scaled without positions, P3 impossible sharp turn; BCE MLP heads on z |
 | Augmentations | common-mode shift 3–5 m (sender + receiver), time stretch s ∈ [0.95, 1.05] (v·s, a·s², Δτ/s), crop 80–100% by subsampling. **Never** per-step GPS jitter or bare speed scaling (they mimic Sybil artifacts, F10) |
 | InfoNCE | **τ = 0.1**, **batch 256**, projection d → d → 128 (discarded); hard negatives: same 50 m cell, same group, different pseudonym, \|Δt\| ≥ 10 min, **β = 0.5** |
 | Joint loss | **λ1 = 1**, **λ3 = λ4 = λ5 = 0.3**, **λ2 ∈ {0.1, 0.3, 1}** + one uncertainty-weighting run; losses normalised (EMA); ≥ 3 seeds |
-| Stage 2 (deferred) | train **A16** GridSybil, **A18** DoSRandom, **A19** DoSDisruptive + benign; **A17** DataReplay held out (zero-shot); **n ∈ {10, 20, 30, 50}**, ≥ 5 support sets per n; LR = S1 LR / 10; **K ∈ {5, 10, 20}**, θ on val |
-| Splits | grouped by `(time window, physical vehicle)` pooled over the 4 scenarios; pretrain-val = 10% of train identities |
+| Few-shot fine-tuning (deferred) | train **A16** GridSybil, **A18** DoSRandom, **A19** DoSDisruptive + benign; **A17** DataReplay held out (zero-shot); **n ∈ {10, 20, 30, 50}**, ≥ 5 support sets per n; LR = pretraining LR / 10; **K ∈ {5, 10, 20}**, θ on val |
+| Splits | grouped by `(time window, physical vehicle)` pooled over the 4 scenarios (D8); benign + GridSybil encoder input: **90 / 10 train / test by sender vehicle** (D8′); pretraining check set = 10% of train vehicles; no val split |
 
 **The 13 adopted features** (whitelist, in this order — `settings.FEATURE_NAMES`):
 `claimed_pos_x, claimed_pos_y, rx_pos_x, rx_pos_y, claimed_vel_x, claimed_vel_y, rx_vel_x, rx_vel_y,
@@ -49,39 +50,14 @@ claimed_acl_x, claimed_acl_y, range, bearing, log_dtau` — "rx" = the receiver'
 
 ---
 
-## 2. Folder layout (flat — one file per topic)
+## 2. Folder layout
 
-**Simple on purpose.** `src/` is one flat folder: one file per topic, named after what it does, read top to bottom.
-No sub-packages. Run everything from the repo root (`python -m src.prepare ...`; `from src.split import ...`).
-
-```
-src/
-├── agent.md          # this file
-├── config.json       # all settings ("input" and "split" sections)
-├── settings.py       # InputConfig, SplitConfig (.from_file), FEATURE_NAMES (13), ATTACK_NAMES
-├── tools.py          # small shared tools: range_bearing / wrap_angle / safe_log, leak checks
-│                     #   (assert_label_free, assert_disjoint_groups), SafeWriter, Provenance
-├── raw_logs.py       # read VeReMi trace files: RunFinder, TraceReader -> RunLogs
-├── sequences.py      # messages -> pseudonym sequences -> 13 features -> exact-T windows;
-│                     #         SequenceBuilder, FeatureMaker, Samples, DatasetWriter, Manifest
-├── split.py          # VehicleSplitter / VehicleSplit (vehicle-grouped split), LeakAudit (F1)
-├── checks.py         # ShortcutProbe (length / time of day at chance?), RetentionReport
-├── prepare.py        # THE command: build -> split -> manifest -> probe (DataPreparation)
-├── tests/            # conftest.py (synthetic raw data) + one test_<file>.py per file above
-├── notebook/         # s1_checks.ipynb — plots only, imports from src
-└── data/             # prepared S1.1 data (gitignored): X_T64, meta, labels, idx_*_rx, config.json
-```
-
-**Status (2026-10-06):** input representation lives in **one notebook, `src/pipeline/input_representation.ipynb`**
-(user's choice). It writes JSON only: a mirror of `data/VeReMi-Dataset` under `src/data/prepared_data/` (one
-prepared file per raw trace file, every received copy kept) plus `index.json`. Don't invent other layouts. The `.py` layout below is the plan
-for later code (encoder, pretraining); it is not in use for input representation.
-
-**Current layout (2026-10-07, user choice — code stays inside the notebooks):**
+Run everything from the repo root (`python -m src.model.benign_gridsybil.timesnet.train ...`). Data code stays inside
+notebooks (user choice, 2026-10-07); model code is a package of small modules next to the notebook that explains it.
 
 ```
 src/
-  agent.md
+  agent.md · README.md
   pipeline/
     input_representation.ipynb        all scenarios: raw -> prepared_data
     benign_gridsybil/
@@ -90,9 +66,15 @@ src/
     eda_window_size.ipynb             all scenarios: link lengths, choice of T (read-only)
     benign_gridsybil/
       eda_encoder_input_T64.ipynb     first trial: EDA of its encoder input (read-only)
+  model/benign_gridsybil/
+    encoder_T64.ipynb                 the encoder explained and checked (imports timesnet/encoder.py)
+    timesnet/                         self-supervised pretraining package (TimesNet only)
+      config.py data.py encoder.py heads.py views.py losses.py monitors.py train.py
+      pretrain_monitor.ipynb          read-only plots of a run
   data/                               gitignored
     prepared_data/                    all scenarios
     encoder_input/benign_gridsybil/T64/
+  runs/pretraining/benign_gridsybil/T64/<run_id>/   gitignored run folders (older runs: runs/stage1/)
 ```
 
 Scope: benign + GridSybil is the first trial of the whole pipeline; the all-attack version gets sibling folders
@@ -100,57 +82,47 @@ Scope: benign + GridSybil is the first trial of the whole pipeline; the all-atta
 
 Notebooks find the repo root by walking up to `CLAUDE.md`, so they run from any folder.
 
-**Files still to come** (add them flat, same style): `encoders.py` (S1.2 TimesNet + Transformer ablation),
-`pretext.py` (masking, P1–P3 injectors, augmentations), `objectives.py` (losses, heads), `training.py`
-(pretrainer, label-free checkpoint selection), `evaluation.py` (S1.4 probes), `stage2.py` (deferred).
+**Files still to come:** S1.4 frozen-encoder probes and few-shot fine-tuning (S2.x, deferred) go in new modules
+next to the package they use; say why in the reply.
 
 **File discipline**
-- Add to the file for that step before creating a new one. A new file only for a new step or when a file passes
-  ~600 lines; say why. Never add folders inside `src/`.
-- One test file per source file (`sequences.py` → `tests/test_sequences.py`); shared fixtures only in
-  `tests/conftest.py`.
-- Settings go in `config.json` (one section per component); a new knob = a new dataclass field with a default.
-- Large outputs only in `src/data/` (gitignored) or `data/` (RULE 2, ask first) — never elsewhere in `src/`.
+- Add to the module for that job before creating a new one. A new module only for a new job or when a file passes
+  ~600 lines; say why.
+- Settings go in a frozen dataclass (`timesnet/config.py::PretrainConfig`); a new knob = a new field with a default.
+- Large outputs only in `src/data/`, `src/runs/` (both gitignored) or `data/` (RULE 2, ask first).
 
 ### WBS task → file → class
 
 | WBS | File | Class / entry point |
 |---|---|---|
-| S1.1.1 | `split.py`, `prepare.py audit` | `LeakAudit` |
-| S1.1.2 | `raw_logs.py`, `prepare.py build` | `RunFinder`, `TraceReader` |
-| S1.1.3 | `sequences.py` | `FeatureMaker` |
-| S1.1.4 | `sequences.py`, `config.json` | `SequenceBuilder` (`cut()`) |
-| S1.1.5 | `split.py`, `prepare.py split` | `VehicleSplitter`, `VehicleSplit` |
-| S1.1.6 | `checks.py`, `prepare.py probe`, `notebook/s1_checks.ipynb` | `ShortcutProbe`, `RetentionReport` |
-| S1.1.7 | `sequences.py`, `prepare.py manifest` | `Manifest` |
-| S1.0.4 | `requirements-train.txt` (repo root), `tools.py` | `Provenance` |
-| S1.2.x | `encoders.py` (to write) | `TimesNetEncoder`, `TransformerEncoder` → `(H, z)` |
-| S1.3.x | `pretext.py`, `objectives.py`, `training.py` (to write) | masking, P1–P3 injectors, augmentations, losses, `Stage1Pretrainer` |
-| S1.4.x | `evaluation.py` (to write) | frozen-encoder probes, transfer, anomaly score |
-| S2.x | `stage2.py` (to write, deferred) | few-shot fine-tuning, memory bank |
+| S1.1.x | `pipeline/input_representation.ipynb`, `pipeline/benign_gridsybil/encoder_input_T64.ipynb` | notebook code (links, features, crop + pad + mask, vehicle split, normalisation) |
+| S1.0.4 | `requirements-train.txt` (repo root), `.venv-train` | pinned torch env; `train.py` writes `env.json` per run |
+| S1.2.x | `timesnet/encoder.py` | `TimesNetEncoder` → `(H, z)` (Transformer ablation removed, D11) |
+| S1.3.x | `timesnet/views.py`, `heads.py`, `losses.py`, `data.py`, `train.py`, `monitors.py` | `ReconMasker`, `Augmenter`, `ViolationInjector`, `PretrainingModel`, `Objective`, `LabelFirewall`, `Trainer`, `Evaluator` |
+| S1.4.x | to write | frozen-encoder probes, transfer, anomaly score |
+| S2.x | to write (deferred) | few-shot fine-tuning, memory bank |
 
-Shapes: x `(B, T, 13)`, T = 64; H `(B, T, d)`; z `(B, d)` = average of H over T.
+Shapes: x `(B, T, 13)` + mask `(B, T)`, T = 64; H `(B, T, d)`; z `(B, d)` = masked average of H over real rows.
 
 ### How the pieces connect
 
 ```
-raw_logs.py -> sequences.py -> split.py -> checks.py          (prepare.py runs them in this order)
-                     |
-                     +-> data (X, meta, labels, idx_*) -> encoders.py -> pretext.py / objectives.py -> training.py
-settings.py, tools.py <- used by every file (and import nothing from the step files)
+input_representation.ipynb -> encoder_input_T64.ipynb -> src/data/encoder_input/benign_gridsybil/T64/
+  -> timesnet/data.py (LabelFirewall, FeatureShards) -> views.py -> encoder.py + heads.py -> losses.py
+  -> train.py (Trainer, label-free check-set selection) -> src/runs/pretraining/... -> pretrain_monitor.ipynb
 ```
 
 - Collaborators are passed into `__init__`; settings objects are passed whole (no loose kwargs, no globals).
 - Randomness only through a seeded `np.random.Generator` (or torch generator) created from the settings' seed.
 - Inheritance at most one level below a base class; vary behaviour with settings, not subclasses.
-- `prepare.py` (and future CLIs) only parse arguments, build objects and call them.
+- `train.py` (and future CLIs) only parse arguments, build objects and call them.
 
 ---
 
 ## 3. Coding standards (OOP 90% / functions 10%)
 
 User's rule, verbatim intent: *"OOP 90% and functions 10%, such that it is readable."* Google Python
-Style Guide. Readability over cleverness. House-style reference: the S1.1 files in `src/` (`sequences.py`, `split.py`)
+Style Guide. Readability over cleverness. House-style reference: the pretraining package `src/model/benign_gridsybil/timesnet/`
 and, for older idioms, `scripts/prepare_data.py` / `scripts/export_simulation_sample.py`
 (`WindowStore`, `IdentityStitcher`, `StitchError`, `Exporter`) — match their idioms.
 
@@ -237,7 +209,7 @@ def mask(w): ...
   never `print` outside notebooks. Configure handlers only in the entry-point `main()`.
 - **Errors:** explicit exception types with messages naming the bad value/path; never bare `except:` or
   `except Exception: pass`; prefer raising over `assert` for data validation (asserts may be stripped).
-- **Formatting:** line length **100** (some v1 lines overflow — don't copy that); f-strings for
+- **Formatting:** **black**, line length **120** (`pyproject.toml`; run `.venv-train/bin/black src scripts`, or format-on-save via `.vscode/settings.json`); f-strings for
   messages; `pathlib.Path` for all paths (no `os.path`, no string concatenation).
 - **Determinism:** randomness only through an injected `np.random.Generator` / `torch.Generator` or an
   explicit `seed` config field; never `np.random.seed`/global torch seeding inside library code.
@@ -250,7 +222,7 @@ def mask(w): ...
   Unit tests never read `data/`, `models/*.pt`, or the network.
 - Test what the WBS acceptance criteria state: output **shapes** (`(B, T, 13)` in → expected out),
   **determinism** (same seed → identical arrays/tensors; different seed → different), **invariants**
-  (no NaN, masks hit the configured ratio, no label/`idx_val`/`idx_test` access in Stage 1 code paths,
+  (no NaN, masks hit the configured ratio, no label/`idx_val`/`idx_test` access in pretraining code paths,
   split disjointness by vehicle), and config validation (`pytest.raises(ValueError)`).
 - Torch tests start with `torch = pytest.importorskip("torch")` so the EDA venv (no torch) still runs
   the rest; never install torch to make a test pass (RULE 4 — ask first).
@@ -264,7 +236,7 @@ def mask(w): ...
 2. Module docstring names the WBS task id; every public API has Args/Returns/Raises and tensor shapes.
 3. Configs are frozen dataclasses with `__post_init__` validation and are persisted with results + seed.
 4. No `print`, bare `except`, globals/singletons, `os.path`, or lines > 100 chars.
-5. No reads of `y_*`, attack codes, `idx_val`, or `idx_test` in Stage 1 pretraining code; no writes to
+5. No reads of `y_*`, attack codes, `idx_val`, or `idx_test` in pretraining code; no writes to
    `data/` without asking.
 6. New tests pass (`.venv/bin/python -m pytest src/tests -q`); torch tests skip cleanly without torch.
 7. A reviewer can name each class's single job from its name + docstring first line; anything over
@@ -281,13 +253,13 @@ def mask(w): ...
   that raises if the output exists unless `overwrite=True`, and refuses paths outside an allow-list.
 - Large outputs go only to `src/data/` (gitignored) or an approved `data/` folder; never elsewhere in `src/`.
 
-### Label-free Stage 1 (advisor constraint)
-- Stage 1 classes (parser, features, encoder, masking, injectors, augment, sampler, losses, selector) take no
-  label argument. Gate their data entry with `src/tools.py::assert_label_free`, which raises on `y_*` arrays, attack codes
-  (`attackType`, A16–A19), `idx_val`, `idx_test` (or their `_rx` successors).
-- Pretext tasks read train-split identities only (pretrain-val is a slice of train). In transfer runs, read
+### Label-free pretraining (advisor constraint)
+- Pretraining classes (parser, features, encoder, masking, injectors, augment, sampler, losses, selector) take no
+  label argument. Gate their data entry with `timesnet/data.py::LabelFirewall`, which refuses `_info` label files and `val` / `test`;
+  the rule covers `y_*` arrays, attack codes (`attackType`, A16–A19), `idx_val`, `idx_test` (or their `_rx` successors).
+- Pretext tasks read train-split identities only (the check set is a slice of train vehicles). In transfer runs, read
   only the source group's train identities.
-- Probes (S1.4) are the only Stage 1 code that reads labels: fit on **train** labels only, score val/test.
+- Probes (S1.4) are the only pretraining code that reads labels: fit on **train** labels only, score val/test.
 - Checkpoint selection (S1.3.J2) is label-free and must assert it never opened labels or `idx_val`.
 - Never select "benign-only" data, class-weight, or resample by label in pretraining or the memory bank.
 
@@ -317,18 +289,18 @@ def mask(w): ...
   — the `models/roadfm_lite_config.json` + `results_summary.json` pattern, one directory per run.
 - Seed `random`, `numpy`, `torch` (and MPS/CUDA) from the settings' seed (one seeded generator per component); enable deterministic algorithms where
   the backend supports them; log any op that is not.
-- The torch env is unpinned until S1.0.4 lands `requirements-train.txt`. Flag this in every training reply; no
-  run is citable before it.
+- The torch env is pinned in `requirements-train.txt` (`.venv-train`, 2026-10-07); every run saves `config.json` and
+  `env.json` (commit + dirty flag, Python / torch / numpy versions, device). A run whose env differs from the pin is not citable.
 - No `pip install` / `brew install` / new dependency without the user's OK.
 
 ### Integrity (RULE 1)
-- Never tune on test. Stage 1 settings are chosen label-free; K, θ and n on val; test is read **once** per
+- Never tune on test. Pretraining settings are chosen label-free; K, θ and n on val; test is read **once** per
   final evaluation (log the read).
 - Report what the model produces, including nulls, failed probes and per-family zeros.
 - Fix genuine bugs openly (state the bug and its effect on earlier numbers); never post-process results.
 
 ### Notebooks (RULE 5)
-- First cell of every `src/notebook/*.ipynb`: `assert Path("CLAUDE.md").is_file() and Path("data").is_dir(), "run from repo root"`.
+- Notebooks in `src/` find the repo root by walking up to `CLAUDE.md`; a new notebook without that does this in its first cell: `assert Path("CLAUDE.md").is_file() and Path("data").is_dir(), "run from repo root"`.
 - Import all logic from `src`; notebooks hold only loading, calling and plotting. No class or model code.
 
 ### Git and scope (RULES 6, 7)
@@ -348,13 +320,13 @@ def mask(w): ...
    OOP-first (~90% classes, ~10% small pure functions). Show it in the reply before large implementations.
 4. **Write tests** in `src/tests/` that encode the acceptance criterion (shapes, exact ratios, determinism,
    guard raises on labels, zero split overlap) plus a tiny synthetic fixture. No real-data reads in unit tests.
-5. **Implement** to the interface. Settings live in `src/config.json`; entry points are flat files like `src/prepare.py`.
+5. **Implement** to the interface. Settings live in a frozen config dataclass; entry points are modules like `timesnet/train.py`.
 6. **Run the tests** (`python -m pytest src/tests -q` from the repo root) and any acceptance script. Fix until
    green; never weaken a test to pass.
 7. **Record evidence**: test output, measured numbers, run directory path. Numbers come from the run, not the
    plan.
 8. **Update status in the same turn**: the task row/notes in `docs/plan/stage1-ssl-wbs.md` and the
-   "Stage 1 plan" section of `docs/plan/research-plan.md` (decisions, split changes, nulls).
+   "Pretraining plan" section of `docs/plan/research-plan.md` (decisions, split changes, nulls).
 9. **Remind the user** to tick the task in `stage1-plan.html` and `tracker.html`; flag RULE 4 if training ran.
 
 **Definition of done:** acceptance criterion met with evidence quoted in the reply · tests in `src/tests/`

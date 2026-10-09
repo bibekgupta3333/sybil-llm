@@ -40,19 +40,19 @@ This plan operationalizes the thesis proposal into six executable phases. The ap
 | 8 | **Defense & Submission** | Advisor/committee review, defense, final submission, code archive | ⬜ Todo |
 
 
-### Stage 1 plan — advisor's TimesNet SSL design (recorded 2026-09-30; corrected plan adopted 2026-10-05)
+### Pretraining plan — advisor's TimesNet SSL design (recorded 2026-09-30; corrected plan adopted 2026-10-05)
 
 The advisor proposed a revised method: a **TimesNet** encoder (4 TimesBlocks + global average pooling) over
 13-feature BSM trajectories (sender-claimed and receiver-observed position/velocity, acceleration, time of day,
 Δτ), pretrained without attack labels on **masked reconstruction + three physical-constraint heads +
-SimCLR/InfoNCE contrastive learning**. Stage 2 (supervised-contrastive few-shot fine-tuning, a memory bank with
-FAISS kNN scoring) is deferred. Full WBS: `docs/plan/stage1-ssl-wbs.md` (Stage 1 ≈ 45 working days, 38 tasks, S1.0–S1.4; Stage 2 ≈ 14.5
+SimCLR/InfoNCE contrastive learning**. Few-shot fine-tuning (supervised contrastive, then a memory bank with
+FAISS kNN scoring) is deferred. Full WBS: `docs/plan/stage1-ssl-wbs.md` (pretraining ≈ 45 working days, 38 tasks, S1.0–S1.4; fine-tuning ≈ 14.5
 days, 9 tasks, S2.0–S2.3, deferred; plus the hyperparameter sweep plan); corrected plan in the professor's format: `docs/plan/clarification.md`; interactive version: `stage1-plan.html` (plain-language review of 19 issues in the plan with measured evidence, fixes and questions for the advisor — added 2026-10-04; task tracker, a 12-slide presentation of steps 1–2, Step 1 pipeline diagrams and data charts, a TimesNet architecture diagram and an interactive FFT/fold explainer — added 2026-10-01; synthetic signals are labelled illustrative on screen).
 
 This changes the method described in `proposal/main.tex` (Transformer encoder-decoder, MTR + TCP). **Decision
-D9 (2026-10-05, student): the deviation is accepted** — the advisor's Stage 1 plan supersedes the proposal's
+D9 (2026-10-05, student): the deviation is accepted** — the advisor's pretraining plan supersedes the proposal's
 method, deviating from `main.tex` is not treated as an issue, and no `main.tex` revision is required before
-Stage 1 work (former task S1.0.3 removed).
+pretraining work (former task S1.0.3 removed).
 
 **Corrected plan adopted (2026-10-05, student decision):** `docs/plan/clarification.md` rewrites the advisor's
 plan with every fix from the review, and decisions D1–D8 are adopted as written there:
@@ -67,10 +67,14 @@ plan with every fix from the review, and decisions D1–D8 are adopted as writte
 | D6 | Hard negatives: same 50 m grid cell, same group, different pseudonym, ≥ 10 min apart (β = 0.5) |
 | D7 | Normalised losses; λ1 = 1, λ3–λ5 = 0.3, λ2 ∈ {0.1, 0.3, 1} + one uncertainty-weighting run; label-free checkpoint selection |
 | D8 | **Re-split** on (scenario group, physical vehicle) across the 4 scenarios and the group's time windows — **RULE 3 split change, adopted but not yet executed** (WBS S1.1.5) |
+| D11 | d = 512 (d_ff = 512, 73.4M-param encoder) — **superseded by D12**; TimesNet only in the code stays in force (2026-10-08, student) |
+| D13 | Robust scaling (median / IQR + soft tail) for claimed_pos and range in pretraining; NT-Xent masks same-broadcast pairs (2026-10-08) |
 | D9 | Deviation from `proposal/main.tex` accepted |
+| D10 | TimesNet d_ff = d = 128 (no bottleneck; 4,595,840 params) — **width part superseded by D12**; P1–P3 hidden width d stays (2026-10-08, student) |
+| D12 | **d = 128, d_ff = 64** — the professor's plan (encoder 2,301,312 params, 2,402,448 with heads); d_ff = 128 and d = 256 / 512 are ablations chosen only by evidence (2026-10-08, student) |
 
-Updated 2026-10-06: the WBS now carries the adopted Stage 2 tasks (deferred until Stage 1 ends) and a sweep plan
-stating, for each hyperparameter, whether it is chosen label-free in Stage 1 or on validation in Stage 2.
+Updated 2026-10-06: the WBS now carries the adopted fine-tuning tasks (deferred until pretraining ends) and a sweep plan
+stating, for each hyperparameter, whether it is chosen label-free in pretraining or on validation in fine-tuning.
 **Prepared data rebuilt in the receiver's view (2026-10-06, D1′, user's instruction).** `src/pipeline/input_representation.ipynb`
 now keeps **every received copy** (no de-duplication — VeReMi is designed as per-receiver logs) and writes one
 prepared JSON per raw trace file, mirroring `data/VeReMi-Dataset/<Family>_<group>/<run>/`, plus `index.json`
@@ -86,7 +90,13 @@ but every window is padded to 64 rows + mask (`buckets = (64,)`): 376,427 window
 classes (|AUC − 0.5| ≤ 0.04); length-only AUC 0.531; an unmasked mean leaks length (log_dtau AUC 0.492 → 0.442),
 so the encoder must use the mask. Masking in the model is blocked on the torch env (S1.0.4).
 
-**Encoder notebook (2026-10-07, no training):** `src/model/benign_gridsybil/timesnet_encoder_T64.ipynb` builds the masked TimesNet encoder (2.30M params), the untrained heads (reconstruction, P1–P3, projection) and the loss definitions; checks pass (padding ignored exactly, batch-invariant, CPU = MPS). Training env pinned (`.venv-train`, torch 2.14.1).
+**Encoder notebook (2026-10-07, no training):** `src/model/benign_gridsybil/encoder_T64.ipynb` builds the masked TimesNet encoder (2,301,312 params at d = 128, d_ff = 64, D12; 4,595,840 with d_ff = 128 under D10, superseded), the untrained heads (reconstruction, P1–P3, projection) and the loss definitions; checks pass (padding ignored exactly, batch-invariant, CPU = MPS). Training env pinned (`.venv-train`, torch 2.14.1).
+
+**Encoder consolidated (2026-10-07):** one notebook `src/model/benign_gridsybil/encoder_T64.ipynb` builds the TimesNet encoder and the Transformer ablation with the same (x, mask) → (H, z) API and checks both (all pass); the draft pretraining script was removed at the user's request (S1.3 not started).
+
+**⚠ RULE 3 split change (2026-10-08, student):** the benign + GridSybil encoder input (`src/pipeline/benign_gridsybil/encoder_input_T64.ipynb` → `src/data/encoder_input/benign_gridsybil/T64/`) now uses a **90 / 10 train / test split by sender vehicle**, seeded (0), stratified by (scenario group, class): 5,180 / 575 vehicles, 338,001 / 38,426 windows (89.8% / 10.2%), 0 vehicles in both. It replaces the four-way split (train / pretrain_val / val / test) from `index.json` for this data; `index.json` itself is unchanged. Reason: more training data. Pretraining's label-free check set is now 10% of the train sender vehicles (carved by `FeatureShards` in `src/model/benign_gridsybil/timesnet/data.py`), test is never opened in pretraining. Consequence: no separate val split — fine-tuning thresholds / few-shot model selection will need a vehicle-level hold-out from train (to decide).
+
+**⚠ RULE 3 (2026-10-08): all-data T24 encoder input** (`src/pipeline/all/encoder_input_T24.ipynb` → `src/data/encoder_input/all/T24/`): 90 / 10 train / test by vehicle key across all 8 folders; vehicles of the T64 input keep their split (5,755, verified against disk), 1,756 others seeded (0) 90/10 stratified by group × attacker-in-any-family; 7,511 vehicles (6,760 / 751). **F14 (2026-10-08, open):** GridSybil_0709 is a separate re-simulation of the 0709 traffic (run folders dated 2025-11-15, different vehicle ids); a shared id is never the same car. In the all-data T24 input the vehicle-key split therefore lets 2.5–5.9% of GridSybil_0709 test benign identities have a near-copy in train within 1 m (≈ 8–10% within 3 m; near-full copies 0.4–1.0%). 1416 and the other 0709 families: 0% (no leak). Fix option: link cars across families by trajectory (same start ±1 s / 10 m, median gap ≤ 3 m over ≥ half the track), union-find, split by component (RULE 3 change). The benign + GridSybil T64 input is not affected (one family only).
 
 **Status 2026-10-07:** input representation done for benign + GridSybil (S1.1.2–S1.1.5); S1.1.6 shortcut probes
 partly done in the EDA (length AUC 0.531); next is S1.0.4 (torch env) → S1.2 TimesNet encoder with masked pooling
@@ -132,7 +142,7 @@ the **D8 split is not in force** (the v1 `idx_*` files were never touched). Kept
 - **D8 refinement:** group key = (scenario group, physical vehicle) — vehicles cross time-window boundaries.
 - Shortcut probe on that data: sequence length AUC 0.551, time of day 0.544, run id 0.886.
 
-Stage 2 defaults adopted at the same time: train on A16/A18/A19 (+ benign), hold out A17 DataReplay; memory bank
+Few-shot fine-tuning defaults adopted at the same time: train on A16/A18/A19 (+ benign), hold out A17 DataReplay; memory bank
 from unlabeled training embeddings with K, θ chosen on val; FL as deployment motivation only. The professor is
 shown the corrected plan (S1.0.1); any objection is recorded as a change. Next executable steps: S1.1.1 (leak
 audit) and S1.2.x (encoder) need nothing else; S1.1.2 needs the user's OK to write `data/prepared_receiver/`.
@@ -141,7 +151,7 @@ Findings from checking the plan against the data (details and evidence in the WB
 - **F1 — cross-scenario train/test leak (RULE 3, see Known risks below).**
 - **F2 — the existing TCP objective is trivial:** `models/transformer_model.ipynb` cell 7 uses all-zero TCP
   labels and applies no corruption; masks are shared across a batch. The v1 pilot is effectively MTR-only.
-- **F3 — only A0 + A16–A19 exist locally** (A16 = GridSybil, A17 = DataReplay). Stage 2's A1–A4/A9 classes need
+- **F3 — only A0 + A16–A19 exist locally** (A16 = GridSybil, A17 = DataReplay). Fine-tuning's A1–A4/A9 classes need
   the full 19-type VeReMi-Extension (new dataset, RULE 7); its "A16 data replay" hold-out is A17.
 - **F4 — 1 Hz beacons** (Δτ median 1.000 s; `rcvTime == sendTime`), not 100 ms.
 - **F5 — time of day separates 0709 from 1416 perfectly** → dropped (D3).
@@ -151,7 +161,7 @@ Findings from checking the plan against the data (details and evidence in the WB
   injected violations (D4).
 
 Task mapping (superseded / modified / kept / deferred) is in the WBS §3 and now applies; the phase tables below
-keep their historical statuses, and Stage 1 progress is tracked in the WBS / `stage1-plan.html`.
+keep their historical statuses, and pretraining progress is tracked in the WBS / `stage1-plan.html`.
 
 ---
 
@@ -169,10 +179,10 @@ The pre-research phase: define the idea, position it against the literature, and
 | 0.6 | Proposal document (main.tex + draft) | 🔶 Partial | `proposal/main.tex`, `proposal/proposal-draft.md` |
 | 0.7 | Proposal presentation slides | 🔶 Partial | `proposal/thesis-proposal-presentation.html` |
 | 0.8 | Proposal defense & committee approval | ⬜ Todo | Committee sign-off |
-| 0.9 | Stage 1 / Stage 2 WBS for the adopted TimesNet SSL plan (F1–F10, 38 + 9 tasks, sweep plan) | ✅ Done | `docs/plan/stage1-ssl-wbs.md` |
+| 0.9 | Pretraining / fine-tuning WBS for the adopted TimesNet SSL plan (F1–F10, 38 + 9 tasks, sweep plan) | ✅ Done | `docs/plan/stage1-ssl-wbs.md` |
 | 0.10 | Corrected plan in the professor's format + what changed and why + Q&A | ✅ Done | `docs/plan/clarification.md` (sharing it with the professor is S1.0.1) |
-| 0.11 | Interactive Stage 1/2 page (per-task ticks, plan review, diagrams, slides) | ✅ Done | `stage1-plan.html` |
-| 0.12 | Decision record D1–D9 (adopted 2026-10-05) + task mapping | ✅ Done | "Stage 1 plan" section above (= S1.0.2) |
+| 0.11 | Interactive pretraining / fine-tuning page (per-task ticks, plan review, diagrams, slides) | ✅ Done | `stage1-plan.html` |
+| 0.12 | Decision record D1–D9 (adopted 2026-10-05) + task mapping | ✅ Done | "Pretraining plan" section above (= S1.0.2) |
 
 ---
 
@@ -287,7 +297,7 @@ GridSybil_0709 (including the v1 pilot results in `models/results/`) carries thi
   have a near-copy in train** (GridSybil_0709 excluded; measured from `window_metadata.parquet` + `idx_*.npy`).
   `scripts/audit_splits.py` checks within-scenario disjointness only, so it passes. Every number from the current
   split — including `models/results/` — is optimistic until a re-split grouped on (time window, physical vehicle)
-  across scenarios (Stage 1 tasks S1.1.1 / S1.1.5). **The split has not been changed yet**; that needs sign-off.
+  across scenarios (pretraining tasks S1.1.1 / S1.1.5). **The split has not been changed yet**; that needs sign-off.
 
 ## Phase 2 — Feature Engineering
 

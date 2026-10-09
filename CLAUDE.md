@@ -30,7 +30,7 @@ numbers until leakage and idempotency are ruled out.
 | `agent.md` | **Start here** — current state, live vs. legacy files, decisions, pending approvals, changelog |
 | `src/` · `src/agent.md` | All new code for the adopted TimesNet plan (flat layout, OOP 90/10) · its coding rules and workflow |
 | `docs/plan/clarification.md` | The adopted plan (professor's format) + what changed and why + Q&A |
-| `docs/plan/stage1-ssl-wbs.md` · `stage1-plan.html` | Stage 1 WBS for the advisor's TimesNet SSL plan (findings, decisions D1–D9, tasks S1.0–S1.4) · its interactive page (localStorage ticks) |
+| `docs/plan/stage1-ssl-wbs.md` · `stage1-plan.html` | Task list (pretraining S1.x, fine-tuning S2.x) for the advisor's TimesNet SSL plan (findings, decisions D1–D9, tasks S1.0–S1.4) · its interactive page (localStorage ticks) |
 | `docs/proposal/` · `docs/planning/` | Intro guide · WBS, formatting manual |
 | `docs/research-notes/` | Proposal-stage notes: gap/novelty/related-papers analyses, research idea |
 | `docs/research-notes/data_understanding/` | Phase 1 notes: dataset structure, attack taxonomy, field reference, class balance, split protocol, data-quality checks, the GridSybil_0709 windowing defect |
@@ -79,10 +79,9 @@ reply and recorded in `docs/plan/research-plan.md`; never change it silently.
 
 Every experiment records its config and random seed alongside its results
 (follow the `models/roadfm_lite_config.json` + `results_summary.json`
-pattern). **Known gap: the PyTorch training environment is unpinned** —
-`requirements.txt` covers only the EDA venv (no torch). Flag this whenever
-training work is done; capture a `pip freeze` of the training env when it is
-available.
+pattern). The PyTorch training environment is pinned in `requirements-train.txt`
+(`.venv-train`, kernel `roadfm-train`, 2026-10-07); `requirements.txt` covers only the
+EDA venv (no torch). Every training run records its environment next to its results (`env.json`).
 
 ## RULE 5 — Notebooks run from the repo root
 
@@ -107,19 +106,20 @@ implementation, no new datasets, baselines, or metrics beyond the plan in
 
 ## Key technical facts (adopted plan, 2026-10-05 — details in `agent.md` §3–§4)
 
-- **Encoder**: **TimesNet** (4 TimesBlocks, d_ff = 64, 3 kernels, top-3 periods per sample,
+- **Encoder**: **TimesNet** (4 TimesBlocks, d = 128, d_ff = 64 — the plan's bottleneck, D12 2026-10-08 —, 3 kernels, top-3 periods per sample,
   no time-of-day embedding) over network-heard pseudonym sequences of **T = 64** messages
-  (1 Hz) × **13 features**; outputs H (per step) and z (average-pooled), d ∈ {128, 256, 512}.
-  A Transformer encoder is kept as an ablation only.
-- **Stage 1 pretraining (no attack labels)**: masked reconstruction (MLP decoder on H),
+  (1 Hz) × **13 features**; outputs H (per step) and z (average-pooled), d = 128 (256 / 512 ablations).
+  TimesNet only in the code (D11); a Transformer ablation may return later.
+- **Self-supervised pretraining (no attack labels)**: masked reconstruction (MLP decoder on H),
   physics heads **P1–P3** detecting violations we inject, SimCLR/InfoNCE contrastive with
   physically consistent augmentations. TCP is dropped.
-- **Stage 2 (deferred)**: supervised contrastive few-shot fine-tuning (train A16/A18/A19 +
+- **Few-shot fine-tuning and detection (deferred)**: supervised contrastive fine-tuning (train A16/A18/A19 +
   benign, hold out A17 DataReplay), unlabeled memory bank + kNN anomaly score.
 - **Evaluation**: frozen-encoder probes, few-shot n ∈ {10, 20, 30, 50}, zero-shot A17,
   0709 ↔ 1416 transfer, ablations; against TimesNet trained from scratch.
-- **Split**: by (time window, physical vehicle) across the 4 scenarios (D8 — adopted, not
-  yet executed); the v1 `idx_*` split leaks (F1).
+- **Split**: by (time window, physical vehicle) across the 4 scenarios (D8, executed in
+  `src/data/prepared_data/`); the benign + GridSybil encoder input uses a 90 / 10 train / test split by
+  sender vehicle (D8′, 2026-10-08). The v1 `idx_*` split leaks (F1).
 - **Central hypothesis**: SSL representations grounded in physically-plausible motion
   transfer better to Sybil detection under scarce labels than encoders trained from scratch.
 - **Legacy v1**: Transformer + MTR/TCP on 20 × 13 windows (`models/*.pt`,

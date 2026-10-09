@@ -1,0 +1,15 @@
+# Tool configuration only (this repo is not a package).
+
+[tool.black]
+line-length = 120
+target-version = ["py312"]
+extend-exclude = '''
+(
+  ^/data/
+  | ^/src/data/
+  | ^/src/runs/
+  | ^/simulation/
+  | ^/models/
+  | ^/\.venv
+)
+'''

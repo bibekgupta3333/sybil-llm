@@ -19,7 +19,10 @@ src/
       encoder_input_T64.ipynb          trial: links -> 64 x 13 windows + mask
   model/
     benign_gridsybil/
-      timesnet_encoder_T64.ipynb       trial: masked TimesNet encoder + heads, no training (torch)
+      encoder_T64.ipynb                trial: the TimesNet encoder explained and checked (imports timesnet/encoder.py)
+      timesnet/                        trial: self-supervised pretraining package (config, data, encoder, heads, views, losses,
+                                       monitors, train) + pretrain_monitor.ipynb
+                                       model: TimesNet only, d = 128, d_ff = 64 (D12; encoder 2,301,312 params)
   eda/                                 read-only analysis notebooks
     eda_window_size.ipynb              all scenarios: link lengths, choice of T
     benign_gridsybil/
@@ -40,8 +43,14 @@ by themselves, so they can be opened from any folder. Run them in this order:
 |---|---|---|---|---|
 | 1 | `pipeline/input_representation.ipynb` | `data/VeReMi-Dataset/` (read only) | `data/prepared_data/` | ~1 min |
 | 2 | `pipeline/benign_gridsybil/encoder_input_T64.ipynb` | `data/prepared_data/` | `data/encoder_input/benign_gridsybil/T64/` | ~2.5 min |
-| 3 | `model/benign_gridsybil/timesnet_encoder_T64.ipynb` (kernel `roadfm-train`) | `data/encoder_input/benign_gridsybil/T64/` (one shard) | nothing | ~30 s |
+| 3 | `model/benign_gridsybil/encoder_T64.ipynb` (kernel `roadfm-train`) | one train shard | nothing | ~1 min |
+| 4 | `.venv-train/bin/python -m src.model.benign_gridsybil.timesnet.train --check` → `--smoke` → no flag | train shards only (10% of train vehicles = check set) | `src/runs/pretraining/benign_gridsybil/T64/<run_id>/` (older runs: `src/runs/stage1/…`) | hours |
 | — | `eda/*.ipynb` | the outputs above | nothing | seconds |
+| Docker | Linux / EC2: `docker compose build gpu` (or `cpu`), `docker compose run --rm gpu bash`, then inside `npm run pipeline:prepare` → `npm run pipeline:encoder-input` → `npm run train:check` → `train:smoke` → `train:full` (image venv via `PY=/opt/venv/bin/python`; torch 2.14.1 `cu126` for `gpu`, `cpu` for `cpu`; guide `docs/ec2-training.md`) | as rows 1–4 (repo bind-mounted at `/workspace`) | as rows 1–4 | first build ≈ 1.5 min (`cpu`, 2.8 GB image; `gpu` ≈ 10 GB, longer); then as rows 1–4 |
+
+One command (Docker, Ubuntu / EC2 or Mac): `./scripts/setup.sh [--cpu] [--rebuild-data] [--skip-build]` runs the checks, the image build, both pipeline notebooks (if their outputs are missing) and `train:check` (raw data must already be in `data/VeReMi-Dataset/`; see `docs/ec2-training.md`).
+
+Shortcuts from the repo root: `npm run train:check`, `npm run train:smoke`, `npm run train`, `npm run train:resume -- src/runs/pretraining/benign_gridsybil/T64/<run_id>`, `npm run train:runs` (see `package.json`).
 
 Paths in the table are under `src/`, except `data/VeReMi-Dataset/`, which is the protected raw data at the repo
 root (never written to).
@@ -54,7 +63,8 @@ root (never written to).
 - **Link:** every message one receiving car heard from one sender pseudonym, in time order. Median 12 messages.
 - **Window (encoder input):** a link cut into pieces of at most 64 messages, each **padded to 64 rows** with a
   **mask** (1 = real message, 0 = padding). 376,427 windows, 71% padding rows, normalised with train-only statistics.
-- **Split:** by sender vehicle; no vehicle appears in two splits (train / pretrain_val / val / test).
+- **Split:** 90 / 10 train / test by sender vehicle (D8′, seed 0, stratified; 338,001 / 38,426 windows); no vehicle
+  appears in both. Pretraining carves a check set of 10% of train vehicles; there is no val split.
 
 Output files in `data/encoder_input/benign_gridsybil/T64/`:
 
@@ -72,6 +82,7 @@ Output files in `data/encoder_input/benign_gridsybil/T64/`:
 
 ## Next
 
-1. Read the encoder notebook (`model/benign_gridsybil/`) and its study notes (`docs/plan/stage1-encoder-notes.md`); nothing is trained yet.
-2. Stage 1 pretraining objectives and the training loop.
+1. Read the encoder notebook (`model/benign_gridsybil/encoder_T64.ipynb`) and its study notes (`docs/plan/stage1-encoder-notes.md`); nothing is trained yet.
+2. Self-supervised pretraining: the package `model/benign_gridsybil/timesnet/` is built and `--check` passes; `--smoke`
+   and the full run wait for the user. Read runs with `timesnet/pretrain_monitor.ipynb`.
 3. The all-attack version (DataReplay / DoS need a per-receiver time window; their links are 1–2 messages).

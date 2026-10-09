@@ -54,8 +54,19 @@ _ATTACK_MAP: dict[int, str] = {
 # is the fix for the GridSybil_0709 splice (see module docstring).
 _SEQUENCE_KEYS = ["family", "group", "subfolder", "sender", "senderPseudo"]
 _FEATURE_COLS = [
-    "pos_x", "pos_y", "spd_x", "spd_y", "acl_x", "acl_y", "hed_x", "hed_y",
-    "dt", "dpos_x", "dpos_y", "dspd_x", "dspd_y",
+    "pos_x",
+    "pos_y",
+    "spd_x",
+    "spd_y",
+    "acl_x",
+    "acl_y",
+    "hed_x",
+    "hed_y",
+    "dt",
+    "dpos_x",
+    "dpos_y",
+    "dspd_x",
+    "dspd_y",
 ]
 _TELEPORT_SPEED_MPS = 60.0  # implied speed no honest vehicle reaches; a residual splice would
 
@@ -147,12 +158,17 @@ class VehicleLabelResolver:
                 parsed = ParsedTraceFilename.parse(trace_file.name)
                 if parsed is None:
                     continue
-                records.append({
-                    "family": run.family, "group": run.group, "subfolder": run.subfolder,
-                    "sender": parsed.node_id, "attack_code": parsed.attack_code,
-                    "attack_label": _ATTACK_MAP.get(parsed.attack_code, f"Unknown_{parsed.attack_code}"),
-                    "is_attacker": parsed.attack_code != 0,
-                })
+                records.append(
+                    {
+                        "family": run.family,
+                        "group": run.group,
+                        "subfolder": run.subfolder,
+                        "sender": parsed.node_id,
+                        "attack_code": parsed.attack_code,
+                        "attack_label": _ATTACK_MAP.get(parsed.attack_code, f"Unknown_{parsed.attack_code}"),
+                        "is_attacker": parsed.attack_code != 0,
+                    }
+                )
         table = pd.DataFrame.from_records(records)
         if table.empty:
             raise ValueError("no vehicle trace filenames matched the expected pattern")
@@ -184,15 +200,26 @@ class GroundTruthLoader:
                 for line in fh:
                     obj = json.loads(line)
                     code, label, is_attacker = self._lookup.get(
-                        (run.family, run.group, run.subfolder, obj["sender"]), (-1, "Unknown", False))
+                        (run.family, run.group, run.subfolder, obj["sender"]), (-1, "Unknown", False)
+                    )
                     yield {
-                        "sendTime": obj["sendTime"], "sender": obj["sender"], "senderPseudo": obj["senderPseudo"],
-                        "pos_x": obj["pos"][0], "pos_y": obj["pos"][1],
-                        "spd_x": obj["spd"][0], "spd_y": obj["spd"][1],
-                        "acl_x": obj["acl"][0], "acl_y": obj["acl"][1],
-                        "hed_x": obj["hed"][0], "hed_y": obj["hed"][1],
-                        "family": run.family, "group": run.group, "subfolder": run.subfolder,
-                        "attack_code": code, "attack_label": label, "is_attacker": is_attacker,
+                        "sendTime": obj["sendTime"],
+                        "sender": obj["sender"],
+                        "senderPseudo": obj["senderPseudo"],
+                        "pos_x": obj["pos"][0],
+                        "pos_y": obj["pos"][1],
+                        "spd_x": obj["spd"][0],
+                        "spd_y": obj["spd"][1],
+                        "acl_x": obj["acl"][0],
+                        "acl_y": obj["acl"][1],
+                        "hed_x": obj["hed"][0],
+                        "hed_y": obj["hed"][1],
+                        "family": run.family,
+                        "group": run.group,
+                        "subfolder": run.subfolder,
+                        "attack_code": code,
+                        "attack_label": label,
+                        "is_attacker": is_attacker,
                     }
 
 
@@ -240,7 +267,7 @@ class WindowBuilder:
             values = group[_FEATURE_COLS].to_numpy(dtype=np.float32)
             max_implied_speed = max(max_implied_speed, self._max_implied_speed(values))
             for start in range(0, len(values) - self._cfg.window_size + 1, self._cfg.stride):
-                window = values[start: start + self._cfg.window_size]
+                window = values[start : start + self._cfg.window_size]
                 windows.append(window)
                 rows.append(self._window_metadata(name, group, start))
         if not windows:
@@ -250,8 +277,10 @@ class WindowBuilder:
     def _assert_single_sender(self, group: pd.DataFrame, name: tuple[Any, ...]) -> None:
         senders = group["sender"].unique()
         if len(senders) != 1:
-            raise ValueError(f"sequence group {name} mixes {len(senders)} physical senders: {senders} "
-                              "-- the grouping key no longer disambiguates identities")
+            raise ValueError(
+                f"sequence group {name} mixes {len(senders)} physical senders: {senders} "
+                "-- the grouping key no longer disambiguates identities"
+            )
 
     def _max_implied_speed(self, values: np.ndarray) -> float:
         dt = values[1:, _FEATURE_COLS.index("dt")]
@@ -266,10 +295,17 @@ class WindowBuilder:
         family, grp, subfolder, sender, pseudo = name
         end = start + self._cfg.window_size - 1
         return {
-            "family": family, "group": grp, "subfolder": subfolder, "sender": sender, "senderPseudo": pseudo,
-            "attack_code": group["attack_code"].iloc[0], "attack_label": group["attack_label"].iloc[0],
-            "is_attacker": bool(group["is_attacker"].iloc[0]), "window_start_idx": start,
-            "start_time": float(group["sendTime"].iloc[start]), "end_time": float(group["sendTime"].iloc[end]),
+            "family": family,
+            "group": grp,
+            "subfolder": subfolder,
+            "sender": sender,
+            "senderPseudo": pseudo,
+            "attack_code": group["attack_code"].iloc[0],
+            "attack_label": group["attack_label"].iloc[0],
+            "is_attacker": bool(group["is_attacker"].iloc[0]),
+            "window_start_idx": start,
+            "start_time": float(group["sendTime"].iloc[start]),
+            "end_time": float(group["sendTime"].iloc[end]),
         }
 
 
@@ -292,8 +328,17 @@ class SplitBuilder:
         self._cfg = config
 
     def build(self, metadata: pd.DataFrame) -> Splits:
-        sender_uid = (metadata["family"] + "_" + metadata["group"] + "_" + metadata["subfolder"]
-                      + "_" + metadata["sender"].astype(str) + "_" + metadata["senderPseudo"].astype(str))
+        sender_uid = (
+            metadata["family"]
+            + "_"
+            + metadata["group"]
+            + "_"
+            + metadata["subfolder"]
+            + "_"
+            + metadata["sender"].astype(str)
+            + "_"
+            + metadata["senderPseudo"].astype(str)
+        )
         n = len(metadata)
         gss1 = GroupShuffleSplit(n_splits=1, test_size=self._cfg.test_size, random_state=self._cfg.seed)
         train_val_idx, test_idx = next(gss1.split(np.zeros(n), groups=sender_uid))
@@ -307,7 +352,9 @@ class SplitBuilder:
         return Splits(train_idx, val_idx, test_idx, group_0709, group_1416, sender_uid)
 
     @staticmethod
-    def _assert_disjoint(sender_uid: pd.Series, train_idx: np.ndarray, val_idx: np.ndarray, test_idx: np.ndarray) -> None:
+    def _assert_disjoint(
+        sender_uid: pd.Series, train_idx: np.ndarray, val_idx: np.ndarray, test_idx: np.ndarray
+    ) -> None:
         train_s, val_s, test_s = (set(sender_uid.iloc[i]) for i in (train_idx, val_idx, test_idx))
         if train_s & val_s or train_s & test_s or val_s & test_s:
             raise AssertionError("sender-level leakage across train/val/test -- refusing to write a corrupted split")
@@ -331,7 +378,9 @@ class ArtifactWriter:
     def __init__(self, config: PipelineConfig) -> None:
         self._cfg = config
 
-    def write(self, window_set: WindowSet, splits: Splits, norm_mean: np.ndarray, norm_std: np.ndarray) -> dict[str, Any]:
+    def write(
+        self, window_set: WindowSet, splits: Splits, norm_mean: np.ndarray, norm_std: np.ndarray
+    ) -> dict[str, Any]:
         out = self._cfg.out_dir
         out.mkdir(parents=True, exist_ok=True)
         metadata = window_set.metadata.assign(sender_uid=splits.sender_uid)
@@ -352,14 +401,24 @@ class ArtifactWriter:
         metadata.to_parquet(out / "window_metadata.parquet", index=False)
 
         config = {
-            "window_size": self._cfg.window_size, "stride": self._cfg.stride, "min_seq_len": self._cfg.min_seq_len,
-            "sequence_keys": _SEQUENCE_KEYS, "feature_cols": _FEATURE_COLS, "feature_dim": len(_FEATURE_COLS),
-            "n_windows": int(window_set.features.shape[0]), "n_train": int(len(splits.train_idx)),
-            "n_val": int(len(splits.val_idx)), "n_test": int(len(splits.test_idx)),
-            "n_group_0709": int(len(splits.group_0709_idx)), "n_group_1416": int(len(splits.group_1416_idx)),
-            "label_to_int": label_to_int, "int_to_label": {str(v): k for k, v in label_to_int.items()},
-            "norm_mean": norm_mean.tolist(), "norm_std": norm_std.tolist(),
-            "max_implied_speed_mps": window_set.max_implied_speed, "seed": self._cfg.seed,
+            "window_size": self._cfg.window_size,
+            "stride": self._cfg.stride,
+            "min_seq_len": self._cfg.min_seq_len,
+            "sequence_keys": _SEQUENCE_KEYS,
+            "feature_cols": _FEATURE_COLS,
+            "feature_dim": len(_FEATURE_COLS),
+            "n_windows": int(window_set.features.shape[0]),
+            "n_train": int(len(splits.train_idx)),
+            "n_val": int(len(splits.val_idx)),
+            "n_test": int(len(splits.test_idx)),
+            "n_group_0709": int(len(splits.group_0709_idx)),
+            "n_group_1416": int(len(splits.group_1416_idx)),
+            "label_to_int": label_to_int,
+            "int_to_label": {str(v): k for k, v in label_to_int.items()},
+            "norm_mean": norm_mean.tolist(),
+            "norm_std": norm_std.tolist(),
+            "max_implied_speed_mps": window_set.max_implied_speed,
+            "seed": self._cfg.seed,
         }
         with open(out / "config.json", "w", encoding="utf-8") as fh:
             json.dump(config, fh, indent=2)
@@ -381,12 +440,18 @@ class DataPreparationPipeline:
         _LOG.info("loaded %d ground-truth messages", len(ground_truth))
         features = FeatureEngineer().add_deltas(ground_truth)
         window_set = WindowBuilder(self._cfg).build(features)
-        _LOG.info("built %d windows (max implied speed in-sequence: %.1f m/s)",
-                  len(window_set.features), window_set.max_implied_speed)
+        _LOG.info(
+            "built %d windows (max implied speed in-sequence: %.1f m/s)",
+            len(window_set.features),
+            window_set.max_implied_speed,
+        )
         if window_set.max_implied_speed > _TELEPORT_SPEED_MPS:
-            _LOG.info("max implied speed exceeds the %.0f m/s teleport threshold -- expected for attacker "
-                      "sequences (the discriminative signal itself); would indicate a residual splice bug "
-                      "if it appeared on a benign sequence instead", _TELEPORT_SPEED_MPS)
+            _LOG.info(
+                "max implied speed exceeds the %.0f m/s teleport threshold -- expected for attacker "
+                "sequences (the discriminative signal itself); would indicate a residual splice bug "
+                "if it appeared on a benign sequence instead",
+                _TELEPORT_SPEED_MPS,
+            )
         splits = SplitBuilder(self._cfg).build(window_set.metadata)
         norm_mean, norm_std = Normalizer.fit(window_set.features, splits.train_idx)
         config = ArtifactWriter(self._cfg).write(window_set, splits, norm_mean, norm_std)
@@ -397,15 +462,25 @@ class DataPreparationPipeline:
 def _parse_args(argv: Sequence[str] | None) -> PipelineConfig:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--base", type=pathlib.Path, default=PipelineConfig.base_dir)
-    parser.add_argument("--out", type=pathlib.Path, default=PipelineConfig.out_dir,
-                        help="Defaults to a NEW directory, never data/prepared_data/, per CLAUDE.md rule 2.")
+    parser.add_argument(
+        "--out",
+        type=pathlib.Path,
+        default=PipelineConfig.out_dir,
+        help="Defaults to a NEW directory, never data/prepared_data/, per CLAUDE.md rule 2.",
+    )
     parser.add_argument("--window-size", type=int, default=PipelineConfig.window_size)
     parser.add_argument("--stride", type=int, default=PipelineConfig.stride)
     parser.add_argument("--min-seq-len", type=int, default=PipelineConfig.min_seq_len)
     parser.add_argument("--seed", type=int, default=PipelineConfig.seed)
     args = parser.parse_args(argv)
-    return PipelineConfig(base_dir=args.base, out_dir=args.out, window_size=args.window_size,
-                          stride=args.stride, min_seq_len=args.min_seq_len, seed=args.seed)
+    return PipelineConfig(
+        base_dir=args.base,
+        out_dir=args.out,
+        window_size=args.window_size,
+        stride=args.stride,
+        min_seq_len=args.min_seq_len,
+        seed=args.seed,
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:

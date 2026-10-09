@@ -15,6 +15,7 @@ Read-only against data/. Checks:
 
 Exits 1 if any PASS/FAIL check fails.
 """
+
 import sys
 from pathlib import Path
 
@@ -72,9 +73,7 @@ def main():
     check("train/val sender_uid overlap", len(ov_tv) == 0, f"{len(ov_tv)} shared senders")
     check("train/test sender_uid overlap", len(ov_tt) == 0, f"{len(ov_tt)} shared senders")
     check("val/test sender_uid overlap", len(ov_vt) == 0, f"{len(ov_vt)} shared senders")
-    print(
-        f"    unique senders: train={len(su_train):,} val={len(su_val):,} test={len(su_test):,}"
-    )
+    print(f"    unique senders: train={len(su_train):,} val={len(su_val):,} test={len(su_test):,}")
 
     print()
     print("=" * 78)

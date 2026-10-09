@@ -1,4 +1,4 @@
-# Clarification — corrected Stage 1/2 plan and Q&A
+# Clarification — corrected pretraining / fine-tuning plan and Q&A
 
 **Date:** 2026-10-05 · **Companions:** `docs/plan/stage1-ssl-wbs.md` (evidence, decisions D1–D9),
 `stage1-plan.html` (interactive review and tracker)
@@ -43,17 +43,17 @@ so no vehicle appears in more than one split.
 
 ### 2. Architecture
 
-- **Encoder:** TimesNet with four stacked TimesBlocks (inner width d_ff = 64, 3 Inception kernel sizes, top-k = 3
+- **Encoder:** TimesNet with four stacked TimesBlocks (d = 128, inner width d_ff = 64 — the plan's bottleneck, D12 2026-10-08; 3 Inception kernel sizes, top-k = 3
   periods) and no time-of-day embedding.
 - **Periods:** chosen per sample from FFT frequencies f ≥ 2.
-- **Outputs:** per-timestep states H (T × d), and an embedding z (dimension d ∈ {128, 256, 512}) from global
+- **Outputs:** per-timestep states H (T × d), and an embedding z (dimension d = 128; 256 / 512 are ablations, D12) from global
   average pooling of H over time.
 - **How it works:** TimesNet uses FFT to find dominant periods and reshapes the sequence into 2-D, so convolutions
   capture both short- and long-range temporal patterns.
 - **Comparison:** a Transformer encoder with the same inputs, outputs and pretraining is trained as an ablation, to
   measure whether TimesNet's period modelling helps on mostly aperiodic vehicle motion.
 
-### 3. Stage 1: Self-Supervised Pretraining (no attack labels)
+### 3. Self-Supervised Pretraining (no attack labels)
 
 Three objectives are trained jointly, using training-split vehicles only. The reconstruction decoder reads H; all
 other heads attach to z. All extra heads are discarded after pretraining.
@@ -99,9 +99,9 @@ afterward.
 - Checkpoints are chosen without labels (held-out reconstruction error and embedding quality on a pretraining
   validation slice).
 
-### 4. Stage 2: Supervised Contrastive Fine-Tuning (few-shot)
+### 4. Few-Shot Fine-Tuning (supervised contrastive)
 
-We initialize from the Stage 1 checkpoint and fine-tune with a 10× lower learning rate.
+We initialize from the pretrained checkpoint and fine-tune with a 10× lower learning rate.
 
 - **Training classes (local data):** A16 GridSybil, A18 DoSRandomSybil, A19 DoSDisruptiveSybil, plus benign.
 - **Held out for zero-shot testing:** A17 DataReplaySybil.
@@ -147,7 +147,7 @@ After fine-tuning, we freeze the encoder.
 4. **T = 64 with fixed-length, length-matched samples:** attackers send longer histories, so length would leak the
    class.
 5. **New vehicle-grouped split:** 89.7% of benign test vehicles currently have a near-copy in train.
-6. **TimesNet details fixed:** d_ff = 64 keeps it at 2.3–9.2M parameters instead of 37.5–600M; per-sample periods;
+6. **TimesNet details fixed:** d_ff = 64 kept it at 2.3–9.2M parameters instead of 37.5–600M (briefly d_ff = d under D10, 4.6M at d = 128; back to d_ff = 64 by D12: 2,301,312 at d = 128); per-sample periods;
    no time embedding.
 7. **Block length = ratio × T:** a 20–40-step block doesn't fit the 20–30% mask ratio at T = 64.
 8. **The decoder reads H, not z:** reconstructing individual timesteps needs the per-step states.
@@ -159,7 +159,7 @@ After fine-tuning, we freeze the encoder.
     day" means the other scenario group.
 12. **Small λ sweep and label-free checkpoint selection instead of a full grid:** a full grid is 243 configs × 3
     seeds, and choosing by accuracy uses labels.
-13. **Stage 2 uses the attack codes we have:** A1–A9 are not in our data, and data replay is A17, not A16.
+13. **Few-shot fine-tuning uses the attack codes we have:** A1–A9 are not in our data, and data replay is A17, not A16.
 14. **Memory bank built from unlabeled training data:** choosing only "legitimate" trajectories needs labels. FL is
     treated as the deployment motivation only.
 

@@ -11,7 +11,7 @@
 #                      2.14.1 cu126 / cpu), Jupyter kernels roadfm-train + python3
 #   --hf-cli           also install the Hugging Face CLI on the host (`hf`; login can also happen inside the container)
 #   --no-start         do not start / restart services or run containers (also automatic when systemd is not PID 1)
-#   --allow-root       allow running as root (default: refuse)
+#   --allow-root       run as root (e.g. the root shell on EC2) without the root warning; root also works without it
 #   -h, --help         this help
 #
 # Installs: base tools (git, git-lfs, tmux, htop, jq, build-essential, ...), Node.js 22 LTS + npm (NodeSource),
@@ -285,7 +285,7 @@ report() {
   fi
   if command -v uv >/dev/null 2>&1; then status_row "uv" "$(uv --version | awk '{print $2}')" ok; else status_row "uv" "" missing; fi
   if command -v hf >/dev/null 2>&1; then
-    status_row "Hugging Face CLI (host)" "$(hf version 2>/dev/null | head -1 || echo present)" ok 0
+    status_row "Hugging Face CLI (host)" "$(hf version 2>/dev/null | sed -n 's/.*version: *//p' | head -1 || true)" ok 0
   else
     status_row "Hugging Face CLI (host)" "" missing "$HF_CLI"
   fi
@@ -301,19 +301,25 @@ banner "Host"
 if [[ -r /etc/os-release ]]; then
   # shellcheck disable=SC1091
   . /etc/os-release
-  if [[ "${ID:-}" == "ubuntu" && "${VERSION_ID:-}" == "24.04" ]]; then
+  if [[ "${ID:-}" == "ubuntu" && "${VERSION_ID:-}" =~ ^(22\.04|24\.04|26\.04)$ ]]; then
     ok "Ubuntu ${VERSION_ID} (${VERSION_CODENAME:-}), $(uname -m)"
   else
-    warn "this is ${PRETTY_NAME:-an unknown OS}; the script is written for Ubuntu 24.04 — continuing, check the result"
+    warn "this is ${PRETTY_NAME:-an unknown OS}; the script is tested on Ubuntu 22.04 / 24.04 / 26.04 — continuing"
   fi
 else
   warn "/etc/os-release not found; the script is written for Ubuntu 24.04"
 fi
 command -v apt-get >/dev/null 2>&1 || die "apt-get not found — this script needs Ubuntu / Debian"
 if ((EUID == 0)); then
-  ((ALLOW_ROOT)) || die "do not run as root: run as a normal user with sudo (or pass --allow-root)"
   SUDO=()
-  warn "running as root (--allow-root): the docker group step targets root"
+  if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
+    TARGET_USER="$SUDO_USER"  # `sudo bash scripts/ec2_bootstrap.sh` from a normal user: that user gets the docker group
+    warn "running via sudo: system packages for the host, docker group for '$TARGET_USER', uv / --native for root"
+  elif ((ALLOW_ROOT)); then
+    ok "running as root (--allow-root): the docker group step targets root"
+  else
+    warn "running as root: the docker group step targets root (fine for a single-user EC2 box; --allow-root silences this)"
+  fi
 else
   SUDO=(sudo)
 fi
@@ -341,6 +347,11 @@ if ((!DRY_RUN)) && ((EUID != 0)); then
 fi
 ARCH="$(dpkg --print-architecture)"
 CODENAME="${VERSION_CODENAME:-noble}"  # from /etc/os-release, sourced above
+DOCKER_CODENAME="$CODENAME"
+if ! curl -fsSI "https://download.docker.com/linux/ubuntu/dists/${CODENAME}/Release" >/dev/null 2>&1; then
+  DOCKER_CODENAME=noble  # Docker's repo can lag a new Ubuntu release; the 24.04 packages run on newer releases
+  warn "Docker has no apt repo for '$CODENAME' yet — using the '$DOCKER_CODENAME' (24.04) packages"
+fi
 NEED_RELOGIN=0
 NEED_REBOOT=0
 
@@ -365,7 +376,27 @@ else
     "deb [arch=$ARCH signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" 1
   apt_update
   run "${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
-  ((DRY_RUN)) || ok "node $(node -v), npm $(npm -v)"
+fi
+# npm: bundled with NodeSource's nodejs; make sure the command really exists (the repo's `npm run …` needs it)
+if ((!DRY_RUN)); then
+  hash -r
+  if ! command -v npm >/dev/null 2>&1 && [[ -x /usr/lib/node_modules/npm/bin/npm-cli.js ]]; then
+    step "npm is bundled but not on PATH — linking /usr/bin/npm and /usr/bin/npx"
+    run "${SUDO[@]}" ln -sf /usr/lib/node_modules/npm/bin/npm-cli.js /usr/bin/npm
+    run "${SUDO[@]}" ln -sf /usr/lib/node_modules/npm/bin/npx-cli.js /usr/bin/npx
+    hash -r
+  fi
+  if ! command -v npm >/dev/null 2>&1; then
+    step "npm still missing — installing it with Node's corepack"
+    run "${SUDO[@]}" corepack enable npm || true
+    hash -r
+  fi
+  if command -v npm >/dev/null 2>&1; then
+    ok "node $(node -v), npm $(npm -v) ($(command -v npm))"
+  else
+    bad "npm is not installed — install it by hand: sudo apt-get install -y nodejs (NodeSource), then re-run"
+    REQUIRED_MISSING=1
+  fi
 fi
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -381,7 +412,7 @@ else
   fi
   add_apt_repo "Docker" "https://download.docker.com/linux/ubuntu/gpg" \
     /etc/apt/keyrings/docker.asc /etc/apt/sources.list.d/docker.list \
-    "deb [arch=$ARCH signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $CODENAME stable" 0
+    "deb [arch=$ARCH signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $DOCKER_CODENAME stable" 0
   apt_install "${DOCKER_PACKAGES[@]}"
   ((DRY_RUN)) || ok "docker $(docker --version | sed 's/^Docker version //'), compose $(docker compose version --short)"
 fi
@@ -426,8 +457,12 @@ else
       run "${SUDO[@]}" ubuntu-drivers install --gpgpu "nvidia:${best}-server"
       run "${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y "nvidia-utils-${best}-server"
     else
-      step "ubuntu-drivers offers no server driver >= $MIN_DRIVER${best:+ (best: $best)}; installing nvidia-driver-${FALLBACK_DRIVER}-server"
-      apt_install "nvidia-driver-${FALLBACK_DRIVER}-server" "nvidia-utils-${FALLBACK_DRIVER}-server"
+      # newest packaged server driver >= MIN_DRIVER (e.g. 570 on 24.04, newer on 26.04); else the fixed fallback
+      pick="$(apt-cache search --names-only '^nvidia-driver-[0-9]+-server$' 2>/dev/null | grep -oE '[0-9]+' \
+        | sort -n | awk -v m="$MIN_DRIVER" '$1 >= m' | tail -1 || true)"
+      pick="${pick:-$FALLBACK_DRIVER}"
+      step "ubuntu-drivers offers no server driver >= $MIN_DRIVER${best:+ (best: $best)}; installing nvidia-driver-${pick}-server"
+      apt_install "nvidia-driver-${pick}-server" "nvidia-utils-${pick}-server"
     fi
     NEED_REBOOT=1
     warn "driver installed — reboot (sudo reboot), reconnect, check nvidia-smi, then re-run this script"
@@ -475,7 +510,7 @@ fi
 if ((HF_CLI)); then
   banner "Hugging Face CLI (host)"
   if command -v hf >/dev/null 2>&1; then
-    ok "hf already installed ($(command -v hf))"
+    ok "hf already installed ($(command -v hf)) — kept"
   else
     run uv tool install "huggingface_hub[cli,hf_xet]==${HF_HUB_VERSION}"
   fi
@@ -519,15 +554,22 @@ report
 ((NEED_RELOGIN)) && warn "docker group changed: run 'newgrp docker' (or log out and back in) before using docker"
 
 banner "Next commands"
-gpu_hint="npm run setup             # GPU (service gpu)"
-has_nvidia_gpu || gpu_hint="npm run setup:cpu         # no NVIDIA GPU here (service cpu)"
+if has_nvidia_gpu; then
+  setup_cmd="npm run setup                         # GPU (service gpu)"
+  shell_cmd="npm run docker:shell"
+  train_cmd="npm run docker:train  (= train:full in the gpu container)"
+else
+  setup_cmd="npm run setup:cpu                     # no NVIDIA GPU here (service cpu)"
+  shell_cmd="npm run docker:shell:cpu"
+  train_cmd="docker compose run --rm cpu npm run train:full  (no GPU: slow)"
+fi
 cat <<EOF
   newgrp docker                         # or log out and back in, so docker works without sudo
   cd $REPO_ROOT
   # put the raw dataset in data/VeReMi-Dataset/ yourself, or once it is on the Hub:
-  npm run docker:shell                  # then inside: hf auth login && npm run data:download && exit
-  $gpu_hint
-  tmux new -s train                     # then: npm run docker:train  (= train:full in the gpu container)
+  $shell_cmd              # then inside: hf auth login && npm run data:download && exit
+  $setup_cmd
+  tmux new -s train                     # then: $train_cmd
 EOF
 if ((NATIVE)); then
   echo "  # native route (no Docker): npm run train:check / train:smoke / train:full use .venv-train/bin/python"

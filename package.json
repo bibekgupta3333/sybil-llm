@@ -7,6 +7,8 @@
     "setup:cpu": "bash scripts/setup.sh --cpu",
     "ec2:bootstrap": "bash scripts/ec2_bootstrap.sh",
     "ec2:bootstrap:native": "bash scripts/ec2_bootstrap.sh --native",
+    "ec2:bootstrap:root": "bash scripts/ec2_bootstrap.sh --allow-root",
+    "ec2:bootstrap:native:root": "bash scripts/ec2_bootstrap.sh --native --allow-root",
     "ec2:check": "bash scripts/ec2_bootstrap.sh --check",
     "ec2:dry-run": "bash scripts/ec2_bootstrap.sh --dry-run",
     "train:check": "${PY:-.venv-train/bin/python} -m src.model.benign_gridsybil.timesnet.train --check",

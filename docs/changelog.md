@@ -3,6 +3,7 @@
 History moved out of the root `agent.md`, newest first, text unchanged. The newest 10 entries stay in
 [`agent.md`](../agent.md#changelog); when an entry drops out of that list, move it to the top of this file.
 
+- **2026-10-08** — `stage1-input-slides.html` +4 slides after "Encoder input" (multi-agent): a real unlabelled train window as the encoder sees it (64 × 13 heat map, normalised rows, mask), the same window in real units with a map, where the labels live (`_info` + LabelFirewall), and a two-window quiz with an evaluation-only label reveal. Deck now 44 slides.
 - **2026-10-08** — `pretraining-explained.html` (multi-agent): 11 sections + 6 animations (epoch building, one step, joint loss, update + LR, end-of-epoch evaluation, healthy vs failing runs); all load without errors, no horizontal scroll at 1100 / 500 px; added to the root keep-list.
 - **2026-10-08** — multi-threaded input: `BatchPrefetcher` gathers the next batches in a background thread while the GPU trains (`prefetch_batches = 3`), `cpu_threads` setting (0 = all cores); order/content checked offline. Not run.
 - **2026-10-08** — first full run (batch 128) stopped by the user at step ~400 (1.65 s/step, too slow). D14: length-bucketed batches + batch 256 default; `npm run train:full` (no 8 h cap). Not run; speed to be measured with `npm run train:smoke`.

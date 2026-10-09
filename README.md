@@ -67,6 +67,10 @@ npm run train:smoke        # a short run; then npm run train:full
 npm test                   # pytest (scripts/tests + src/tests); npm run check = format check + tests
 ```
 
+**Fresh EC2 instance (Ubuntu 24.04):** `bash scripts/ec2_bootstrap.sh` first (installs Node.js 22 + npm, Docker +
+compose, the NVIDIA Container Toolkit when there is a GPU, uv; `--check`, `--dry-run`, `--install-driver`, `--native`),
+then `newgrp docker` and the Docker command below.
+
 **Docker / EC2 (one command):** `npm run setup` (NVIDIA GPU) or `npm run setup:cpu` builds the image, runs both
 pipeline notebooks if their outputs are missing and runs `train:check`. Full guide:
 [`docs/ec2-training.md`](docs/ec2-training.md).

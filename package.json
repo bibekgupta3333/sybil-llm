@@ -5,6 +5,10 @@
   "scripts": {
     "setup": "bash scripts/setup.sh",
     "setup:cpu": "bash scripts/setup.sh --cpu",
+    "ec2:bootstrap": "bash scripts/ec2_bootstrap.sh",
+    "ec2:bootstrap:native": "bash scripts/ec2_bootstrap.sh --native",
+    "ec2:check": "bash scripts/ec2_bootstrap.sh --check",
+    "ec2:dry-run": "bash scripts/ec2_bootstrap.sh --dry-run",
     "train:check": "${PY:-.venv-train/bin/python} -m src.model.benign_gridsybil.timesnet.train --check",
     "train:smoke": "${PY:-.venv-train/bin/python} -m src.model.benign_gridsybil.timesnet.train --smoke",
     "train:one-batch": "${PY:-.venv-train/bin/python} -m src.model.benign_gridsybil.timesnet.train --smoke --max-steps 1 --run-id one-batch",

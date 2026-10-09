@@ -11,6 +11,25 @@ through two **private** Hugging Face repos (`scripts/hf_hub.py`):
 
 Every command runs from the **repo root** (RULE 5). `npm` is only a task runner; `npm run x -- <arg>` passes `<arg>`.
 
+## Fresh instance: host bootstrap
+
+On a brand-new Ubuntu 24.04 instance npm is not installed yet, so the **very first command** is the bash script
+itself (as the normal `ubuntu` user, which has sudo), then `npm run setup`:
+
+```bash
+git clone <this repo> sybil-llm && cd sybil-llm
+bash scripts/ec2_bootstrap.sh                  # base tools, Node.js 22 + npm, Docker + buildx + compose, NVIDIA Container Toolkit (GPU), uv
+bash scripts/ec2_bootstrap.sh --install-driver # plain Ubuntu AMI with a GPU but no working nvidia-smi: also the driver (>= 560), then reboot + re-run
+newgrp docker                                  # the script added you to the docker group
+npm run setup                                  # GPU; or npm run setup:cpu
+```
+
+Flags: `--check` (report only; = `npm run ec2:check`), `--dry-run` (print every command; = `npm run ec2:dry-run`),
+`--native` (also `.venv-train` with Python 3.14.5 + torch 2.14.1 cu126 / cpu + kernels, for running without Docker;
+= `npm run ec2:bootstrap:native`), `--hf-cli` (`hf` on the host), `--no-start`, `--allow-root`. Idempotent (re-runs
+skip what is installed); log in `~/roadfm-bootstrap.log`. On the Deep Learning Base AMI it finds the driver, Docker and
+the toolkit already there and adds only Node.js, the base tools and uv. §1a below is the same install by hand.
+
 ## One command
 
 After cloning the repo and downloading the raw data (`npm run data:download` → `data/VeReMi-Dataset/`, 23,048 files),

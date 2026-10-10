@@ -18,7 +18,7 @@ src/
     benign_gridsybil/
       encoder_input_T64.ipynb          trial: links -> 64 x 13 windows + mask
     all/
-      encoder_input_T24.ipynb          all attacks, T = 24 (built; not for training until F14 is decided)
+      encoder_input_T24.ipynb          all attacks, T = 24 (training set `--dataset all`; F14 open for its test split)
   model/
     benign_gridsybil/
       encoder_T64.ipynb                trial: the TimesNet encoder explained and checked (imports timesnet/encoder.py)
@@ -35,7 +35,8 @@ src/
     encoder_input/benign_gridsybil/T64/   1.8 GB, the encoder input
     encoder_input/all/T24/             0.6 GB, all-attack input (F14 open)
   runs/                                training runs (gitignored)
-    pretraining/benign_gridsybil/T64/<run_id>/   config.json, env.json, metrics.jsonl, checkpoints
+    pretraining/benign_gridsybil/T64/model-grid/ `--dataset grid`: config.json, env.json, metrics.jsonl, checkpoints
+    pretraining/all/T24/model-all/               `--dataset all`, same files (other run ids sit next to them)
 ```
 
 ## How to run
@@ -49,11 +50,15 @@ by themselves, so they can be opened from any folder. Run them in this order:
 |---|---|---|---|---|
 | 1 | `pipeline/input_representation.ipynb` (`npm run pipeline:prepare`) | `data/VeReMi-Dataset/` (repo root, read only) | `src/data/prepared_data/` | ~1 min |
 | 2 | `pipeline/benign_gridsybil/encoder_input_T64.ipynb` (`npm run pipeline:encoder-input`) | `src/data/prepared_data/` | `src/data/encoder_input/benign_gridsybil/T64/` | ~2.5 min |
-| 2b | `pipeline/all/encoder_input_T24.ipynb` (not for training until F14) | `src/data/prepared_data/` | `src/data/encoder_input/all/T24/` | minutes |
+| 2b | `pipeline/all/encoder_input_T24.ipynb` (input of `--dataset all`) | `src/data/prepared_data/` | `src/data/encoder_input/all/T24/` | minutes |
 | 3 | `model/benign_gridsybil/encoder_T64.ipynb` (kernel `roadfm-train`) | one train shard | nothing | ~1 min |
 | 4 | `npm run train:check` → `train:smoke` → `train:full` (= `.venv-train/bin/python -m src.model.benign_gridsybil.timesnet.train …`) | train shards only (10% of train vehicles = check set) | `src/runs/pretraining/benign_gridsybil/T64/<run_id>/` | hours |
+| 4g | `npm run train:grid:check` → `train:grid:smoke` → `train:grid` (`--dataset grid`, 30 h cap) → `model:upload:grid` | `encoder_input/benign_gridsybil/T64/` train shards | `src/runs/pretraining/benign_gridsybil/T64/model-grid/` → HF `runs/model-grid` | hours |
+| 4a | `npm run train:all:check` → `train:all:smoke` → `train:all -- --max-epochs 3` (`--dataset all`) → `model:upload:all` | `encoder_input/all/T24/` train shards (≈ 6.3 GB in RAM; minutes to load) | `src/runs/pretraining/all/T24/model-all/` → HF `runs/model-all` | ≈ 3.5–9 h per epoch (CUDA) |
 | — | `eda/*.ipynb` | the outputs above | nothing | seconds |
 | Docker | Linux / EC2 / Mac with Docker: `npm run setup` (GPU) or `npm run setup:cpu` — builds the image and runs rows 1, 2 and the check; full runbook in [`docs/ec2-training.md`](../docs/ec2-training.md) | as rows 1–4 (repo bind-mounted at `/workspace`) | as rows 1–4 | image build ≈ 1.5 min (`cpu`) |
+
+Rows 4g / 4a write one fixed folder each (`model-grid`, `model-all`); if it exists the trainer stops — continue with `npm run train:resume -- <folder>` or pass `--run-id model-all-2`. Download a run back with `npm run model:download:grid` / `model:download:all`. For `all`, F14 is open: evaluation on its test split waits on the F14 decision (pretraining reads train only). Details: root [`README.md`](../README.md) "Two training sets".
 
 More shortcuts from the repo root: `npm run train:resume -- src/runs/pretraining/benign_gridsybil/T64/<run_id>`, `npm run train:runs`, `npm test` (pytest for `scripts/tests` + `src/tests`), `npm run check` (format check + tests); all in `package.json`.
 

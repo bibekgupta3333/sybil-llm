@@ -10,6 +10,7 @@ Run from the repo root with the training env (it pins `huggingface_hub` and `hf-
     .venv-train/bin/python scripts/hf_hub.py download-encoder-input [--input ... | --all] [--path ...] [--force]
     .venv-train/bin/python scripts/hf_hub.py upload-model <run_dir> [--name <run_id>] [--include-last]
     .venv-train/bin/python scripts/hf_hub.py download-model <run_id> [--to src/runs/pretraining/benign_gridsybil/T64]
+    (the two named runs: model-grid -> benign_gridsybil/T64, model-all -> all/T24; see `npm run model:upload:grid` etc.)
     .venv-train/bin/python scripts/hf_hub.py list-models
 
 All repos are private. Repo ids resolve as flag > environment (`HF_DATASET_REPO`, `HF_INPUT_REPO`, `HF_MODEL_REPO`)
@@ -53,7 +54,8 @@ IGNORED_DIRS = frozenset({".cache", ".git"})
 UPLOAD_IGNORE_PATTERNS = [".DS_Store", "**/.DS_Store", "Thumbs.db", "**/Thumbs.db", ".cache/**", ".git/**"]
 # Files that live at the dataset repo root but are not part of the VeReMi tree.
 DATASET_META_FILES = (CARD_NAME, MANIFEST_NAME, ".gitattributes")
-RUN_FILES = ("config.json", "env.json", "metrics.jsonl")
+# Run metadata uploaded when present (README.md: a run note the trainer may write, e.g. the F14 note for all/T24).
+RUN_FILES = ("config.json", "env.json", "metrics.jsonl", "README.md")
 _CHUNK = 8 * 1024 * 1024
 
 
@@ -419,9 +421,9 @@ vehicle) and ground truth.
         return path
 
 
-def local_input_trees(root: Path = INPUT_ROOT) -> list[str]:
-    """Encoder-input trees under `root` (folders holding a `metadata.json`), as prefixes like `all/T24`."""
-    root = Path(root)
+def local_input_trees(root: Path | None = None) -> list[str]:
+    """Encoder-input trees under `root` (default INPUT_ROOT; folders holding a `metadata.json`), e.g. `all/T24`."""
+    root = Path(root if root is not None else INPUT_ROOT)
     if not root.is_dir():
         return []
     return sorted(meta.parent.relative_to(root).as_posix() for meta in root.rglob("metadata.json"))
@@ -601,25 +603,36 @@ tags: [timesnet, self-supervised, vanet, sybil-detection, veremi]
 # RoadFM-Lite — TimesNet pretraining runs (private)
 
 Checkpoints of a self-supervised TimesNet encoder (masked reconstruction + injected-violation physics heads +
-contrastive) pretrained without attack labels on receiver-side VeReMi-Extension sequences (benign + GridSybil,
-T = 64 x 13 features). Master's thesis research, Florida Polytechnic University. Not a released model.
+contrastive) pretrained without attack labels on receiver-side VeReMi-Extension sequences (13 features per
+message). Master's thesis research, Florida Polytechnic University. Not a released model.
 
-Each run sits in `runs/<run_id>/` with the same layout as a local run folder: `config.json` (settings + seed),
-`env.json` (environment), `metrics.jsonl`, `best.pt` (and `last.pt` when uploaded), `SHA256SUMS`.
+| Run | Training set |
+|---|---|
+| `runs/model-grid/` | benign + GridSybil, T = 64 (`src/data/encoder_input/benign_gridsybil/T64`) |
+| `runs/model-all/` | all 8 scenario folders, all classes, T = 24 (`src/data/encoder_input/all/T24`) |
+
+Each run sits in `runs/<run_id>/` with the same layout as a local run folder: `config.json` (settings + seed,
+`dataset`), `env.json` (environment), `metrics.jsonl`, `best.pt` (and `last.pt` when uploaded), `SHA256SUMS`.
+Uploading a run id again replaces that folder (files not in the new upload are deleted in the same commit).
 
 ```bash
 .venv-train/bin/python scripts/hf_hub.py list-models
-.venv-train/bin/python scripts/hf_hub.py download-model <run_id>   # -> src/runs/pretraining/benign_gridsybil/T64/<run_id>/
+.venv-train/bin/python scripts/hf_hub.py download-model model-grid --to src/runs/pretraining/benign_gridsybil/T64
+.venv-train/bin/python scripts/hf_hub.py download-model model-all --to src/runs/pretraining/all/T24
 ```
 """
 
     def upload(self, run_dir: Path, name: str | None = None, include_last: bool = False) -> tuple[str, str]:
         """Upload one run in a single commit, with a SHA256SUMS of everything uploaded.
 
+        Re-uploading an existing run id replaces `runs/<run_id>/` cleanly: files there that are not part of this
+        upload (e.g. a `last.pt` from an earlier `--include-last` upload) are deleted in the same commit, so the
+        folder always matches its SHA256SUMS.
+
         Returns:
             (repo URL, commit id).
         """
-        from huggingface_hub import CommitOperationAdd
+        from huggingface_hub import CommitOperationAdd, CommitOperationDelete
 
         run_dir = Path(run_dir)
         if not run_dir.is_dir():
@@ -632,11 +645,20 @@ Each run sits in `runs/<run_id>/` with the same layout as a local run folder: `c
         repo = self.config.model_repo
         self.log(f"user {user}; model repo {repo} (private); run {run_id}")
         self.hub.api.create_repo(repo, repo_type=self.repo_type, private=True, exist_ok=True)
-        has_card = CARD_NAME in self.hub.repo_files(repo, self.repo_type)
+        remote = self.hub.repo_files(repo, self.repo_type)
+        has_card = CARD_NAME in remote
         sums = {path.name: sha256_file(path) for path in files}
         prefix = f"runs/{run_id}"
         operations = [CommitOperationAdd(f"{prefix}/{path.name}", str(path)) for path in files]
         operations.append(CommitOperationAdd(f"{prefix}/{SUMS_NAME}", format_sums(sums).encode()))
+        keep = {op.path_in_repo for op in operations}
+        stale = sorted(f for f in remote if f.startswith(f"{prefix}/") and f not in keep)
+        if any(f.startswith(f"{prefix}/") for f in remote):
+            self.log(
+                f"{prefix}/ exists in the repo; replacing it"
+                + (f" (deleting {len(stale)} stale file(s))" if stale else "")
+            )
+        operations.extend(CommitOperationDelete(path_in_repo=f) for f in stale)
         if not has_card:
             operations.append(CommitOperationAdd(CARD_NAME, self.card().encode()))
         self.log("uploading " + ", ".join(path.name for path in files) + f" -> {prefix}/")
@@ -677,6 +699,12 @@ Each run sits in `runs/<run_id>/` with the same layout as a local run folder: `c
                 raise HubError(f"run `{run_id}` not found in {repo}; see `list-models`")
             self.verify_run(source)
             dest.mkdir(parents=True, exist_ok=True)
+            # With --force, drop local checkpoints the repo run no longer has, so `--resume` never picks up a stale
+            # last.pt next to a newer best.pt.
+            for old in dest.glob("*.pt"):
+                if not (source / old.name).is_file():
+                    old.unlink()
+                    self.log(f"removed stale local {old.name}")
             for path in sorted(source.iterdir()):
                 if path.is_file():
                     shutil.copy2(path, dest / path.name)

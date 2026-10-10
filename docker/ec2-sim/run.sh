@@ -41,6 +41,7 @@ check() {
   fi
 }
 check "npm" "npm -v"
+check "tmux" "tmux -V && tmux new-session -d -s simcheck true && echo detached-session-ok"
 check "hf on PATH" "command -v hf && hf version"
 check "hf auth (no token: expected to say not logged in)" "hf auth whoami 2>&1 | head -2; true"
 check ".venv-train torch" ".venv-train/bin/python -c 'import torch, huggingface_hub; print(\"torch\", torch.__version__, \"hub\", huggingface_hub.__version__)'"
@@ -54,7 +55,7 @@ check "kernels python3 + roadfm-train" \
 check "gpu:check (CPU path, exit 0)" "npm run -s gpu:check >~/gpu-check.out 2>&1 && tail -3 ~/gpu-check.out"
 check "gpu:require exits 1 (no GPU in the sim)" \
   "if npm run -s gpu:require >~/gpu-require.out 2>&1; then echo 'gpu:require exited 0 without a GPU'; false; else echo 'gpu:require exit 1 (expected)'; fi"
-check "npm test" "npm test >~/npm-test.out 2>&1 && tail -1 ~/npm-test.out"
+check "npm test" "{ npm test >~/npm-test.out 2>&1 || { tail -30 ~/npm-test.out; false; }; } && tail -1 ~/npm-test.out"
 check "setup:native stops at the missing dataset" \
   "{ npm run -s setup:native >~/setup-native.out 2>&1 || true; } && grep -q 'raw dataset not found' ~/setup-native.out && echo 'stops: raw dataset not found (expected; no data in the sim)'"
 check "ec2:check" "npm run -s ec2:check -- $SIM_ARGS >~/ec2-check.out 2>&1 && tail -2 ~/ec2-check.out"

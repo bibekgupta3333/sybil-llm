@@ -47,6 +47,9 @@ class FakeApi:
     def create_commit(self, **kwargs: Any) -> Any:
         self.calls.append(("create_commit", kwargs))
         for op in kwargs["operations"]:
+            if not hasattr(op, "path_or_fileobj"):  # CommitOperationDelete
+                self.files.pop(op.path_in_repo, None)
+                continue
             src = op.path_or_fileobj
             data = src if isinstance(src, bytes) else pathlib.Path(src).read_bytes()
             self.files[op.path_in_repo] = data
@@ -346,6 +349,70 @@ def test_download_model_unknown_run(tmp_path: pathlib.Path) -> None:
     hub = make_hub(api, snapshot=fake_snapshot_into(api))
     with pytest.raises(hf_hub.HubError, match="not found"):
         hf_hub.ModelTransfer(hf_hub.HubConfig(), hub, log=lambda m: None).download("nope", to=tmp_path)
+
+
+@pytest.mark.parametrize(
+    "name, runs_dir",
+    [("model-all", "src/runs/pretraining/all/T24"), ("model-grid", "src/runs/pretraining/benign_gridsybil/T64")],
+)
+def test_named_run_upload_download_cli_round_trip(
+    tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str], name: str, runs_dir: str
+) -> None:
+    """The npm `model:upload:<dataset>` / `model:download:<dataset>` commands, end to end on a fake hub."""
+    local = tmp_path / "src-side" / runs_dir / name
+    local.mkdir(parents=True)
+    (local / "config.json").write_text(json.dumps({"seed": 0, "dataset": name.split("-")[1]}))
+    (local / "env.json").write_text('{"torch": "2.14.1"}')
+    (local / "metrics.jsonl").write_text('{"step": 1}\n')
+    (local / "best.pt").write_bytes(b"best-" + name.encode())
+    (local / "last.pt").write_bytes(b"last-" + name.encode())
+    api = FakeApi()
+    hub = make_hub(api, snapshot=fake_snapshot_into(api))
+    assert hf_hub.main(["upload-model", str(local), "--name", name, "--include-last"], hub=hub) == 0
+    prefix = f"runs/{name}/"
+    assert {f for f in api.files if f.startswith(prefix)} == {
+        prefix + n for n in ("config.json", "env.json", "metrics.jsonl", "best.pt", "last.pt", "SHA256SUMS")
+    }
+    assert hf_hub.main(["list-models"], hub=hub) == 0
+    assert capsys.readouterr().out.strip().splitlines()[-1] == name
+    target = tmp_path / "fresh" / runs_dir
+    assert hf_hub.main(["download-model", name, "--to", str(target)], hub=hub) == 0
+    dest = target / name
+    for n in ("config.json", "env.json", "metrics.jsonl", "best.pt", "last.pt"):
+        assert (dest / n).read_bytes() == (local / n).read_bytes()
+    assert hf_hub.parse_sums((dest / "SHA256SUMS").read_text())["last.pt"] == hf_hub.sha256_file(local / "last.pt")
+
+
+def test_reupload_same_name_replaces_folder(run_dir: pathlib.Path, tmp_path: pathlib.Path) -> None:
+    """A second upload under the same run id leaves exactly the new files (stale last.pt deleted, sums match)."""
+    api = FakeApi()
+    logs: list[str] = []
+    transfer = hf_hub.ModelTransfer(hf_hub.HubConfig(), make_hub(api), log=logs.append)
+    transfer.upload(run_dir, name="model-all", include_last=True)
+    (run_dir / "best.pt").write_bytes(b"better-weights")
+    transfer.upload(run_dir, name="model-all")
+    prefix = "runs/model-all/"
+    assert {f for f in api.files if f.startswith(prefix)} == {
+        prefix + n for n in ("config.json", "env.json", "metrics.jsonl", "best.pt", "SHA256SUMS")
+    }
+    assert api.files[prefix + "best.pt"] == b"better-weights"
+    assert any("replacing it (deleting 1 stale file(s))" in m for m in logs)
+    commits = [kw for name, kw in api.calls if name == "create_commit"]
+    assert len(commits) == 2  # the replacement is one atomic commit
+    hub = make_hub(api, snapshot=fake_snapshot_into(api))
+    dest = tmp_path / "local" / "model-all"
+    dest.mkdir(parents=True)
+    (dest / "last.pt").write_bytes(b"old-last")
+    hf_hub.ModelTransfer(hf_hub.HubConfig(), hub, log=lambda m: None).download(
+        "model-all", to=tmp_path / "local", force=True
+    )
+    assert (dest / "best.pt").read_bytes() == b"better-weights" and not (dest / "last.pt").exists()
+
+
+def test_upload_model_includes_run_readme(run_dir: pathlib.Path) -> None:
+    (run_dir / "README.md").write_text("F14 open")
+    files, _ = hf_hub.ModelTransfer.select_files(run_dir)
+    assert "README.md" in [p.name for p in files]
 
 
 # ---- CLI -------------------------------------------------------------------------------------------------------

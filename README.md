@@ -110,8 +110,50 @@ npm run train:help
 | `--max-epochs` · `--max-hours` · `--max-steps` | 20 · 8 (`train:full`: 30) · none | stop at whichever comes first; early stopping (patience 5) can stop sooner |
 | `--mem-gb` · `--no-resource-guard` | 22 | memory budget (MPS cap + stop); the guard off = no cap, no stop |
 | `--preset` · `--lambda-nce` | `joint` · 0.3 | loss mix: all losses or reconstruction only; contrastive weight λ2 |
-| `--run-id` · `--seed` | timestamp + preset · 0 | run folder name; random seed |
+| `--run-id` · `--seed` | `model-<dataset>` (`--check` / `--smoke`: their own ids) · 0 | run folder name; random seed |
 | `--check` · `--smoke` · `--resume` | — | pre-flight checks · short real run · continue a run |
+| `--dataset` | `grid` | training set, `grid` or `all` (below); sets the data folder, T, the runs folder and the run id |
+
+### Two training sets
+
+`--dataset` picks the encoder input; each set trains into one fixed folder, so the final model is always called
+`model-grid` or `model-all` (the existing `train:*` commands are `grid`).
+
+| | `grid` → `model-grid` | `all` → `model-all` |
+|---|---|---|
+| Input | `src/data/encoder_input/benign_gridsybil/T64` | `src/data/encoder_input/all/T24` |
+| Classes | benign + GridSybil (one scenario family) | all 8 scenario folders: benign + GridSybil, DataReplay, DoSRandom, DoSDisruptive |
+| Window | T = 64 × 13, padded + mask | T = 24 × 13 (real rows stored; the loader pads + masks) |
+| Windows (train / test) | 376,427 (338,001 / 38,426) | 5,633,856 (5,071,584 / 562,272) |
+| Run folder | `src/runs/pretraining/benign_gridsybil/T64/model-grid/` | `src/runs/pretraining/all/T24/model-all/` |
+| Hugging Face (private model repo) | `runs/model-grid` | `runs/model-all` |
+
+```bash
+npm run train:grid:check    # pre-flight checks (own folder model-grid-check; never blocks model-grid)
+npm run train:grid:smoke    # one shard, a few steps: speed + memory
+npm run train:grid          # full run, 30 h cap -> .../T64/model-grid/   (train:grid:no-guard = no memory cap / stop)
+npm run model:upload:grid   # best.pt + last.pt + config/env/metrics + SHA256SUMS -> runs/model-grid
+npm run model:download:grid # -> src/runs/pretraining/benign_gridsybil/T64/model-grid/, sha256-checked
+
+npm run train:all:check     # same five for the all-data set
+npm run train:all:smoke
+npm run train:all -- --max-epochs 3                 # -> .../all/T24/model-all/
+npm run model:upload:all                            # -> runs/model-all
+npm run model:download:all                          # -> src/runs/pretraining/all/T24/model-all/
+```
+
+- **One name per set.** If `model-grid` / `model-all` already exists the trainer stops: continue it with
+  `npm run train:resume -- src/runs/pretraining/all/T24/model-all`, or start another with `--run-id model-all-2`.
+- **Uploading again** under the same name replaces `runs/model-<set>/` in the repo in one commit (files not in the
+  new upload, e.g. an old `last.pt`, are deleted), so the folder always matches its `SHA256SUMS`. `download --force`
+  overwrites a local folder and removes local checkpoints the repo run no longer has.
+- **`all` is big.** The train split is held in memory (≈ 6.3 GB of float32 windows + mask + ~5 M ids; loading the
+  gzipped JSON takes minutes) and one epoch at batch 256 is ≈ 17.8 k steps: at 0.7–1.8 s/step on a CUDA GPU that is
+  ≈ 3.5–9 h per epoch, so the 30 h cap ends after a few epochs. The LR schedule spans `--max-epochs`, so set it to what
+  fits (e.g. `--max-epochs 3`) instead of letting the time cap cut the run.
+- **F14 open for `all`.** Pretraining reads the train split only, but the T24 test split has the GridSybil_0709
+  near-copy leak (F14): evaluation on `all/T24` test waits on the F14 decision (`agent.md` §5). Most DataReplay / DoS
+  windows have 1–3 real rows; losses that need ≥ 4 rows skip them.
 
 **Fresh EC2 instance (Ubuntu 22.04 / 24.04 / 26.04, no Docker):** `bash scripts/ec2_bootstrap.sh` installs
 everything the Mac has (Node 22 + npm, uv, `hf`, `gh`, the same two venvs + kernels) and prints a GPU report; then
@@ -130,6 +172,8 @@ npm run data:upload / data:download                 # raw data/VeReMi-Dataset/ (
 npm run data:upload-input:all                       # every tree in src/data/encoder_input/ (benign_gridsybil/T64, all/T24)
 npm run data:download-input:all                     # restore them all, sha256-checked (skips trees that already match)
 npm run data:download-input -- --input all/T24      # one tree (default benign_gridsybil/T64)
+npm run model:upload:grid / model:upload:all       # the two named runs (with last.pt) -> runs/model-grid, runs/model-all
+npm run model:download:grid / model:download:all   # back into their local runs folders, sha256-checked
 npm run model:upload -- <run_dir> / model:download -- <run_id> / model:list
 ```
 
@@ -141,7 +185,7 @@ npm run model:upload -- <run_dir> / model:download -- <run_id> / model:list
 | Output | Path (gitignored) |
 |---|---|
 | prepared data · encoder input | `src/data/prepared_data/` · `src/data/encoder_input/<subset>/T<n>/` |
-| training runs (config.json, env.json, metrics, checkpoints) | `src/runs/pretraining/benign_gridsybil/T64/<run_id>/` (`npm run train:runs`) |
+| training runs (config.json, env.json, metrics, checkpoints) | `src/runs/pretraining/benign_gridsybil/T64/<run_id>/` (`model-grid`; `npm run train:runs`) · `src/runs/pretraining/all/T24/<run_id>/` (`model-all`) |
 | simulator sample | `simulation/public/data/` |
 
 `data/` is protected: never write there (rules in `CLAUDE.md`).

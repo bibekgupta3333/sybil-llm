@@ -348,6 +348,8 @@ report() {
   else
     status_row "base packages" "missing: ${miss% }" missing
   fi
+  # tmux keeps a long training run alive after the SSH session drops
+  if command -v tmux >/dev/null 2>&1; then status_row "tmux" "$(tmux -V | awk '{print $2}')" ok; else status_row "tmux" "" missing; fi
   local nm
   nm="$(node_major)"
   if [[ -n "$nm" ]] && ((nm >= NODE_MAJOR)); then
@@ -835,7 +837,8 @@ cat <<EOF
   npm run gpu:check                     # host GPU + torch view + matmul smoke test
   npm run data:download                 # raw dataset -> data/VeReMi-Dataset/ (or copy it there yourself)
   npm run setup:native                  # prepared data, encoder input, train:check (.venv-train)
-  tmux new -s train                     # then: npm run train:full
+  tmux new -s train                     # then: npm run train:grid (or train:all); detach Ctrl-b d
+  tmux attach -t train                  # back to the run after reconnecting; tmux ls lists sessions
 EOF
 ((NEED_RELOGIN)) && echo "  # Docker route (--docker): newgrp docker, then npm run setup"
 ((REQUIRED_MISSING)) && ((!DRY_RUN)) && {

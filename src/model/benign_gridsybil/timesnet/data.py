@@ -7,6 +7,8 @@ sender vehicle. `FeatureSpace` knows the 13-feature order and the train normalis
 
 from __future__ import annotations
 
+import dataclasses
+import gzip
 import hashlib
 import json
 import math
@@ -36,14 +38,20 @@ FEATURES = [
 
 
 class LabelFirewall:
-    """Guards every file the run opens: only feature shards of the pretraining splits, never labels."""
+    """Guards every file the run opens: only feature shards of the pretraining splits, never labels.
+
+    Two layouts are accepted: `<split>/b<bucket>/part-XXXXX.json` (benign + GridSybil T64) and
+    `<split>/part-XXXXX.json.gz` (all attacks, compact T24). Label files (`part-XXXXX_info.json[.gz]`) never pass.
+    """
 
     ALLOWED_SPLITS = ("train", "pretrain_val")
-    SHARD = re.compile(r"^part-\d{5}\.json$")
+    SHARD = re.compile(r"^part-\d{5}\.json(\.gz)?$")
+    BUCKET = re.compile(r"^b\d+$")
 
     def check(self, path: Path) -> Path:
         """Returns `path` if it is a feature shard of an allowed split; raises otherwise."""
-        split = path.parent.parent.name
+        folder = path.parent
+        split = folder.parent.name if self.BUCKET.match(folder.name) else folder.name
         if split not in self.ALLOWED_SPLITS:
             raise PermissionError(f"label firewall: split {split!r} is not allowed in pretraining ({path})")
         if not self.SHARD.match(path.name) or "_info" in path.name:
@@ -51,31 +59,152 @@ class LabelFirewall:
         return path
 
 
-def _read_shard(path: str) -> tuple[np.ndarray, np.ndarray, list[str]]:
-    """Reads one feature shard (top-level so a fork pool can call it)."""
-    data = json.loads(Path(path).read_text())
-    x = np.asarray([w["x"] for w in data["windows"]], dtype=np.float32)
-    mask = np.asarray([w["mask"] for w in data["windows"]], dtype=bool)
-    return x, mask, [w["id"] for w in data["windows"]]
+@dataclasses.dataclass
+class ShardPart:
+    """The windows of one shard as read by a worker.
+
+    Padded layout: `x` (W, T, 13) and `mask` (W, T). Compact layout: `x` (M, 13) holds only the real rows of all
+    windows one after another, `lengths` (W,) the real rows per window, `mask` is None.
+    """
+
+    x: np.ndarray
+    mask: np.ndarray | None
+    lengths: np.ndarray | None
+    ids: list[str]
+
+    def __len__(self) -> int:
+        return len(self.ids)
+
+    def fill(self, x_out: np.ndarray, mask_out: np.ndarray) -> None:
+        """Writes the windows into preallocated (W, T, 13) / (W, T) slices (padding rows stay 0 / False)."""
+        if self.mask is not None:
+            x_out[...] = self.x
+            mask_out[...] = self.mask
+            return
+        offsets = np.repeat(np.cumsum(self.lengths) - self.lengths, self.lengths)
+        window = np.repeat(np.arange(len(self.lengths)), self.lengths)
+        row = np.arange(len(self.x)) - offsets
+        x_out[window, row] = self.x
+        mask_out[window, row] = True
+
+
+class ShardReader:
+    """Finds and reads the feature shards of one layout (subclasses); `read` runs in a fork pool worker."""
+
+    name = "base"
+
+    def find(self, root: Path, split: str) -> list[Path]:
+        """Sorted feature shards of `split` (label files never match)."""
+        raise NotImplementedError
+
+    def read(self, path: str) -> ShardPart:
+        """One shard -> ShardPart."""
+        raise NotImplementedError
+
+    @staticmethod
+    def pick(root: Path, split: str, seq_len: int) -> "ShardReader":
+        """The reader whose layout is present under `root / split`."""
+        for reader in (CompactWindowReader(seq_len), PaddedWindowReader(seq_len)):
+            if reader.find(root, split):
+                return reader
+        raise FileNotFoundError(f"no shards for split {split!r} under {root}")
+
+
+class PaddedWindowReader(ShardReader):
+    """`<split>/b<bucket>/part-XXXXX.json` = {windows: [{id, x (T x 13), mask (T)}]} (benign + GridSybil T64)."""
+
+    name = "padded json (b<bucket>/part-XXXXX.json)"
+
+    def __init__(self, seq_len: int) -> None:
+        self.seq_len = seq_len
+
+    def find(self, root: Path, split: str) -> list[Path]:
+        return sorted((root / split).glob("b*/part-?????.json"))
+
+    def read(self, path: str) -> ShardPart:
+        data = json.loads(Path(path).read_text())
+        x = np.asarray([w["x"] for w in data["windows"]], dtype=np.float32)
+        mask = np.asarray([w["mask"] for w in data["windows"]], dtype=bool)
+        if x.shape[1] != self.seq_len:
+            raise ValueError(f"{path}: windows have {x.shape[1]} rows, settings say seq_len {self.seq_len}")
+        return ShardPart(x, mask, None, [w["id"] for w in data["windows"]])
+
+
+class CompactWindowReader(ShardReader):
+    """`<split>/part-XXXXX.json.gz` = {seq_len, features, windows: [{id, n, x (n real rows x 13)}]} (all attacks, T24).
+
+    Only real rows are stored; `ShardPart.fill` pads every window to seq_len and builds the mask (1 = real row).
+    """
+
+    name = "compact gzipped json (part-XXXXX.json.gz)"
+
+    def __init__(self, seq_len: int) -> None:
+        self.seq_len = seq_len
+
+    def find(self, root: Path, split: str) -> list[Path]:
+        return sorted((root / split).glob("part-?????.json.gz"))
+
+    def read(self, path: str) -> ShardPart:
+        with gzip.open(path, "rt") as f:
+            data = json.load(f)
+        if data["seq_len"] != self.seq_len:
+            raise ValueError(f"{path}: seq_len {data['seq_len']}, settings say {self.seq_len}")
+        if data["features"] != FEATURES:
+            raise ValueError(f"{path}: unexpected feature order {data['features']}")
+        windows = data["windows"]
+        lengths = np.asarray([w["n"] for w in windows], dtype=np.int64)
+        if lengths.size and (lengths.min() < 1 or lengths.max() > self.seq_len):
+            raise ValueError(f"{path}: window lengths outside 1..{self.seq_len}")
+        rows = np.asarray([r for w in windows for r in w["x"]], dtype=np.float32).reshape(-1, len(FEATURES))
+        if len(rows) != int(lengths.sum()):
+            raise ValueError(f"{path}: {len(rows)} rows but the windows say {int(lengths.sum())}")
+        return ShardPart(rows, None, lengths, [w["id"] for w in windows])
 
 
 class FeatureShards:
-    """All windows of one split in RAM: x (N, 64, 13) float32, mask (N, 64) bool, ids (link bookkeeping only)."""
+    """All windows of one split in RAM: x (N, T, 13) float32, mask (N, T) bool, ids (link bookkeeping only).
 
-    def __init__(self, root: Path, split: str, firewall: LabelFirewall, max_shards: int | None, workers: int):
-        paths = sorted((root / split).glob("b*/part-?????.json"))
+    The reader is picked by the files found (padded T64 or compact T24). x and mask are preallocated once and filled
+    shard by shard, so the peak is the final arrays plus the compact rows of the shards read so far.
+    """
+
+    def __init__(
+        self,
+        root: Path,
+        split: str,
+        firewall: LabelFirewall,
+        max_shards: int | None,
+        workers: int,
+        seq_len: int = 64,
+    ):
+        reader = ShardReader.pick(root, split, seq_len)
+        paths = reader.find(root, split)
         if max_shards is not None:
             paths = paths[:max_shards]
-        if not paths:
-            raise FileNotFoundError(f"no shards for split {split!r} under {root}")
-        paths = [str(firewall.check(p)) for p in paths]
-        with multiprocessing.get_context("fork").Pool(min(workers, len(paths))) as pool:
-            parts = pool.map(_read_shard, paths)
+        paths = [str(firewall.check(Path(p))) for p in paths]
+        with multiprocessing.get_context("fork").Pool(max(1, min(workers, len(paths)))) as pool:
+            parts: list[ShardPart | None] = list(pool.imap(reader.read, paths))
+        total = sum(len(p) for p in parts)
+        x = np.zeros((total, seq_len, len(FEATURES)), dtype=np.float32)
+        mask = np.zeros((total, seq_len), dtype=bool)
+        self.ids: list[str] = []
+        start = 0
+        for i, part in enumerate(parts):
+            end = start + len(part)
+            part.fill(x[start:end], mask[start:end])
+            self.ids.extend(part.ids)
+            parts[i] = None  # free the shard's rows as soon as they are copied
+            start = end
         self.split = split
-        self.x = torch.from_numpy(np.concatenate([p[0] for p in parts]))
-        self.mask = torch.from_numpy(np.concatenate([p[1] for p in parts]))
-        self.ids = [i for p in parts for i in p[2]]
+        self.x = torch.from_numpy(x)
+        self.mask = torch.from_numpy(mask)
         self.n_shards = len(paths)
+        self.reader = reader.name
+
+    @staticmethod
+    def ram_estimate_gb(windows: int, seq_len: int) -> float:
+        """Resident size of `windows` windows: x float32 + mask bool + ~150 bytes per id string."""
+        return windows * (seq_len * len(FEATURES) * 4 + seq_len + 150) / 1e9
 
     def __len__(self) -> int:
         return self.x.shape[0]
@@ -90,26 +219,44 @@ class FeatureShards:
     def subset(self, rows: torch.Tensor, split: str) -> "FeatureShards":
         """A view of some windows under another split name."""
         part = object.__new__(FeatureShards)
-        part.split, part.n_shards = split, self.n_shards
+        part.split, part.n_shards, part.reader = split, self.n_shards, getattr(self, "reader", "")
         part.x, part.mask = self.x[rows], self.mask[rows]
         part.ids = [self.ids[i] for i in rows.tolist()]
         return part
 
-    def hold_out(self, frac: float, seed: int) -> tuple["FeatureShards", "FeatureShards"]:
-        """Splits off a check set by sender vehicle (each vehicle entirely in one part): (rest, check set)."""
+    def hold_out(self, frac: float, seed: int, in_place: bool = False) -> tuple["FeatureShards", "FeatureShards"]:
+        """Splits off a check set by sender vehicle (each vehicle entirely in one part): (rest, check set).
+
+        With `in_place = True` the rest is compacted inside this object's arrays (no second copy of the train data;
+        this object becomes the rest), which keeps the peak RAM of the 5M-window all/T24 input near its final size.
+        """
         vehicles = sorted({self.vehicle_of(i) for i in self.ids})
         rng = np.random.default_rng(seed)
         rng.shuffle(vehicles)
         chosen = set(vehicles[: max(1, int(round(frac * len(vehicles))))])
-        is_check = torch.tensor([self.vehicle_of(i) in chosen for i in self.ids])
-        rest = self.subset(torch.nonzero(~is_check).squeeze(1), self.split)
+        is_check = torch.tensor([self.vehicle_of(i) in chosen for i in self.ids], dtype=torch.bool)
         check = self.subset(torch.nonzero(is_check).squeeze(1), "pretrain_check")
-        return rest, check
+        keep = torch.nonzero(~is_check).squeeze(1)
+        if not in_place:
+            return self.subset(keep, self.split), check
+        chunk = 65536
+        for start in range(0, len(keep), chunk):  # destination rows never pass their source rows
+            src = keep[start : start + chunk]
+            self.x[start : start + len(src)] = self.x[src]
+            self.mask[start : start + len(src)] = self.mask[src]
+        self.x, self.mask = self.x[: len(keep)], self.mask[: len(keep)]
+        self.ids = [self.ids[i] for i in keep.tolist()]
+        return self, check
 
     @property
     def link_keys(self) -> list[str]:
         """Window id without the crop index: windows of the same link share it (diagnostics only)."""
         return [i.rsplit("#", 1)[0] for i in self.ids]
+
+    def link_groups(self) -> torch.Tensor:
+        """(N,) long: windows of the same link share a number (diagnostics only; cheaper than `link_keys`)."""
+        codes: dict[str, int] = {}
+        return torch.tensor([codes.setdefault(i.rsplit("#", 1)[0], len(codes)) for i in self.ids], dtype=torch.long)
 
     @staticmethod
     def broadcast_of(window_id: str) -> str:

@@ -2,13 +2,52 @@
 
 `PretrainConfig` holds every knob (data, encoder sizes, objectives, optimisation, evaluation, resources) and is
 saved to `config.json` in the run folder. Presets: `joint` (the plan, D7) and `recon_only` (sanity baseline).
-Every other module takes it as `settings`.
+Every other module takes it as `settings`. `DATASETS` lists the two training sets (`--dataset grid | all`): where
+the encoder input lives, its window length and where the run folders go.
 """
 
 from __future__ import annotations
 
 import dataclasses
 import math
+
+F14_NOTE = (
+    "F14 open: evaluation on all/T24 test waits on the F14 decision (GridSybil_0709 near-copies across the "
+    "vehicle split); pretraining reads train only"
+)
+
+
+@dataclasses.dataclass(frozen=True)
+class DatasetSpec:
+    """One training set: encoder input folder, window length, parent of its run folders, default run name."""
+
+    name: str
+    data_dir: str
+    seq_len: int
+    runs_dir: str
+    note: str = ""
+
+    @property
+    def run_id(self) -> str:
+        """Fixed output name of the full run (`model-grid`, `model-all`)."""
+        return f"model-{self.name}"
+
+
+DATASETS: dict[str, DatasetSpec] = {
+    "grid": DatasetSpec(
+        "grid",
+        "src/data/encoder_input/benign_gridsybil/T64",
+        64,
+        "src/runs/pretraining/benign_gridsybil/T64",
+    ),
+    "all": DatasetSpec(
+        "all",
+        "src/data/encoder_input/all/T24",
+        24,
+        "src/runs/pretraining/all/T24",
+        F14_NOTE,
+    ),
+}
 
 
 @dataclasses.dataclass
@@ -21,6 +60,7 @@ class PretrainConfig:
     """
 
     # data
+    dataset: str = "grid"  # CLI --dataset: grid (benign + GridSybil, T = 64) or all (all attacks, T = 24)
     data_dir: str = "src/data/encoder_input/benign_gridsybil/T64"
     runs_dir: str = "src/runs/pretraining/benign_gridsybil/T64"  # CLI --runs-dir (e.g. a mounted volume)
     shards_per_split: int | None = None  # None = all shards; smoke uses 1
@@ -101,6 +141,14 @@ class PretrainConfig:
             return cls(use_nce=False, use_physics=False)
         raise ValueError(f"unknown preset {name!r}")
 
+    def use_dataset(self, name: str) -> "PretrainConfig":
+        """Points the data, window length and run folder parent at one of `DATASETS` (returns self)."""
+        if name not in DATASETS:
+            raise ValueError(f"unknown dataset {name!r}; choose one of {sorted(DATASETS)}")
+        spec = DATASETS[name]
+        self.dataset, self.data_dir, self.seq_len, self.runs_dir = spec.name, spec.data_dir, spec.seq_len, spec.runs_dir
+        return self
+
     @classmethod
     def from_dict(cls, values: dict) -> "PretrainConfig":
         """Rebuilds settings from a saved config.json (lists back to tuples; unknown keys from older runs dropped)."""
@@ -113,5 +161,7 @@ class PretrainConfig:
             raise ValueError("at least one objective must be on")
         if self.mem_gb < 4:
             raise ValueError("mem_gb must leave room for the data (~1 GB) and the model")
+        if self.dataset not in DATASETS:
+            raise ValueError(f"unknown dataset {self.dataset!r}")
         if self.batch_size < 2:
             raise ValueError("NT-Xent needs batch_size >= 2")

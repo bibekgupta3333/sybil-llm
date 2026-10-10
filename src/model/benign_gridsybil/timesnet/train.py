@@ -2,11 +2,13 @@
 
 `Trainer` is seeded, resumable and budgeted (time and a 16 GB memory guard) and picks checkpoints on label-free
 check-set losses. `preflight` proves that padding never matters and that the views touch real rows only. Outputs go
-to `src/runs/pretraining/benign_gridsybil/T64/<run_id>/` (or `--runs-dir <dir>/<run_id>/`, e.g. on Google Drive):
-config.json, env.json, metrics.jsonl, best.pt, last.pt.
+to `<runs_dir>/<run_id>/` (or `--runs-dir <dir>/<run_id>/`, e.g. on Google Drive): config.json, env.json,
+metrics.jsonl, best.pt, last.pt. Two training sets (`--dataset`, see `config.DATASETS`): `grid` (benign + GridSybil,
+T = 64) writes `src/runs/pretraining/benign_gridsybil/T64/model-grid/`, `all` (all attacks, T = 24) writes
+`src/runs/pretraining/all/T24/model-all/`.
 
-    .venv-train/bin/python -m src.model.benign_gridsybil.timesnet.train [--check | --smoke | --preset recon_only]
-        [--runs-dir DIR] [--run-id NAME] [--resume RUN_DIR]
+    .venv-train/bin/python -m src.model.benign_gridsybil.timesnet.train [--dataset grid|all]
+        [--check | --smoke | --preset recon_only] [--runs-dir DIR] [--run-id NAME] [--resume RUN_DIR]
 """
 
 from __future__ import annotations
@@ -29,7 +31,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from .config import PretrainConfig
+from .config import DATASETS, PretrainConfig
 from .data import FeatureShards, FeatureSpace, LabelFirewall, file_sha256
 from .heads import PretrainingModel
 from .losses import LossScales, Objective
@@ -104,6 +106,9 @@ def environment(
         "device": str(device),
         "mps_memory_fraction": guard.mps_fraction,
         "requirements_train_sha256": file_sha256(req) if req.exists() else None,
+        "dataset": settings.dataset,
+        "dataset_note": DATASETS[settings.dataset].note or None,
+        "shard_reader": getattr(train, "reader", ""),
         "encoder_input_metadata": str(root / "metadata.json"),
         "encoder_input_metadata_sha256": file_sha256(root / "metadata.json"),
         "normalisation": "metadata.json['normalisation'] (train real rows)",
@@ -119,7 +124,7 @@ def environment(
     }
 
 
-def same_link_pairs(keys: list[str]) -> int:
+def same_link_pairs(keys: list) -> int:
     """Pairs of windows in a batch that come from the same link (false negatives for NT-Xent)."""
     counts: dict[str, int] = {}
     for k in keys:
@@ -231,13 +236,28 @@ class Trainer:
         root = Path(settings.data_dir)
         firewall = LabelFirewall()
         metadata = json.loads((root / "metadata.json").read_text())
+        note = DATASETS[settings.dataset].note
+        if note:
+            print(note, flush=True)
+        self.ram_estimate_gb = self._ram_estimate(metadata)
+        if self.ram_estimate_gb is not None:
+            print(
+                f"dataset {settings.dataset}: {root} (T = {settings.seq_len}); RAM estimate for train "
+                f"~{self.ram_estimate_gb:.2f} GB (x float32 + mask + ids)",
+                flush=True,
+            )
         t0 = time.time()
-        self.train = FeatureShards(root, "train", firewall, settings.shards_per_split, settings.workers)
+        self.train = FeatureShards(
+            root, "train", firewall, settings.shards_per_split, settings.workers, settings.seq_len
+        )
         if (root / "pretrain_val").is_dir():
-            self.val = FeatureShards(root, "pretrain_val", firewall, settings.shards_per_split, settings.workers)
+            self.val = FeatureShards(
+                root, "pretrain_val", firewall, settings.shards_per_split, settings.workers, settings.seq_len
+            )
         else:  # train / test layout: the label-free check set is carved out of train by vehicle (never test)
-            self.train, self.val = self.train.hold_out(settings.holdout_frac, settings.seed)
-        self.train_links = self.train.link_keys
+            self.train, self.val = self.train.hold_out(settings.holdout_frac, settings.seed, in_place=True)
+        self.load_seconds = round(time.time() - t0, 1)
+        self.train_links = self.train.link_groups()
         self.train_groups = self.train.broadcast_groups()
         self.train_lengths = self.train.mask.sum(1)
         # scaling: stored files hold train z-scores; robust features are re-expressed (median / IQR from train only)
@@ -271,11 +291,22 @@ class Trainer:
             (run_dir / "config.json").write_text(json.dumps(dataclasses.asdict(settings), indent=2))
             env = environment(settings, self.train, self.val, self.device, self.guard)
             env["scaling"] = self.space.report
+            env["load_seconds"] = self.load_seconds
+            env["ram_estimate_train_gb"] = self.ram_estimate_gb
             env["cpu_threads"] = torch.get_num_threads()
             env["prefetch_batches"] = settings.prefetch_batches
             env["preflight"] = preflight(settings, self.model, self.objective, self.train, self.device)
             (run_dir / "env.json").write_text(json.dumps(env, indent=2))
             print("preflight ok:", json.dumps(env["preflight"]), flush=True)
+
+    def _ram_estimate(self, metadata: dict[str, Any]) -> float | None:
+        """RAM of the train windows this run loads, from the shard list in metadata.json (None if not listed)."""
+        shards = [sh for sh in metadata.get("shards", []) if isinstance(sh, dict) and sh.get("split") == "train"]
+        if not shards:
+            return None
+        if self.s.shards_per_split is not None:
+            shards = shards[: self.s.shards_per_split]
+        return FeatureShards.ram_estimate_gb(sum(int(sh["windows"]) for sh in shards), self.s.seq_len)
 
     def _lr_factor(self, step: int) -> float:
         if step < self.s.warmup_steps:
@@ -383,7 +414,7 @@ class Trainer:
                 "lr": self.sched.get_last_lr()[0],
                 "step_seconds": round(time.time() - t0, 3),
                 "mem_gb": round(self.guard.used_bytes() / 1e9, 2),
-                "same_link_pairs": same_link_pairs([self.train_links[i] for i in idx.tolist()]),
+                "same_link_pairs": same_link_pairs(self.train_links[idx].tolist()),
                 "nce_masked_pairs": extra.get("nce_masked_pairs", 0),
                 "losses_present": sorted(losses),
                 "skipped_steps": self.skipped,
@@ -475,9 +506,23 @@ class Trainer:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Command-line options (unset options keep the preset's value)."""
-    p = argparse.ArgumentParser(description="Self-supervised TimesNet pretraining (benign + GridSybil, T = 64)")
+    p = argparse.ArgumentParser(
+        description="Self-supervised TimesNet pretraining (--dataset grid: benign + GridSybil, T = 64; "
+        "--dataset all: all attacks, T = 24)"
+    )
+    p.add_argument(
+        "--dataset",
+        default="grid",
+        choices=sorted(DATASETS),
+        help="training set: sets data dir, seq_len, runs dir and the run name model-<dataset> (default grid)",
+    )
+    p.add_argument("--data-dir", default=None, help="encoder input folder (default: the dataset's)")
     p.add_argument("--preset", default="joint", choices=["joint", "recon_only"])
-    p.add_argument("--run-id", default=None, help="folder name under runs_dir (default: timestamp + preset)")
+    p.add_argument(
+        "--run-id",
+        default=None,
+        help="folder name under runs_dir (default: model-<dataset>; --check / --smoke: model-<dataset>-check|smoke-<time>)",
+    )
     p.add_argument(
         "--runs-dir",
         default=None,
@@ -518,7 +563,7 @@ def settings_from_args(args: argparse.Namespace) -> tuple[PretrainConfig, Path, 
         if args.resource_guard is not None:
             settings.resource_guard = args.resource_guard
         return settings, run_dir, True
-    settings = PretrainConfig.preset(args.preset)
+    settings = PretrainConfig.preset(args.preset).use_dataset(args.dataset)
     for name in (
         "max_epochs",
         "max_steps",
@@ -535,15 +580,34 @@ def settings_from_args(args: argparse.Namespace) -> tuple[PretrainConfig, Path, 
             setattr(settings, name, value)
     if args.runs_dir is not None:
         settings.runs_dir = str(Path(args.runs_dir).expanduser())  # recorded in config.json
+    if args.data_dir is not None:
+        settings.data_dir = str(Path(args.data_dir).expanduser())
     if args.smoke or args.check:
         settings.shards_per_split, settings.eval_windows, settings.log_every = 1, 512, 5
         settings.max_steps = settings.max_steps or 30
         settings.norm_warmup_steps = min(settings.norm_warmup_steps, 10)
         settings.warmup_steps = min(settings.warmup_steps, 10)
     settings.validate()
-    stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-    kind = "check" if args.check else "smoke" if args.smoke else args.preset
-    return settings, Path(settings.runs_dir) / (args.run_id or f"{stamp}-{kind}"), False
+    return settings, Path(settings.runs_dir) / (args.run_id or default_run_id(args)), False
+
+
+def default_run_id(args: argparse.Namespace) -> str:
+    """`model-<dataset>` for a full run (`-recon_only` added for that preset); test runs get a timestamped name."""
+    name = DATASETS[args.dataset].run_id
+    if args.check or args.smoke:
+        stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+        return f"{name}-{'check' if args.check else 'smoke'}-{stamp}"
+    return name if args.preset == "joint" else f"{name}-{args.preset}"
+
+
+def ensure_new_run_dir(run_dir: Path) -> None:
+    """Stops with a clear message if a new run would reuse an existing run folder."""
+    if run_dir.exists():
+        raise SystemExit(
+            f"run folder {run_dir} already exists; nothing was overwritten.\n"
+            f"  resume it:        npm run train:resume -- {run_dir}\n"
+            f"  or start anew:    add --run-id {run_dir.name}-2 (any unused name)"
+        )
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -552,6 +616,9 @@ def main(argv: list[str] | None = None) -> None:
     if not (Path("CLAUDE.md").is_file() and Path("src/data").is_dir()):
         raise SystemExit("run from the repository root")
     settings, run_dir, resume = settings_from_args(args)
+    if not resume:
+        ensure_new_run_dir(run_dir)
+    print(f"run folder {run_dir} (dataset {settings.dataset})", flush=True)
     trainer = Trainer(settings, run_dir, resume=resume)
     if args.check and not resume:
         print(f"checks passed; report in {run_dir / 'env.json'}")

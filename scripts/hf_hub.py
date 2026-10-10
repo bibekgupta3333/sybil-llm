@@ -12,6 +12,8 @@ Run from the repo root with the training env (it pins `huggingface_hub` and `hf-
     .venv-train/bin/python scripts/hf_hub.py download-model <run_id> [--to src/runs/pretraining/benign_gridsybil/T64]
     (the two named runs: model-grid -> benign_gridsybil/T64, model-all -> all/T24; see `npm run model:upload:grid` etc.)
     .venv-train/bin/python scripts/hf_hub.py list-models
+    .venv-train/bin/python scripts/hf_hub.py sums <run_dir>       (write SHA256SUMS for an `hf upload` of the run)
+    .venv-train/bin/python scripts/hf_hub.py verify <dir> [--install-to <run_dir>] [--force]   (after `hf download`)
 
 All repos are private. Repo ids resolve as flag > environment (`HF_DATASET_REPO`, `HF_INPUT_REPO`, `HF_MODEL_REPO`)
 > default. Uploads never write into the local tree: the manifest (relative path -> size, sha256) and dataset card are
@@ -612,7 +614,8 @@ message). Master's thesis research, Florida Polytechnic University. Not a releas
 | `runs/model-all/` | all 8 scenario folders, all classes, T = 24 (`src/data/encoder_input/all/T24`) |
 
 Each run sits in `runs/<run_id>/` with the same layout as a local run folder: `config.json` (settings + seed,
-`dataset`), `env.json` (environment), `metrics.jsonl`, `best.pt` (and `last.pt` when uploaded), `SHA256SUMS`.
+`dataset`), `env.json` (environment), `metrics.jsonl`, `*.log` (console log of the run, e.g. `train.log`),
+`best.pt` (and `last.pt` when uploaded), `SHA256SUMS` (sha256 of every other file in the folder).
 Uploading a run id again replaces that folder (files not in the new upload are deleted in the same commit).
 
 ```bash
@@ -698,34 +701,83 @@ Uploading a run id again replaces that folder (files not in the new upload are d
             if not source.is_dir() or not any(source.iterdir()):
                 raise HubError(f"run `{run_id}` not found in {repo}; see `list-models`")
             self.verify_run(source)
-            dest.mkdir(parents=True, exist_ok=True)
-            # With --force, drop local checkpoints the repo run no longer has, so `--resume` never picks up a stale
-            # last.pt next to a newer best.pt.
-            for old in dest.glob("*.pt"):
-                if not (source / old.name).is_file():
-                    old.unlink()
-                    self.log(f"removed stale local {old.name}")
-            for path in sorted(source.iterdir()):
-                if path.is_file():
-                    shutil.copy2(path, dest / path.name)
+            install_run(source, dest, force=force, log=self.log)
         self.log(f"downloaded and verified: {dest}")
         return dest
 
     def verify_run(self, folder: Path) -> None:
-        """Check every file listed in SHA256SUMS (all .pt files must be listed); raise `HubError` on a mismatch."""
-        sums_path = folder / SUMS_NAME
-        if not sums_path.is_file():
-            raise HubError(f"{SUMS_NAME} missing in the downloaded run; cannot verify the checkpoints")
-        sums = parse_sums(sums_path.read_text())
-        unlisted = [p.name for p in folder.glob("*.pt") if p.name not in sums]
-        if unlisted:
-            raise HubError(f"checkpoint(s) not in {SUMS_NAME}: {', '.join(sorted(unlisted))}")
-        for name, digest in sums.items():
-            path = folder / name
-            if not path.is_file():
-                raise HubError(f"{name} is listed in {SUMS_NAME} but was not downloaded")
-            if sha256_file(path) != digest:
-                raise HubError(f"sha256 mismatch for {name}")
+        """See `verify_run_folder`."""
+        verify_run_folder(folder, log=self.log)
+
+
+def verify_run_folder(folder: Path, log: Callable[[str], None] = print) -> list[str]:
+    """Check every file listed in SHA256SUMS (checkpoints, json, metrics.jsonl, logs alike).
+
+    Every `.pt` in the folder must be listed. Other files that are not listed (runs uploaded before logs were added
+    to SHA256SUMS) are reported as unverified, not refused.
+
+    Returns:
+        The names of the verified files.
+
+    Raises:
+        HubError: SHA256SUMS is missing, a checkpoint is unlisted, a listed file is missing or does not match.
+    """
+    folder = Path(folder)
+    sums_path = folder / SUMS_NAME
+    if not sums_path.is_file():
+        raise HubError(f"{SUMS_NAME} missing in `{folder}`; cannot verify the run")
+    sums = parse_sums(sums_path.read_text())
+    unlisted = sorted(p.name for p in folder.iterdir() if p.is_file() and p.name != SUMS_NAME and p.name not in sums)
+    unlisted_pt = [name for name in unlisted if name.endswith(".pt")]
+    if unlisted_pt:
+        raise HubError(f"checkpoint(s) not in {SUMS_NAME}: {', '.join(unlisted_pt)}")
+    for name, digest in sorted(sums.items()):
+        path = folder / name
+        if not path.is_file():
+            raise HubError(f"{name} is listed in {SUMS_NAME} but was not downloaded")
+        if sha256_file(path) != digest:
+            raise HubError(f"sha256 mismatch for {name}")
+    if unlisted:
+        log(f"not in {SUMS_NAME} (older upload; not verified): {', '.join(unlisted)}")
+    log(f"sha256 ok: {', '.join(sorted(sums))}")
+    return sorted(sums)
+
+
+def install_run(source: Path, dest: Path, force: bool = False, log: Callable[[str], None] = print) -> Path:
+    """Copy the files of a verified run folder `source` into `dest` (the local run layout).
+
+    Refuses a non-empty `dest` without `force`. With `force`, local checkpoints the source no longer has are removed,
+    so `--resume` never picks up a stale last.pt next to a newer best.pt; other files are overwritten.
+    """
+    source, dest = Path(source), Path(dest)
+    if is_non_empty_dir(dest) and not force:
+        raise HubError(f"`{dest}` exists and is not empty; refusing to overwrite (pass --force)")
+    dest.mkdir(parents=True, exist_ok=True)
+    for old in dest.glob("*.pt"):
+        if not (source / old.name).is_file():
+            old.unlink()
+            log(f"removed stale local {old.name}")
+    for path in sorted(source.iterdir()):
+        if path.is_file():
+            shutil.copy2(path, dest / path.name)
+    return dest
+
+
+def write_run_sums(run_dir: Path, log: Callable[[str], None] = print) -> Path:
+    """Write `run_dir/SHA256SUMS` for every file an `hf upload` of the run sends (metadata, best.pt, last.pt, logs).
+
+    Uses `ModelTransfer.select_files(include_last=True)`, the same set the npm `hf:upload:*` commands include.
+    """
+    run_dir = Path(run_dir)
+    if not run_dir.is_dir():
+        raise HubError(f"run folder `{run_dir}` does not exist")
+    files, note = ModelTransfer.select_files(run_dir, include_last=True)
+    if note:
+        log(note)
+    sums_path = run_dir / SUMS_NAME
+    sums_path.write_text(format_sums({path.name: sha256_file(path) for path in files}))
+    log(f"wrote {sums_path} ({', '.join(path.name for path in files)})")
+    return sums_path
 
 
 def run_encoder_input(args: argparse.Namespace, config: HubConfig, hub: Hub) -> None:
@@ -791,6 +843,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     dm.add_argument("--to", type=Path, default=DEFAULT_RUNS_DIR)
     dm.add_argument("--force", action="store_true", help="overwrite a non-empty local run folder")
     sub.add_parser("list-models", help="run ids in the model repo")
+    sm = sub.add_parser("sums", help="write SHA256SUMS into a run folder (for an `hf upload` of it)")
+    sm.add_argument("run_dir", type=Path)
+    vf = sub.add_parser("verify", help="check a run folder against its SHA256SUMS (e.g. after `hf download`)")
+    vf.add_argument("folder", type=Path)
+    vf.add_argument("--install-to", type=Path, help="after verifying, copy the files into this run folder")
+    vf.add_argument("--force", action="store_true", help="with --install-to: overwrite a non-empty run folder")
     return p.parse_args(argv)
 
 
@@ -799,6 +857,16 @@ def main(argv: list[str] | None = None, hub: Hub | None = None) -> int:
     args = parse_args(argv)
     config = HubConfig.resolve(args.dataset_repo, args.model_repo, input_repo=args.input_repo)
     try:
+        if args.command == "sums":
+            write_run_sums(args.run_dir)
+            return 0
+        if args.command == "verify":
+            if args.force and args.install_to is None:
+                raise HubError("--force needs --install-to")
+            verify_run_folder(args.folder)
+            if args.install_to is not None:
+                print(f"installed: {install_run(args.folder, args.install_to, force=args.force)}")
+            return 0
         hub = hub or Hub()
         if args.command == "whoami":
             print(hub.whoami())

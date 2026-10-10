@@ -132,7 +132,7 @@ npm run train:help
 npm run train:grid:check    # pre-flight checks (own folder model-grid-check; never blocks model-grid)
 npm run train:grid:smoke    # one shard, a few steps: speed + memory
 npm run train:grid          # full run, 30 h cap -> .../T64/model-grid/   (train:grid:no-guard = no memory cap / stop)
-npm run model:upload:grid   # best.pt + last.pt + config/env/metrics + SHA256SUMS -> runs/model-grid
+npm run model:upload:grid   # after the run finishes: best.pt + last.pt + config/env/metrics + *.log + SHA256SUMS -> runs/model-grid
 npm run model:download:grid # -> src/runs/pretraining/benign_gridsybil/T64/model-grid/, sha256-checked
 
 npm run train:all:check     # same five for the all-data set
@@ -172,8 +172,10 @@ npm run data:upload / data:download                 # raw data/VeReMi-Dataset/ (
 npm run data:upload-input:all                       # every tree in src/data/encoder_input/ (benign_gridsybil/T64, all/T24)
 npm run data:download-input:all                     # restore them all, sha256-checked (skips trees that already match)
 npm run data:download-input -- --input all/T24      # one tree (default benign_gridsybil/T64)
-npm run model:upload:grid / model:upload:all       # the two named runs (with last.pt) -> runs/model-grid, runs/model-all
+npm run model:upload:grid / model:upload:all       # the two named runs (with last.pt, *.log) -> runs/model-grid, runs/model-all
 npm run model:download:grid / model:download:all   # back into their local runs folders, sha256-checked
+npm run hf:upload:grid / hf:upload:all             # same layout via the official hf CLI (SHA256SUMS written first)
+npm run hf:download:grid / hf:download:all         # hf download, then hf_hub.py verify --install-to <run_dir>
 npm run model:upload -- <run_dir> / model:download -- <run_id> / model:list
 ```
 

@@ -606,3 +606,89 @@ def test_cli_encoder_input_all_round_trip(input_root: pathlib.Path, tmp_path: pa
 
 def test_cli_encoder_input_all_rejects_path(input_root: pathlib.Path) -> None:
     assert hf_hub.main(["upload-encoder-input", "--all", "--path", "x"], hub=make_hub(PrefixApi())) == 1
+
+
+# ---- logs, sums / verify (hf CLI route) ------------------------------------------------------------------------
+
+
+def test_logs_in_sums_and_verified_on_download(run_dir: pathlib.Path, tmp_path: pathlib.Path) -> None:
+    """train.log and metrics.jsonl are listed in SHA256SUMS, downloaded back, and a tampered log is refused."""
+    (run_dir / "train.log").write_text("epoch 1 loss 0.5\n")
+    api = FakeApi()
+    hf_hub.ModelTransfer(hf_hub.HubConfig(), make_hub(api), log=lambda m: None).upload(
+        run_dir, name="model-all", include_last=True
+    )
+    sums = hf_hub.parse_sums(api.files["runs/model-all/SHA256SUMS"].decode())
+    assert set(sums) == {"config.json", "env.json", "metrics.jsonl", "best.pt", "last.pt", "train.log"}
+    hub = make_hub(api, snapshot=fake_snapshot_into(api))
+    dest = hf_hub.ModelTransfer(hf_hub.HubConfig(), hub, log=lambda m: None).download("model-all", to=tmp_path / "a")
+    assert (dest / "train.log").read_text() == "epoch 1 loss 0.5\n"
+    api.files["runs/model-all/train.log"] = b"edited"
+    with pytest.raises(hf_hub.HubError, match="sha256 mismatch for train.log"):
+        hf_hub.ModelTransfer(hf_hub.HubConfig(), hub, log=lambda m: None).download("model-all", to=tmp_path / "b")
+    api.files["runs/model-all/train.log"] = b"epoch 1 loss 0.5\n"
+    api.files["runs/model-all/metrics.jsonl"] = b'{"step": 2}\n'
+    with pytest.raises(hf_hub.HubError, match="sha256 mismatch for metrics.jsonl"):
+        hf_hub.ModelTransfer(hf_hub.HubConfig(), hub, log=lambda m: None).download("model-all", to=tmp_path / "c")
+
+
+def test_verify_back_compat_old_sums(run_dir: pathlib.Path) -> None:
+    """An older upload whose SHA256SUMS lists only some files still verifies; unlisted .pt is still refused."""
+    (run_dir / "train.log").write_text("log")
+    (run_dir / "SHA256SUMS").write_text(hf_hub.format_sums({"best.pt": hf_hub.sha256_file(run_dir / "best.pt")}))
+    (run_dir / "last.pt").unlink()
+    logs: list[str] = []
+    assert hf_hub.verify_run_folder(run_dir, log=logs.append) == ["best.pt"]
+    assert any("not verified" in m and "train.log" in m for m in logs)
+    (run_dir / "last.pt").write_bytes(b"x")
+    with pytest.raises(hf_hub.HubError, match="checkpoint\\(s\\) not in SHA256SUMS: last.pt"):
+        hf_hub.verify_run_folder(run_dir, log=lambda m: None)
+
+
+def test_cli_sums_then_verify_install(run_dir: pathlib.Path, tmp_path: pathlib.Path) -> None:
+    """npm hf:upload:* / hf:download:* glue: `sums` lists every uploaded file; `verify --install-to` restores it."""
+    (run_dir / "train.log").write_text("log line\n")
+    (run_dir / "notes.txt").write_text("not uploaded")
+    assert hf_hub.main(["sums", str(run_dir)]) == 0
+    sums = hf_hub.parse_sums((run_dir / "SHA256SUMS").read_text())
+    assert set(sums) == {"config.json", "env.json", "metrics.jsonl", "best.pt", "last.pt", "train.log"}
+    assert sums["train.log"] == hf_hub.sha256_file(run_dir / "train.log")
+    # what `hf download --include 'runs/<id>/*'` leaves: the uploaded files only
+    staged = tmp_path / "staging" / "runs" / "model-all"
+    staged.mkdir(parents=True)
+    for name in [*sums, "SHA256SUMS"]:
+        (staged / name).write_bytes((run_dir / name).read_bytes())
+    assert hf_hub.main(["verify", str(staged)]) == 0
+    dest = tmp_path / "src" / "runs" / "pretraining" / "all" / "T24" / "model-all"
+    assert hf_hub.main(["verify", str(staged), "--install-to", str(dest)]) == 0
+    assert (dest / "train.log").read_text() == "log line\n" and (dest / "last.pt").read_bytes() == b"last-weights"
+    assert hf_hub.main(["verify", str(staged), "--install-to", str(dest)]) == 1  # non-empty without --force
+    (dest / "stale.pt").write_bytes(b"old")
+    assert hf_hub.main(["verify", str(staged), "--install-to", str(dest), "--force"]) == 0
+    assert not (dest / "stale.pt").exists()
+    (staged / "train.log").write_text("tampered")
+    assert hf_hub.main(["verify", str(staged)]) == 1
+    assert hf_hub.main(["verify", str(staged), "--force"]) == 1  # --force needs --install-to
+
+
+def test_cli_verify_missing_sums(tmp_path: pathlib.Path) -> None:
+    assert hf_hub.main(["verify", str(tmp_path / "nothing")]) == 1
+    assert hf_hub.main(["sums", str(tmp_path / "nothing")]) == 1
+
+
+def test_npm_hf_scripts_match_python_layout() -> None:
+    """hf:upload:* includes exactly what `sums` lists (+ README.md, SHA256SUMS) and writes runs/<id>/."""
+    scripts = json.loads((pathlib.Path(__file__).resolve().parents[2] / "package.json").read_text())["scripts"]
+    for name, path in (
+        ("grid", "src/runs/pretraining/benign_gridsybil/T64/model-grid"),
+        ("all", "src/runs/pretraining/all/T24/model-all"),
+    ):
+        up, down = scripts[f"hf:upload:{name}"], scripts[f"hf:download:{name}"]
+        assert f"hf_hub.py sums {path} && " in up and f" {path} runs/model-{name} " in up
+        for pattern in ("config.json", "env.json", "metrics.jsonl", "best.pt", "last.pt", "'*.log'", "SHA256SUMS"):
+            assert f"--include {pattern}" in up
+        assert "--delete '*'" in up and "--repo-type model" in up
+        assert (
+            f"--include 'runs/model-{name}/*'" in down and f'verify "$D/runs/model-{name}" --install-to {path}' in down
+        )
+        assert f"model:upload:{name}" in scripts and "--include-last" in scripts[f"model:upload:{name}"]

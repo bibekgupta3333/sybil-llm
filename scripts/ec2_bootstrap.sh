@@ -6,8 +6,10 @@
 #
 #   --dry-run          print every command, change nothing
 #   --check            only report what is installed (exit 1 if a required component is missing)
-#   --install-driver   install the NVIDIA driver when a GPU is present but nvidia-smi fails: Ubuntu's server driver
-#                      (>= 560; reboot after), or on a vGPU host (g6f / gr6f, fractional L4) AWS's GRID guest driver
+#   --install-driver   install the NVIDIA driver when a GPU is present but nvidia-smi fails: on a full GPU (g4dn T4,
+#                      g5, g6, p3, ...) Ubuntu's server driver (>= 560, headless no-DKMS + the prebuilt signed kernel
+#                      modules of the kernel flavour: open modules on Turing+, proprietary before; reboot after), or
+#                      on a vGPU host (g6f / gr6f, fractional L4) AWS's GRID guest driver
 #   --driver KIND      which driver a GPU host needs: auto (default: GRID on a vGPU host, else Ubuntu's), grid, ubuntu
 #   --docker           also install Docker Engine + compose + NVIDIA Container Toolkit (the optional Docker route)
 #   --no-start         do not start / restart services or run containers (also automatic when systemd is not PID 1)
@@ -203,6 +205,59 @@ wanted_driver() {
   else
     echo ubuntu
   fi
+}
+# --- Ubuntu's driver on a full GPU (g4dn T4, g5 A10G, g6 L4, p3 V100, ...) ---
+# Kernel flavour of the running kernel: 7.0.0-1006-aws -> aws (generic, gcp, ...).
+kernel_flavour() { uname -r | sed -E 's/^[0-9.]+-[0-9]+-//'; }
+# Kernel module flavour of the GPU: open (Turing and newer: TU / GA / AD / GH / GB chips, NVIDIA's default since R560)
+# or proprietary (pre-Turing: GK / GM / GP / GV, e.g. p3 V100, g3 M60 — the open modules do not support them).
+# Unknown names count as Turing+ (every current EC2 GPU family is). ROADFM_NVIDIA_MODULES=open|proprietary overrides.
+gpu_module_flavour() {
+  if [[ -n "${ROADFM_NVIDIA_MODULES:-}" ]]; then
+    echo "$ROADFM_NVIDIA_MODULES"
+  elif lspci -d 10de: 2>/dev/null | grep -qE '\bG[KMPV][0-9]{3}'; then
+    echo proprietary
+  else
+    echo open
+  fi
+}
+apt_field() { apt-cache show --no-all-versions "$1" 2>/dev/null | sed -n "s/^$2: //p" | head -1; }
+# true when the package is in the archive and is a real package (not a "transitional" dummy).
+apt_real() {
+  local d
+  d="$(apt_field "$1" Description-en)"
+  [[ -n "$d" && "$d" != *transitional* ]]
+}
+# Ubuntu server driver with a PREBUILT kernel module (signed, no DKMS) for this kernel flavour. Newest version >=
+# MIN_DRIVER first; per version the GPU's module flavour (open on Turing+, then proprietary; proprietary only before
+# Turing). Pairing check: the module package's nvidia-kernel-common requirement must accept the driver's version.
+# Prints "<ver> open|proprietary <module kernel>"; nothing when no pair exists (custom kernel, no prebuilt modules).
+UBUNTU_DRIVER_CACHE=""
+ubuntu_driver_pick() {
+  if [[ -z "$UBUNTU_DRIVER_CACHE" ]]; then
+    local fl suffixes v s mods drv need kver
+    fl="$(kernel_flavour)"
+    if [[ "$(gpu_module_flavour)" == proprietary ]]; then suffixes=(""); else suffixes=(-open ""); fi
+    for v in $(apt-cache search --names-only '^nvidia-headless-no-dkms-[0-9]+-server(-open)?$' 2>/dev/null \
+      | grep -oE '^nvidia-headless-no-dkms-[0-9]+' | grep -oE '[0-9]+$' | sort -rnu); do
+      ((v >= MIN_DRIVER)) || continue
+      for s in "${suffixes[@]}"; do
+        mods="linux-modules-nvidia-${v}-server${s}-${fl}"
+        apt_real "nvidia-headless-no-dkms-${v}-server${s}" && apt_real "$mods" || continue
+        drv="$(apt_field "nvidia-headless-no-dkms-${v}-server${s}" Version)"
+        need="$(apt_field "$mods" Depends | grep -oE "nvidia-kernel-common-${v}-server \(>= [^)]+\)" | grep -oE '[0-9][^ )]*\)$' | tr -d ')' || true)"
+        if [[ -n "$need" ]] && ! dpkg --compare-versions "$drv" ge "$need"; then
+          continue
+        fi
+        kver="$(apt_field "$mods" Depends | grep -oE "linux-modules-nvidia-${v}-server${s}-[0-9][^ ,]*" | head -1 || true)"
+        kver="${kver#"linux-modules-nvidia-${v}-server${s}-"}"
+        UBUNTU_DRIVER_CACHE="$v $([[ -n "$s" ]] && echo open || echo proprietary) ${kver:-?}"
+        break 2
+      done
+    done
+    UBUNTU_DRIVER_CACHE="${UBUNTU_DRIVER_CACHE:--}"
+  fi
+  [[ "$UBUNTU_DRIVER_CACHE" == "-" ]] || echo "$UBUNTU_DRIVER_CACHE"
 }
 # Ubuntu's versioned nvidia driver packages that are installed (nvidia-driver-595-open, nvidia-dkms-*, nvidia-utils-*,
 # nvidia-compute-utils-*, nvidia-firmware-*, libnvidia-*-595, xserver-xorg-video-nvidia-595, ...). Unversioned helpers
@@ -420,6 +475,18 @@ report() {
       row "" "" "${YELLOW}fix: sudo modprobe nvidia, or sudo reboot${RESET}"
     else
       status_row "NVIDIA driver" "GPU present, nvidia-smi fails ($kind)" missing
+      local pick v mk kver
+      pick="$(ubuntu_driver_pick)"
+      if [[ -n "$pick" ]]; then
+        read -r v mk kver <<<"$pick"
+        if pkg_installed "linux-modules-nvidia-${v}-server$([[ "$mk" == open ]] && echo -open)-${kver}" && [[ "$kver" != "$(uname -r)" ]]; then
+          row "" "" "${YELLOW}fix: sudo reboot  (driver $v $mk modules installed for kernel $kver, running $(uname -r))${RESET}"
+        else
+          row "" "" "${YELLOW}fix: bash scripts/ec2_bootstrap.sh --install-driver  (Ubuntu's driver $v, $mk modules prebuilt for $kver), then sudo reboot${RESET}"
+        fi
+      else
+        row "" "" "${YELLOW}fix: bash scripts/ec2_bootstrap.sh --install-driver  (Ubuntu's DKMS driver: no prebuilt modules for this kernel), then sudo reboot${RESET}"
+      fi
     fi
     if ((DOCKER)) && command -v nvidia-ctk >/dev/null 2>&1; then
       status_row "NVIDIA Container Toolkit" "$(nvidia-ctk --version 2>/dev/null | head -1 | awk '{print $NF}')" ok
@@ -612,6 +679,54 @@ if ((DOCKER)); then
 fi
 
 # ---------------------------------------------------------------------------------------------------------------------
+# Ubuntu's server driver on a full GPU: headless no-DKMS driver + utils + the prebuilt, signed kernel modules of this
+# kernel flavour (linux-modules-nvidia-<ver>-server[-open]-<flavour>; it pulls the kernel they are built for, so the
+# reboot boots a kernel that has them). Without prebuilt modules (custom kernel): the DKMS driver, with a warning.
+install_ubuntu_driver() {
+  local pick v kind kver s fl others=() p
+  fl="$(kernel_flavour)"
+  step "full GPU: $(lspci -d 10de: 2>/dev/null | sed -E 's/^.*NVIDIA Corporation //' | head -1) — $(gpu_module_flavour) kernel modules"
+  pick="$(ubuntu_driver_pick)"
+  if [[ -z "$pick" ]]; then
+    s=""
+    [[ "$(gpu_module_flavour)" == open ]] && s="-open"
+    v="$(apt-cache search --names-only "^nvidia-driver-[0-9]+-server${s}\$" 2>/dev/null | grep -v transitional \
+      | grep -oE '^nvidia-driver-[0-9]+' | grep -oE '[0-9]+$' | sort -n | awk -v m="$MIN_DRIVER" '$1 >= m' | tail -1 || true)"
+    v="${v:-$FALLBACK_DRIVER}"
+    warn "no prebuilt nvidia kernel modules for the '$fl' kernel flavour: DKMS builds them for $(uname -r) (fragile; Secure Boot needs MOK signing)"
+    apt_install "linux-headers-$(uname -r)" "nvidia-driver-${v}-server${s}" "nvidia-utils-${v}-server"
+    return 0
+  fi
+  read -r v kind kver <<<"$pick"
+  s=""
+  [[ "$kind" == open ]] && s="-open"
+  # another driver version would conflict with this one in apt
+  for p in $(ubuntu_nvidia_packages); do
+    [[ "$p" =~ -([0-9]{3})(-server)?(-open)?(-[0-9.]+)?$ && "${BASH_REMATCH[1]}" != "$v" ]] && others+=("$p")
+  done
+  if ((${#others[@]})); then
+    bad "other Ubuntu nvidia driver packages are installed: ${others[*]} — purge them first (sudo apt-get purge ${others[*]}), then re-run"
+    return 1
+  fi
+  step "Ubuntu server driver $v ($kind kernel modules, prebuilt for $kver; pairing checked: module needs <= driver version)"
+  [[ "$kver" == "$(uname -r)" ]] || step "running kernel $(uname -r): apt installs $kver for the modules, the reboot boots it"
+  # an installed full metapackage of the same driver (nvidia-driver-<ver>-server[-open]) already covers the headless one
+  p="nvidia-headless-no-dkms-${v}-server${s}"
+  pkg_installed "nvidia-driver-${v}-server${s}" && p="nvidia-driver-${v}-server${s}"
+  apt_install "$p" "nvidia-utils-${v}-server" "linux-modules-nvidia-${v}-server${s}-${fl}"
+  if ((!DRY_RUN)); then
+    local uv kv
+    uv="$(dpkg-query -W -f='${Version}' "nvidia-utils-${v}-server" 2>/dev/null || true)"
+    kv="$(dpkg-query -W -f='${Version}' "nvidia-kernel-common-${v}-server" 2>/dev/null || true)"
+    if [[ -n "$uv" && "${uv%%-*}" == "${kv%%-*}" ]]; then
+      ok "driver packages paired: nvidia-utils ${uv%%-*} = nvidia-kernel-common ${kv%%-*}"
+    else
+      bad "driver packages not paired: nvidia-utils '${uv}' vs nvidia-kernel-common '${kv}'"
+    fi
+  fi
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
 # AWS's GRID guest driver for vGPU hosts: purge Ubuntu's nvidia packages (they refuse the vGPU), download the newest
 # latest/*grid-aws.run, check its size + checksum, install it with DKMS, load it, verify with nvidia-smi.
 install_grid_driver() {
@@ -706,25 +821,11 @@ else
       warn "NVIDIA driver $dv is older than $MIN_DRIVER; the cu126 torch wheels need >= $MIN_DRIVER — upgrade it"
     fi
   elif ((INSTALL_DRIVER)); then
-    apt_install ubuntu-drivers-common
-    best=""
-    if command -v ubuntu-drivers >/dev/null 2>&1; then
-      best="$(ubuntu-drivers list --gpgpu 2>/dev/null | grep -oE 'nvidia[-:a-z]*[0-9]+-server' | grep -oE '[0-9]+' \
-        | sort -n | tail -1 || true)"
+    apt_update
+    if install_ubuntu_driver; then
+      NEED_REBOOT=1
+      warn "driver installed — reboot (sudo reboot), reconnect, check nvidia-smi, then re-run this script"
     fi
-    if [[ -n "$best" ]] && ((best >= MIN_DRIVER)); then
-      run "${SUDO[@]}" ubuntu-drivers install --gpgpu "nvidia:${best}-server"
-      run "${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y "nvidia-utils-${best}-server"
-    else
-      # newest packaged server driver >= MIN_DRIVER (e.g. 570 on 24.04, newer on 26.04); else the fixed fallback
-      pick="$(apt-cache search --names-only '^nvidia-driver-[0-9]+-server$' 2>/dev/null | grep -oE '[0-9]+' \
-        | sort -n | awk -v m="$MIN_DRIVER" '$1 >= m' | tail -1 || true)"
-      pick="${pick:-$FALLBACK_DRIVER}"
-      step "ubuntu-drivers offers no server driver >= $MIN_DRIVER${best:+ (best: $best)}; installing nvidia-driver-${pick}-server"
-      apt_install "nvidia-driver-${pick}-server" "nvidia-utils-${pick}-server"
-    fi
-    NEED_REBOOT=1
-    warn "driver installed — reboot (sudo reboot), reconnect, check nvidia-smi, then re-run this script"
   else
     bad "NVIDIA GPU present but nvidia-smi fails — re-run with --install-driver (or use the Deep Learning Base AMI)"
   fi

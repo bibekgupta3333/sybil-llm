@@ -325,9 +325,12 @@ class GpuReport:
                 " it needs NVIDIA's GRID guest driver, Ubuntu's nvidia drivers refuse it",
                 "  fix: bash scripts/ec2_bootstrap.sh --install-driver   (installs AWS's GRID driver; docs/ec2-training.md)",
             ]
+        name = self.host["lspci_nvidia"][0].split("NVIDIA Corporation", 1)[-1].strip()
         return [
-            "! NVIDIA device present but no working driver — fix: bash scripts/ec2_bootstrap.sh --install-driver"
-            " (on g6f / gr6f, a vGPU, the GRID driver is needed; docs/ec2-training.md)"
+            f"! full NVIDIA GPU ({name}) present but no working driver: it needs Ubuntu's server driver"
+            " (open kernel modules on Turing and newer, e.g. the g4dn T4; proprietary before) and a reboot",
+            "  fix: bash scripts/ec2_bootstrap.sh --install-driver, then sudo reboot"
+            "   (driver already installed: just sudo reboot; docs/ec2-training.md)",
         ]
 
 

@@ -22,6 +22,7 @@ BANNER_OUT = """
 """
 NO_PCI = pathlib.Path("/nonexistent-pci-root")  # keeps the tests independent of the machine's own sysfs
 LSPCI_L4 = "31:00.0 3D controller: NVIDIA Corporation AD104GL [L4] (rev a1)\n"
+LSPCI_T4 = "00:1e.0 3D controller: NVIDIA Corporation TU104GL [Tesla T4] (rev a1)\n"
 LSPCI_OUT = (
     "00:1e.0 3D controller: NVIDIA Corporation GA102GL [A10G] (rev a1)\n"
     "00:03.0 VGA compatible controller: Amazon.com, Inc. Device 1111\n"
@@ -258,15 +259,17 @@ def test_vgpu_without_driver_hints_grid(tmp_path, capsys):
     assert gpu_check.main([], report=report) == 0
     out = capsys.readouterr().out
     assert "vGPU device (0000:31:00.0" in out and "GRID guest driver" in out
-    assert "ec2_bootstrap.sh --install-driver" in out
+    assert "ec2_bootstrap.sh --install-driver" in out and "full NVIDIA GPU" not in out
 
 
-def test_nvidia_without_driver_hints_install_driver(capsys):
-    host = gpu_check.HostProbe(runner=FakeRunner({"lspci": LSPCI_L4}), system="Linux", machine="x", pci_root=NO_PCI)
+def test_full_gpu_without_driver_hints_ubuntu_driver_and_reboot(capsys):
+    host = gpu_check.HostProbe(runner=FakeRunner({"lspci": LSPCI_T4}), system="Linux", machine="x", pci_root=NO_PCI)
     report = gpu_check.GpuReport(host=host, torch_probe=NoTorchProbe())
     assert gpu_check.main([], report=report) == 0
     out = capsys.readouterr().out
-    assert "NVIDIA device present but no working driver" in out and "GRID" in out
+    assert "full NVIDIA GPU (TU104GL [Tesla T4] (rev a1)) present but no working driver" in out
+    assert "Ubuntu's server driver" in out and "sudo reboot" in out and "ec2_bootstrap.sh --install-driver" in out
+    assert "GRID" not in out and "vGPU" not in out
 
 
 def test_no_hint_when_driver_works(tmp_path, capsys):

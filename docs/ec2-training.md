@@ -25,7 +25,7 @@ gh auth login && hf auth login         # GitHub (git pull / push) and Hugging Fa
 npm run gpu:check                      # which GPU, driver, CUDA, what torch sees, a matmul smoke test
 npm run data:download                  # raw dataset -> data/VeReMi-Dataset/ (or copy it there yourself)
 npm run setup:native                   # prepared data, encoder input, train:check (re-creates the venvs if needed)
-tmux new -s train                      # then: npm run train:full ; afterwards npm run model:upload -- <run_dir>
+tmux new -s train                      # then: npm run train:full ; afterwards npm run model:upload -- <run_dir> (§6)
 ```
 
 | Command | What it does |
@@ -35,6 +35,18 @@ tmux new -s train                      # then: npm run train:full ; afterwards n
 | `npm run gpu:check` · `npm run gpu:require` | GPU report (`scripts/gpu_check.py`: nvidia-smi, torch CUDA / MPS, smoke test); `gpu:require` exits 1 when torch sees no CUDA device — use it before `train:full` |
 
 `hf`, `uv` are linked into `/usr/local/bin`; `gh` comes from GitHub's apt repo.
+
+### g4dn / g5 / g6 / p3: full GPU, Ubuntu's driver
+
+A full GPU (g4dn **Tesla T4**, g5 A10G, g6 L4, p3 V100) takes Ubuntu's server driver. `--install-driver` installs
+`nvidia-headless-no-dkms-<ver>-server[-open]` + `nvidia-utils-<ver>-server` + the **prebuilt, signed** kernel modules
+`linux-modules-nvidia-<ver>-server[-open]-<flavour>` (flavour from `uname -r`, e.g. `aws`) — no DKMS build. Version:
+newest ≥ 560 with prebuilt modules whose `nvidia-kernel-common` requirement matches the driver (pairing check).
+Modules: **open** on Turing and newer (T4 = TU104), proprietary before (GK / GM / GP / GV, e.g. V100, from `lspci`;
+override `ROADFM_NVIDIA_MODULES=open|proprietary`). On Ubuntu 26.04 the 615 branch ships only open modules for `aws`
+(g4dn: `615-server-open`). The modules package pulls the kernel it was built for (e.g. 7.0.0-1014-aws while
+7.0.0-1006-aws runs), so **reboot** after the install; `--check` then says `fix: sudo reboot` until it is done. No
+prebuilt modules (custom kernel): falls back to the DKMS `nvidia-driver-<ver>-server[-open]` with a warning.
 
 ### g6f / gr6f: fractional GPU (vGPU) needs the GRID driver
 
@@ -259,33 +271,53 @@ docker compose run --rm gpu npm run train:full -- --device cuda --mem-gb 12     
   (e.g. 12 on a 16 GB `g5.xlarge` / `g6.xlarge`); a GPU out-of-memory shows up as a CUDA error instead.
   `--no-resource-guard` (or `npm run train:full:no-guard`) switches the guard off entirely (memory is still logged).
 - **Watch the GPU:** `docker compose run --rm gpu nvidia-smi` or, on the host, `watch -n 5 nvidia-smi`.
-- **Log to a file:** `docker compose run --rm gpu npm run train:full -- --device cuda --mem-gb 12 2>&1 | tee train.log`.
-  If you put the log into the run folder as `<run_dir>/*.log`, `model:upload` uploads it too.
+- **Log to a file:** the trainer creates the run folder itself, so `tee` to a path outside it and move the file in
+  afterwards: `npm run train:grid 2>&1 | tee ~/train-grid.log`, then `mv ~/train-grid.log <run_dir>/train.log`.
+  Every `<run_dir>/*.log` is uploaded with the run.
+- **Forgot to tee (tmux):** save the whole scrollback before closing the session:
+  `tmux capture-pane -p -J -t <session> -S - > <run_dir>/train.log` (`-S -` = from the first line; only what tmux's
+  history limit kept — `model-all`'s log was saved this way, 1,096 lines).
 - **Interrupted:** `docker compose run --rm gpu npm run train:resume -- src/runs/pretraining/benign_gridsybil/T64/<run_id>`.
 - Each run writes `env.json` (Python, torch, CUDA, packages) next to its results (RULE 4), so a run trained in the
   container is distinguishable from a Mac run.
 
 ## 6. Ship the run home
 
-On EC2 (inside `docker compose run --rm gpu bash`):
+Upload a run only after it has finished (`stop_reason` in `metrics.jsonl` / the end of `train.log`); `model-grid`
+waits for its run, `model-all` is ready.
+
+**What a run upload contains** (`runs/<run_id>/` in the private model repo `bibekgupta3333/roadfm-lite-timesnet`):
+`best.pt`, `last.pt` (with `--include-last`; the named runs always), `config.json`, `env.json`, `metrics.jsonl`
+(per-step / per-epoch losses), every `*.log` (e.g. `train.log`, the console log), `README.md` if present, and
+`SHA256SUMS` covering every one of those files. One commit per upload; uploading the same name again replaces the
+folder (stale files deleted), so it always matches its `SHA256SUMS`.
+
+**Python (the default — hashes, uploads, verifies on download):**
 
 ```bash
-npm run model:upload -- src/runs/pretraining/benign_gridsybil/T64/<run_id>                  # best.pt + metadata
-npm run model:upload -- src/runs/pretraining/benign_gridsybil/T64/<run_id> --include-last   # + last.pt (to resume)
+npm run model:upload:all          # src/runs/pretraining/all/T24/model-all -> runs/model-all
+npm run model:upload:grid         # only after model-grid has finished
+npm run model:download:all        # -> src/runs/pretraining/all/T24/model-all/, sha256-checked
+npm run model:download:grid       # -> src/runs/pretraining/benign_gridsybil/T64/model-grid/
+npm run model:upload -- <run_dir> [--include-last]    # any other run (without best.pt: last.pt, and it says so)
+npm run model:download -- <run_id> / npm run model:list
 ```
 
-One commit per run under `runs/<run_id>/` with a `SHA256SUMS`; it prints the URL and commit id. Without `best.pt`
-it uploads `last.pt` and says so.
-
-At home:
+**Official `hf` CLI (same layout in the repo; then verify):**
 
 ```bash
-npm run model:list
-npm run model:download -- <run_id>     # -> src/runs/pretraining/benign_gridsybil/T64/<run_id>/, sha256-verified
+npm run hf:upload:all             # hf_hub.py sums <run_dir> (writes SHA256SUMS), then hf upload ... runs/model-all
+npm run hf:upload:grid            # only after model-grid has finished
+npm run hf:download:all           # hf download into a temp dir, then hf_hub.py verify ... --install-to <run_dir>
+npm run hf:download:grid
 ```
 
-The local folder has the same layout as a run trained here, so `pretrain_monitor.ipynb` and `train:resume` work on
-it. It refuses to overwrite an existing run folder unless `-- --force`.
+- `hf_hub.py sums <run_dir>` writes `SHA256SUMS` for the files above; `hf_hub.py verify <dir> [--install-to <run_dir>]
+  [--force]` checks a downloaded folder against it and only then copies it into the run folder.
+- `HF=` and `HF_MODEL_REPO=` override the `hf` binary and the repo for the `hf:*` commands.
+- Downloads refuse to overwrite an existing non-empty run folder unless `--force` (`npm run model:download:all -- --force`).
+
+The local folder has the same layout as a run trained here, so `pretrain_monitor.ipynb` and `train:resume` work on it.
 
 ## 7. Costs and stopping
 

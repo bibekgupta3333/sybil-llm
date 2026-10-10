@@ -16,6 +16,7 @@
         <nav id="tabbar" class="tabbar" role="tablist">
           <button type="button" class="tab on" role="tab" data-tab="legacy" aria-selected="true">Window replay (v1, legacy)</button>
           <button type="button" class="tab" role="tab" data-tab="encoder" aria-selected="false">Encoder input (T = 64)</button>
+          <button type="button" class="tab" role="tab" data-tab="detection" aria-selected="false">Detect attacks</button>
         </nav>
         <div id="status" class="status">loading sample…</div>
       </header>
@@ -81,6 +82,8 @@
       </div>
 
       <div id="encoder-view" class="encoder-view" hidden></div>
+
+      <div id="detection-view" class="detection-view" hidden></div>
 
       <footer id="transport" class="transport"></footer>
     </div>

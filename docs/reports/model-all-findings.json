@@ -1,0 +1,313 @@
+{
+  "title": "RoadFM-Lite model-all: what the first full pretraining run shows, what is wrong, and what to do next",
+  "date": "2026-10-10",
+  "author": "Bibek Gupta (RoadFM-Lite thesis project); analysis drafted with Claude Code from the run's own outputs",
+  "model": {
+    "run_id": "model-all",
+    "dataset": "all/T24 (all 8 scenario folders, all classes, T = 24, train split only)",
+    "checkpoint": "best.pt (= epoch 10)",
+    "sha256": "729843b8867f17ac053aeeda6848504d17003ac23dcf1ddc2e7164f28519ead2",
+    "encoder": "TimesNet, 4 blocks, d = 128, d_ff = 64, top-3 periods; 2,301,312 encoder params, 2,402,461 with heads",
+    "sources": [
+      "src/runs/evaluation/all/T24/model-all/training_summary.json (scripts/summarize_pretraining.py)",
+      "simulation/public/data/detection/manifest.json (scripts/export_detection_sample.py, metrics.full_test_1416)",
+      "src/model/benign_gridsybil/timesnet/train.py (LR schedule code)"
+    ]
+  },
+  "summary": [
+    {
+      "q": "Did self-supervised pretraining learn its pretext tasks?",
+      "a": "Yes, on the label-free check set: val_joint fell 2.151 -> 0.377; masked reconstruction 0.173 vs 0.392 for linear interpolation (13 / 13 features better); injected-violation heads reach AUROC P1 0.986, P2 0.998, P3 0.997 (from ~0.5); no collapse (effective rank of z 48.0 -> 75.5 of 128).",
+      "status": "yes"
+    },
+    {
+      "q": "Is the run finished (converged, schedule as configured)?",
+      "a": "No. val_joint still fell 2.9% in the last epoch (best = last epoch), and the cosine LR schedule ended at 80% of peak (7.99e-4) instead of ~0 because of a scheduler bug in train.py.",
+      "status": "no"
+    },
+    {
+      "q": "How much of the data actually trained the model?",
+      "a": "Little: 70.1% of train windows have 1 real row and carry no loss, so ~70.2% of the 179,420 batches were skipped; ~13.7% of batches trained reconstruction only (2-3 rows) and ~16.2% trained all five losses (>= 4 rows).",
+      "status": "partly"
+    },
+    {
+      "q": "Does the frozen encoder flag Sybil attacks without labels (kNN anomaly score, test group 1416)?",
+      "a": "Only GridSybil, weakly: AUROC 0.613 vs 0.525 for window length alone. DataReplay 0.337, DoSRandom 0.144, DoSDisruptive 0.307 are below chance, while length alone gives 0.950 / 0.965 / 0.965. Benign FPR at the untuned threshold is 0.121 (nominal 0.05).",
+      "status": "no"
+    },
+    {
+      "q": "Does pretraining beat a TimesNet that was not pretrained?",
+      "a": "Not known yet: the frozen-probe evaluation with the random-init, length-only and simple-statistics controls (npm run eval:all) has not been run on the real checkpoint.",
+      "status": "pending"
+    },
+    {
+      "q": "Can these numbers support a thesis claim?",
+      "a": "Not yet: one seed, one run with a known schedule bug, test restricted to group 1416 (F14), no validation split for thresholds (D8'), and no from-scratch control.",
+      "status": "no"
+    }
+  ],
+  "issues": [
+    {
+      "id": "I1",
+      "title": "Cosine LR schedule does not decay: the scheduler counts real updates, the horizon counts all batches",
+      "severity": "high",
+      "evidence": [
+        "train.py line 281: self.total_steps = settings.max_steps or settings.max_epochs * self.steps_per_epoch  (= 10 x 17,942 = 179,420 batches)",
+        "train.py lines 390-393: if not losses: self.skipped += 1; self.step += 1; return  (a skipped batch never reaches the scheduler)",
+        "train.py lines 403-404: self.opt.step(); self.sched.step()  (LambdaLR's counter advances only on real updates)",
+        "train.py line 314: progress = (step - warmup_steps) / max(1, total_steps - warmup_steps), where step is LambdaLR's counter",
+        "Real updates at the last logged step 179,300: 53,468; progress = (53,468 - 500) / (179,420 - 500) = 0.296; factor 0.5 x (1 + cos(0.296 pi)) = 0.799",
+        "Logged LR at step 179,300: 7.99e-4 = 80% of peak 1e-3; the configured schedule ('cosine to 0 over max_epochs x steps_per_epoch') would be ~1e-9 there",
+        "Only the epoch-based path is affected: with --max-steps, total_steps = max_steps and the stop rule also counts real updates, so that path is consistent",
+        "Warm-up is also stretched: 500 real updates spanned ~1,700 batches"
+      ],
+      "impact": "A real bug: the run trained at near-peak LR throughout and never annealed. It plausibly contributes to the non-convergence and to the val_joint upticks at epochs 6 and 9 (0.4315 -> 0.4335, 0.3886 -> 0.3931), though this run cannot separate the schedule effect from the short training. The checkpoint is a valid but not final pretraining state."
+    },
+    {
+      "id": "I2",
+      "title": "Pretraining not converged after 10 epochs",
+      "severity": "high",
+      "evidence": [
+        "val_joint per epoch: 0.6001, 0.5361, 0.4622, 0.4521, 0.4315, 0.4335, 0.4004, 0.3886, 0.3931, 0.3773; best = last epoch",
+        "Last-epoch gain vs prior best: 2.9%; change over the last 3 epochs: val_joint -5.8%, val_p1 -12.9%, val_p2 -20.8%",
+        "val_recon (-1.9%) and val_nce (-2.2%) are flat over the last 3 epochs; the remaining progress is in the physics heads",
+        "stop_reason = max_epochs, 13.345 h on a g4dn.xlarge (T4)"
+      ],
+      "impact": "Downstream numbers come from an encoder that was still improving on its own objective; probes on a converged encoder may differ. Reconstruction and contrastive terms appear saturated, so more epochs mainly move P1-P3."
+    },
+    {
+      "id": "I3",
+      "title": "Most of the training data carries no self-supervised signal",
+      "severity": "high",
+      "evidence": [
+        "Length scan of 5,071,584 train windows: 1 row 70.08%, 2-3 rows 13.35%, >= 4 rows 16.57% (24 rows: 293,922)",
+        "Losses need >= 2 rows (reconstruction) or >= 4 rows (min_rows_aux: contrastive, P1-P3), so 1-row windows produce no loss",
+        "Estimated batch mix: skipped 70.17%, reconstruction only 13.65%, all five losses 16.18% (1,075 logged real updates: 583 all-loss, 492 recon-only)",
+        "D14 length-bucketed batches put 1-row windows together, so whole batches are skipped rather than diluted"
+      ],
+      "impact": "Only ~53.5k of 179,420 batches updated the model, and only ~29k trained the contrastive and physics heads. The time per epoch is spent partly on gathering windows that cannot train. The encoder has seen 1-row windows only through the embedding of other lengths, which matters because DataReplay and DoS test windows are almost all that short."
+    },
+    {
+      "id": "I4",
+      "title": "DataReplay and DoS windows are 1-3 rows (F11): the label-free score ranks them as more normal than benign, and length alone beats the model",
+      "severity": "high",
+      "evidence": [
+        "Mean real rows on 1416 test: Benign 15.4, GridSybil 14.6, DataReplay 1.62, DoSRandom 1.24, DoSDisruptive 1.24",
+        "kNN anomaly AUROC vs benign (model / length-only): GridSybil 0.613 / 0.525, DataReplay 0.337 / 0.950, DoSRandom 0.144 / 0.965, DoSDisruptive 0.307 / 0.965",
+        "Flag rate at theta: DoSRandom 0.003, DoSDisruptive 0.045, DataReplay 0.077, below the benign rate 0.121",
+        "The memory bank is 60,000 unlabeled train windows, mostly DoS / DataReplay windows (manifest caveat), so short windows are close to the bank"
+      ],
+      "impact": "With the current window unit and an unlabeled bank dominated by attack traffic, the anomaly score cannot detect 3 of the 4 attacks; 'unlike the train mix' is not 'unlike benign'. Reporting 1 - AUROC as a detector would be choosing the score direction from test labels and is not allowed (RULE 1). The window unit for DataReplay / DoS is the open decision in agent.md section 5."
+    },
+    {
+      "id": "I5",
+      "title": "Window length is strongly encoded in z",
+      "severity": "medium",
+      "evidence": [
+        "Ridge probe recovers window length from z with R2 0.986 at init and 0.876 at epoch 10 (0.855-0.888 across epochs)",
+        "corr(|z|, length) = -0.647 at epoch 10",
+        "Length alone separates DataReplay / DoS from benign with AUROC 0.950-0.965 on 1416 test"
+      ],
+      "impact": "Any supervised probe on z can reach high scores on DataReplay / DoS through length alone; probe results must be compared against the length-only baseline and reported separately for n <= 3 and n >= 4 before they count as evidence for the central hypothesis."
+    },
+    {
+      "id": "I6",
+      "title": "Benign false-positive rate 0.121 at a threshold meant for 0.05",
+      "severity": "medium",
+      "evidence": [
+        "theta = p95 of 20,000 unlabeled train windows from check-set vehicles = 0.1868; benign_fpr_at_theta on full 1416 test = 0.121 (13,942 benign windows)",
+        "The calibration windows are the same attack-dominated, mostly 1-row train mix as the bank, while benign test windows average 15.4 rows",
+        "No validation split exists (D8'), so theta was not tuned (S1.4.4 / S2.2.2 require theta on val)"
+      ],
+      "impact": "The threshold is calibrated on a population unlike benign traffic; the most likely cause is the calibration mix (length and class composition) rather than train-test drift, but this run cannot separate the two. Flag rates are not comparable to a 5% operating point."
+    },
+    {
+      "id": "I7",
+      "title": "Physics heads succeed on injected violations only",
+      "severity": "low",
+      "evidence": [
+        "AUROC on injected violations in the check set: P1 0.489 -> 0.986, P2 0.462 -> 0.998, P3 0.513 -> 0.997",
+        "P1-P3 are trained and scored on violations we inject (D4, p = 0.5); real-data rules were label proxies or empty (F8)"
+      ],
+      "impact": "Shows the pretext task is learnable and the heads work; says nothing yet about real attacks. It should not be presented as detection."
+    },
+    {
+      "id": "I8",
+      "title": "Single seed, single run",
+      "severity": "medium",
+      "evidence": [
+        "seed 0 only; one pretraining run of model-all",
+        "S1.4.1 acceptance requires >= 3 seeds"
+      ],
+      "impact": "No variance estimate across pretraining seeds; differences of a few AUROC points (e.g. GridSybil 0.613 vs 0.525) cannot be called reliable."
+    },
+    {
+      "id": "I9",
+      "title": "Test evaluation restricted to group 1416 (F14 open)",
+      "severity": "medium",
+      "evidence": [
+        "F14: 2.5-5.9% of GridSybil_0709 test benign identities have a near-copy in train within 1 m (8-10% within 3 m) under the vehicle-key split",
+        "Manifest scope: split test, group 1416, '0709 excluded until F14 is decided'; 116,634 test windows scored"
+      ],
+      "impact": "Half of the test data is unused, and 0709 <-> 1416 transfer (S1.4.3, hypothesis H3) cannot be evaluated until F14 is fixed or documented."
+    },
+    {
+      "id": "I10",
+      "title": "No from-scratch control or frozen probes yet",
+      "severity": "high",
+      "evidence": [
+        "src/runs/evaluation/all/T24/model-all/ holds only training_summary.json; results.json from scripts/evaluate_frozen_encoder.py is absent",
+        "pretrain_monitor bar for later probes: length-only AUC 0.531 on the check set"
+      ],
+      "impact": "The central hypothesis (pretrained beats from-scratch under scarce labels) is untested; nothing in this report supports or refutes it."
+    },
+    {
+      "id": "I11",
+      "title": "Run provenance gaps: GPU memory and model not logged, training tree was dirty",
+      "severity": "low",
+      "evidence": [
+        "mem_gb is process RSS (host RAM, peak 11.52 GB); GPU memory is not logged on CUDA; env.json does not record the GPU model (T4 known only from agent.md)",
+        "env.json: git_commit b2ffd5a, git_dirty = true"
+      ],
+      "impact": "The exact code that trained the checkpoint is not fully pinned by the commit, and GPU sizing for reruns has to be guessed. Checksums of all six run files verify (all_ok = true)."
+    }
+  ],
+  "fixes": [
+    {
+      "id": "X1",
+      "title": "Fix the LR schedule and rerun pretraining",
+      "addresses": ["I1", "I2"],
+      "what": "Make the schedule horizon and the scheduler counter agree: either call self.sched.step() for skipped batches too (cosine over batches, as configured), or set total_steps to the expected number of real updates (count batches with >= 2 real rows when building the epoch). Add a test that the LR reaches ~0 at the last step of a run with skipped batches. Then rerun model-all, with --max-epochs chosen so the schedule completes.",
+      "expected_effect": "LR anneals to ~0 by the final epoch; expect a lower and smoother val_joint at the end, mainly in P1-P3 (recon and NT-Xent are already flat). The size of the gain is unknown until the rerun.",
+      "cost": "Code + test ~0.5 d; rerun ~13 h on a g4dn.xlarge at 10 epochs (less if X3 removes skipped batches)",
+      "priority": 1,
+      "plan_task": "S1.3.J3 (pretraining run) - bug fix",
+      "needs_user_ok": true
+    },
+    {
+      "id": "X2",
+      "title": "Run the frozen-encoder evaluation with controls",
+      "addresses": ["I10", "I5"],
+      "what": "npm run eval:all on EC2: linear + kNN probes on frozen z for model-all vs random-init TimesNet vs length-only vs simple statistics; binary + 5-class; 3 seeds; vehicle-bootstrap CI; every per-family number split into n <= 3 and n >= 4. Copy the folder back and rebuild the report.",
+      "expected_effect": "First evidence for or against the central hypothesis on the current checkpoint, with the length shortcut quantified; numbers will be reported as produced, including a null.",
+      "cost": "One EC2 run (minutes to a few hours) + copy-back; no code change",
+      "priority": 2,
+      "plan_task": "S1.4.1, S1.4.2, S1.4.4, S1.4.5 (random-init part)",
+      "needs_user_ok": false
+    },
+    {
+      "id": "X3",
+      "title": "Stop spending batches on 1-row windows in pretraining",
+      "addresses": ["I3", "I1"],
+      "what": "Drop windows with fewer than 2 real rows from the SSL train set (they produce no loss), or merge them into longer units once X4 decides the window unit; keep them for evaluation. Report the share removed.",
+      "expected_effect": "Every batch updates the model; ~70% fewer batches per epoch, so an epoch takes a fraction of the current 1.34 h; the I1 mismatch disappears for this data as a side effect.",
+      "cost": "~0.5 d code + tests; changes the pretraining input composition",
+      "priority": 3,
+      "plan_task": "S1.1 / S1.3 - decision (input composition)",
+      "needs_user_ok": true
+    },
+    {
+      "id": "X4",
+      "title": "Decide the sequence unit for DataReplay / DoS",
+      "addresses": ["I4", "I5", "I3"],
+      "what": "Replace per-pseudonym links for these attacks with a unit that has history: a per-receiver time window (all senders heard in the last N s), or aggregation of the pseudonyms a receiver hears from one position over time. Rebuild the all-data encoder input with that unit.",
+      "expected_effect": "Attack windows become comparable in length to benign ones, so the score and probes must use motion content rather than length; the only route to a non-trivial DataReplay / DoS result.",
+      "cost": "Decision + new pipeline notebook + rebuild (several days); needs a new pretraining run",
+      "priority": 4,
+      "plan_task": "S1.1 (re-decide the sequence unit, F11) - decision waiting on the user (agent.md section 5)",
+      "needs_user_ok": true
+    },
+    {
+      "id": "X5",
+      "title": "Add a validation split by vehicle for thresholds and model choice",
+      "addresses": ["I6"],
+      "what": "Carve a vehicle-disjoint val split out of train (e.g. 10% of train vehicles, seeded, stratified) for theta, K and probe hyperparameters, as S1.4.4 and S2.2.2 require. This changes the split (RULE 3) and must be recorded in research-plan.md.",
+      "expected_effect": "theta chosen on data like test benign traffic; benign FPR near the nominal rate becomes checkable instead of 0.121 at an untuned threshold.",
+      "cost": "~1 d including the RULE 3 record and tests",
+      "priority": 5,
+      "plan_task": "S1.4.4 / S2.2.2 - RULE 3 split change (decision)",
+      "needs_user_ok": true
+    },
+    {
+      "id": "X6",
+      "title": "Length-aware evaluation and scoring",
+      "addresses": ["I5", "I4", "I6"],
+      "what": "Always report the length-only baseline next to every number and split per-family results into n <= 3 and n >= 4 (already in evaluate_frozen_encoder.py). Optionally make the label-free score length-conditional (bank and theta per length bucket) or use length-balanced sampling in pretraining.",
+      "expected_effect": "Separates what z knows beyond length; prevents a length shortcut from being reported as detection.",
+      "cost": "Reporting: none beyond X2. Length-conditional score or balanced sampling: ~1 d, changes the method",
+      "priority": 6,
+      "plan_task": "S1.4.2 / S1.4.4 (reporting); method change is a decision",
+      "needs_user_ok": true
+    },
+    {
+      "id": "X7",
+      "title": "Three pretraining seeds",
+      "addresses": ["I8"],
+      "what": "After X1 (and X3 / X4 if accepted), pretrain with seeds 0, 1, 2 under the same config and evaluate each with X2.",
+      "expected_effect": "Seed variance for every headline number; required by S1.4.1.",
+      "cost": "3 x one pretraining run on EC2 (up to ~13 h each at the current data; less after X3)",
+      "priority": 7,
+      "plan_task": "S1.4.1 (>= 3 seeds)",
+      "needs_user_ok": true
+    },
+    {
+      "id": "X8",
+      "title": "Resolve F14 so 0709 can be tested",
+      "addresses": ["I9"],
+      "what": "Link cars across families by trajectory (same start +-1 s / 10 m, median gap <= 3 m over >= half the track), union-find, split by component; or document it as a limitation and keep 1416-only test.",
+      "expected_effect": "Unlocks 0709 test windows and the 0709 <-> 1416 transfer experiment (S1.4.3).",
+      "cost": "~1-2 d + rebuild of all/T24 splits (RULE 3 change)",
+      "priority": 8,
+      "plan_task": "F14 decision (agent.md section 5); S1.4.3",
+      "needs_user_ok": true
+    },
+    {
+      "id": "X9",
+      "title": "Log GPU model and GPU memory, train from a clean tree",
+      "addresses": ["I11"],
+      "what": "Record torch.cuda.get_device_name and torch.cuda.max_memory_allocated in env.json / metrics.jsonl; commit before a run so git_dirty is false.",
+      "expected_effect": "Complete provenance for the rerun (RULE 4).",
+      "cost": "< 0.5 d",
+      "priority": 9,
+      "plan_task": "RULE 4 reproducibility (S1.3 tooling)",
+      "needs_user_ok": false
+    },
+    {
+      "id": "X10",
+      "title": "Then few-shot fine-tuning",
+      "addresses": ["I10"],
+      "what": "Supervised contrastive fine-tuning with n in {10, 20, 30, 50}, A17 DataReplay held out, memory bank + kNN score with K and theta on val, against TimesNet from scratch.",
+      "expected_effect": "The label-efficiency result the thesis is about.",
+      "cost": "~14.5 d (WBS section 4)",
+      "priority": 10,
+      "plan_task": "S2.0-S2.3 (deferred)",
+      "needs_user_ok": true
+    }
+  ],
+  "direction": [
+    "Run npm run eval:all on the current checkpoint now: it costs no code and gives the first frozen-probe numbers against the random-init and length-only controls (X2).",
+    "Fix the LR schedule with a test (X1), log GPU details (X9), and decide whether 1-row windows leave the SSL set (X3) before spending GPU time again.",
+    "Decide the sequence unit for DataReplay / DoS (X4); without it, 3 of 4 attacks can only be separated by length.",
+    "Add a vehicle-disjoint validation split (X5) and decide F14 (X8), both recorded as RULE 3 changes, so thresholds are tuned and both scenario groups can be tested.",
+    "Rerun pretraining on the corrected setup with 3 seeds (X7) and repeat the frozen evaluation with length-split reporting (X6).",
+    "Only then start few-shot fine-tuning and the memory-bank detector (S2, X10)."
+  ],
+  "limitations": [
+    "All training numbers are pretraining health on the label-free check set (10% of train vehicles, 8,192 evaluation windows), not detection results.",
+    "The anomaly-score numbers use an untuned threshold (no validation split, D8') and a bank of unlabeled train windows that are mostly attack traffic.",
+    "Test covers scenario group 1416 only (116,634 windows); group 0709 waits on F14.",
+    "Benign test windows are pooled over the 4 families, which re-simulate the same traffic (F1), so benign windows repeat across families.",
+    "One seed, one run; the run used a learning-rate schedule that did not decay (I1) and stopped before convergence (I2).",
+    "Only attack codes A0 and A16-A19 exist locally; the full 19-attack VeReMi-Extension is not used.",
+    "No frozen-probe, from-scratch, Transformer or objective-ablation results exist yet."
+  ],
+  "pending": [
+    "Frozen-encoder evaluation (npm run eval:all -> src/runs/evaluation/all/T24/model-all/results.json + report_data.json): probes for model-all vs random-init vs length-only vs simple statistics, 3 seeds, vehicle-bootstrap CI, n <= 3 vs n >= 4.",
+    "User decision: fix the LR schedule and rerun model-all (GPU time).",
+    "User decision: sequence unit for DataReplay / DoS (F11).",
+    "User decision: drop or merge 1-row windows in pretraining.",
+    "User decision: vehicle-disjoint validation split (RULE 3).",
+    "User decision: F14 fix or documented limitation.",
+    "model-grid (benign_gridsybil/T64) run: still training at the time of writing; not covered here."
+  ]
+}

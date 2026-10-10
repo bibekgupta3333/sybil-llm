@@ -41,6 +41,7 @@ The current project state is in the root [`agent.md`](../agent.md); file paths b
 | [`stage1-input-slides.html`](../stage1-input-slides.html) | live | 44-slide deck on the pretraining input representation, for the professor |
 | [`encoder-shapes.html`](../encoder-shapes.html) | live | matrix shapes and parameter counts through the encoder, with animations |
 | [`pretraining-explained.html`](../pretraining-explained.html) | live | the pretraining run step by step: data, batches, losses, update, evaluation, checkpoints |
+| [`model-all-report.html`](../model-all-report.html) | live (generated) | findings on `model-all` for the professor: pipeline, training health, label-free test scores, frozen probes (when run), diagnosis, fixes; built by `npm run report:model-all` (`scripts/build_model_report.py`) from the run summary, detection manifest, `docs/reports/model-all-findings.json` |
 | [`proposal/thesis-proposal-presentation.html`](../proposal/thesis-proposal-presentation.html) | proposal-era | proposal defence slides |
 
 ## Data understanding — `docs/research-notes/data_understanding/` (reference)

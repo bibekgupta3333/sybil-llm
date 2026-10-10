@@ -279,7 +279,7 @@ class App {
     window.addEventListener("keydown", (e) => {
       const target = e.target as HTMLElement | null;
       if (target && ["INPUT", "SELECT", "TEXTAREA"].includes(target.tagName)) return;
-      if (document.body.dataset.tab === "encoder") return;
+      if (document.body.dataset.tab && document.body.dataset.tab !== "legacy") return;
       const stride = this.dataset.manifest.stride;
       switch (e.key) {
         case " ": this.playback.toggle(); break;
@@ -315,29 +315,50 @@ function el<T extends HTMLElement = HTMLElement>(id: string): T {
   return node as T;
 }
 
+type TabName = "legacy" | "encoder" | "detection";
+
+/** Tabs other than the legacy replay: each owns a hash prefix and is loaded with a dynamic import on first open. */
+const VIEW_TABS: Record<Exclude<TabName, "legacy">, { prefix: string; viewId: string; sub: string; mount: (root: HTMLElement) => Promise<unknown> }> = {
+  encoder: {
+    prefix: "#encoder",
+    viewId: "encoder-view",
+    sub: "What the encoder reads: 64 × 13 windows + mask, benign + GridSybil, receiver view. Sample of the full encoder input.",
+    mount: (root) => import("./encoder/encoder_app").then(({ EncoderApp }) => EncoderApp.mount(root)),
+  },
+  detection: {
+    prefix: "#detection",
+    viewId: "detection-view",
+    sub: "Can the trained model spot attacks? Pick a window, let the model decide, then see the answer.",
+    mount: (root) => import("./detection/detection_app").then(({ DetectionApp }) => DetectionApp.mount(root)),
+  },
+};
+
+const VIEW_TAB_NAMES = Object.keys(VIEW_TABS) as Exclude<TabName, "legacy">[];
+
 /**
- * Top-level tabs: the legacy window replay and the encoder-input view. The encoder view is loaded with a
- * dynamic import on first open; `#encoder…` hashes open it directly (and are owned by the encoder view).
+ * Top-level tabs: the legacy window replay, the encoder-input view and the detection view. View tabs are
+ * loaded on first open; `#encoder…` / `#detection…` hashes open them directly (and are owned by that view).
  */
 class TabController {
-  private encoderMounted: Promise<unknown> | null = null;
+  private readonly mounted = new Map<TabName, Promise<unknown>>();
   private readonly legacySub: string;
-  /** Last encoder view, restored when the tab is reopened. */
-  private lastEncoderHash = "#encoder";
+  /** Last hash of each view tab, restored when the tab is reopened. */
+  private readonly lastHash = new Map<TabName, string>();
 
   constructor() {
     this.legacySub = document.querySelector(".topbar .sub")?.textContent ?? "";
     el("tabbar").addEventListener("click", (e) => {
-      const tab = (e.target as HTMLElement).closest<HTMLElement>("[data-tab]")?.dataset.tab;
-      if (tab === "encoder") {
-        if (!location.hash.startsWith("#encoder")) location.hash = this.lastEncoderHash;
-        else this.show("encoder");
-      } else if (tab === "legacy") {
-        if (location.hash.startsWith("#encoder")) {
-          this.lastEncoderHash = location.hash;
-          history.pushState(null, "", location.pathname + location.search);
-        }
+      const tab = (e.target as HTMLElement).closest<HTMLElement>("[data-tab]")?.dataset.tab as TabName | undefined;
+      if (!tab) return;
+      const current = this.tabOfHash(location.hash);
+      if (current !== "legacy") this.lastHash.set(current, location.hash);
+      if (tab === "legacy") {
+        if (current !== "legacy") history.pushState(null, "", location.pathname + location.search);
         this.show("legacy");
+      } else if (current !== tab) {
+        location.hash = this.lastHash.get(tab) ?? VIEW_TABS[tab].prefix;
+      } else {
+        this.show(tab);
       }
     });
     window.addEventListener("hashchange", () => this.fromHash());
@@ -345,37 +366,37 @@ class TabController {
     this.fromHash();
   }
 
-  private fromHash(): void {
-    this.show(location.hash.startsWith("#encoder") ? "encoder" : "legacy");
+  private tabOfHash(hash: string): TabName {
+    return VIEW_TAB_NAMES.find((t) => hash.startsWith(VIEW_TABS[t].prefix)) ?? "legacy";
   }
 
-  private show(tab: "legacy" | "encoder"): void {
-    const isEncoder = tab === "encoder";
+  private fromHash(): void {
+    this.show(this.tabOfHash(location.hash));
+  }
+
+  private show(tab: TabName): void {
+    const isLegacy = tab === "legacy";
     document.body.dataset.tab = tab;
     document.querySelectorAll<HTMLElement>("#tabbar [data-tab]").forEach((b) => {
       b.classList.toggle("on", b.dataset.tab === tab);
       b.setAttribute("aria-selected", String(b.dataset.tab === tab));
     });
-    document.querySelector(".workspace")?.toggleAttribute("hidden", isEncoder);
-    el("transport").hidden = isEncoder;
-    el("status").hidden = isEncoder;
-    el("encoder-view").hidden = !isEncoder;
+    document.querySelector(".workspace")?.toggleAttribute("hidden", !isLegacy);
+    el("transport").hidden = !isLegacy;
+    el("status").hidden = !isLegacy;
+    for (const t of VIEW_TAB_NAMES) el(VIEW_TABS[t].viewId).hidden = t !== tab;
     const sub = document.querySelector(".topbar .sub");
-    if (sub) {
-      sub.textContent = isEncoder
-        ? "What the encoder reads: 64 × 13 windows + mask, benign + GridSybil, receiver view. Sample of the full encoder input."
-        : this.legacySub;
-    }
-    if (isEncoder && !this.encoderMounted) {
-      this.encoderMounted = import("./encoder/encoder_app")
-        .then(({ EncoderApp }) => EncoderApp.mount(el("encoder-view")))
-        .catch((err: unknown) => {
-          el("encoder-view").textContent = `failed to load the encoder view: ${err instanceof Error ? err.message : String(err)}`;
-          console.error(err);
-        });
+    if (sub) sub.textContent = isLegacy ? this.legacySub : VIEW_TABS[tab].sub;
+    if (!isLegacy && !this.mounted.has(tab)) {
+      const spec = VIEW_TABS[tab];
+      const root = el(spec.viewId);
+      this.mounted.set(tab, spec.mount(root).catch((err: unknown) => {
+        root.textContent = `failed to load the ${tab} view: ${err instanceof Error ? err.message : String(err)}`;
+        console.error(err);
+      }));
     }
     // Legacy canvases were measured while hidden; nudge their ResizeObservers.
-    if (!isEncoder) window.dispatchEvent(new Event("resize"));
+    if (isLegacy) window.dispatchEvent(new Event("resize"));
   }
 }
 

@@ -195,3 +195,44 @@ from `src/data/encoder_input/benign_gridsybil/T64/`. Code lives in `src/encoder/
 - **Predictions (later):** add `public/data/encoder/predictions/<model>.json` (`{window_id: {score, pred}}`) and list
   it in `predictions/index.json` with checkpoint hash, seed, training splits and the val threshold; the detection
   panel then shows scores and warns on windows from the model's training split.
+
+## Detection tab (model-all, label-free)
+
+A third tab, **"Detection (model-all)"**, shows what the pretrained `model-all` encoder (`--dataset all`, T = 24) does on
+test windows without any fine-tuning: a label-free kNN anomaly score (plan task S1.4.4). Code lives in
+`src/detection/` (core + tests in `core/`, histogram canvas in `render/`, DOM in `ui/`), loaded on first open; it reuses
+the encoder tab's helpers (`dom`, `StaticCanvas`, `SpatialMap`, colours, `.enc-*` styles).
+
+- **Data:** `npm run sim:detect` (repo root, = `scripts/export_detection_sample.py`) writes `public/data/detection/`
+  (`manifest.json` schema 1 + `x.f32` = little-endian float32 real rows in **raw units**, `n × 13` per window,
+  concatenated in `windows` order, `offset` = first row). Without it the tab says to run that command. The loader
+  checks that offsets are contiguous and cover `x.f32` exactly, so a stale or truncated bundle fails loudly.
+- **Method (from the manifest, not computed here):** score = 1 − mean cosine similarity of the window's embedding to
+  its K nearest neighbours in a bank of unlabeled train windows; θ = a label-free train-score quantile (no val split
+  exists, D8′, so θ is not tuned). Scope: test split, group 1416 only (0709 waits on F14).
+- **Panels:** caveats + model / method / scope cards; metrics per class for the scored sample and the full 1416 test
+  split (AUROC vs benign, length-only baseline AUROC, flag rate at θ, n, mean rows — values verbatim, `—` = null);
+  score histogram per class on one axis with the θ line and the selected window's marker; window list (filter by
+  true class and flagged / not flagged, sort by score); selected-window detail (score, `rank_pct`, flag, true class
+  badged "evaluation only", claimed vs receiver positions in metres, the n × 13 feature rows as a shaded table).
+- **Labels** are evaluation only: the exporter reads them after scoring; the page uses them for filtering and metrics.
+- **Links:** `#detection?cls=…&flag=…&sort=…&win=…` reopens the same view.
+
+### Layout (simplified)
+
+The tab (**"Detect attacks"**) opens in **Test yourself** mode and reads top to bottom:
+
+1. **The window card** with three steps — *Look* (the trajectory: where the sender says it is vs where the receiver
+   is) → **Let the model decide** (“ATTACK” / “normal” and an unusualness bar with the alarm threshold) → **Show the
+   answer** (the true class and, in plain words, *attack caught / false alarm / correctly left alone / attack missed*).
+   Score, threshold, rank, scenario and window id sit under *Technical details*; the raw 13-feature rows under
+   *Raw message values*.
+2. **How well does it work?** — one small table per attack: share caught, the model's AUROC, the length-only rule's
+   AUROC, and whether the model beats that rule; plus the false-alarm rate on normal traffic.
+3. Folded: **Score chart** (per-class histograms, threshold line) and **How it works** (four-line method, caveats,
+   the exact exporter numbers verbatim, checkpoint and threshold rule).
+
+**Test yourself** lists windows in a fixed shuffled order as `Window #n` with only their length — no score, alarm,
+class, scenario or id — and the URL holds only `win=q<n>` (the sample order and the id would give the class away).
+**🎲 Random window** picks an unseen one; the sidebar counts how often the model was right (this session only).
+**Explore** shows every step at once and adds class / alarm filters.

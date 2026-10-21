@@ -42,6 +42,7 @@ The current project state is in the root [`agent.md`](../agent.md); file paths b
 | [`encoder-shapes.html`](../encoder-shapes.html) | live | matrix shapes and parameter counts through the encoder, with animations |
 | [`pretraining-explained.html`](../pretraining-explained.html) | live | the pretraining run step by step: data, batches, losses, update, evaluation, checkpoints |
 | [`model-all-report.html`](../model-all-report.html) | live (generated) | findings on `model-all` for the professor: pipeline, training health, label-free test scores, frozen probes (when run), diagnosis, fixes; built by `npm run report:model-all` (`scripts/build_model_report.py`) from the run summary, detection manifest, `docs/reports/model-all-findings.json` |
+| [`sybil-trajectory-slides.html`](../sybil-trajectory-slides.html) | live | 13-slide step-by-step planning deck for the professor (no model results): what a Sybil attack and an identity are, which VeReMi-Extension attacks show a Sybil in a trajectory (GridSybil yes, DataReplaySybil partial, DoS Sybils no), the link unit and window length T (padding vs context, buckets), what the self-supervised encoder learns and outputs (z), the plan (from `research-notes/trajectory-sybil-attacks.md`, `varemi.txt`, `src/eda/eda_window_size.ipynb`) |
 | [`proposal/thesis-proposal-presentation.html`](../proposal/thesis-proposal-presentation.html) | proposal-era | proposal defence slides |
 
 ## Data understanding — `docs/research-notes/data_understanding/` (reference)
@@ -55,6 +56,7 @@ is described in `docs/plan/stage1-preprocessing-feature-engineering.md`.
 | [`veremi-dataset-structure.md`](research-notes/data_understanding/veremi-dataset-structure.md) | folder layout and log record types of VeReMi-Extension |
 | [`field-reference.md`](research-notes/data_understanding/field-reference.md) | every field in the BSM / GPS records |
 | [`attack-taxonomy.md`](research-notes/data_understanding/attack-taxonomy.md) | the attack codes and what each Sybil attack does |
+| [`../trajectory-sybil-attacks.md`](research-notes/trajectory-sybil-attacks.md) | which Sybil attacks are recognisable from trajectories (paper + 1416 data): GridSybil strong, DataReplay partial, DoS variants not trajectory attacks |
 | [`class-balance.md`](research-notes/data_understanding/class-balance.md) | class counts per scenario |
 | [`split-protocol.md`](research-notes/data_understanding/split-protocol.md) | the v1 split protocol (superseded: D8 / D8′) |
 | [`cross-scenario-leak.md`](research-notes/data_understanding/cross-scenario-leak.md) | finding F1: the v1 split leaks across scenarios |

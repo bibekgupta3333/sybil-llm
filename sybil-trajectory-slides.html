@@ -1,0 +1,1617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sybil Attacks from Trajectories</title>
+<meta name="description" content="Nineteen planning-review slides (2026-10-21): what a Sybil attack and a pseudonym (identity) are, which VeReMi-Extension attacks show a Sybil in vehicle trajectories, how a vehicular network logs messages, the link as data unit, window length T, padding, overlap and stride, and the preprocessing recipe, what the self-supervised encoder learns and outputs, whether the data is enough, the plan, and the decisions for today. Speaker notes on N. No model results.">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* Design tokens: same palette as stage1-input-slides.html, plus a dark set */
+  :root {
+    --primary: #2563EB; --primary-dark: #1E3A8A; --primary-light: #DBEAFE;
+    --accent: #8B5CF6;
+    --good: #16A34A; --warn: #F59E0B; --bad: #DC2626;
+    --muted: #64748B; --border: #E2E8F0; --divider: #CBD5E1;
+    --card: #FFFFFF; --alt: #F1F5F9; --page: #F8FAFC;
+    --text: #0F172A; --text-2: #475569;
+    --fill-good: #DCFCE7; --fill-good-text: #166534; --line-good: #BBF7D0;
+    --fill-info: #DBEAFE; --fill-info-text: #1E40AF; --line-info: #BFDBFE;
+    --fill-warn: #FEF3C7; --fill-warn-text: #92400E; --line-warn: #FDE68A;
+    --fill-bad: #FEE2E2; --fill-bad-text: #991B1B; --line-bad: #FECACA;
+    --c-benign: #16A34A; --c-grid: #BE185D; --c-replay: #0284C7; --c-dosrand: #7C3AED; --c-dosdis: #EA580C;
+    --c-len: #94A3B8; --c-len-text: #0F172A;
+    --hero-glow: rgba(219,234,254,1);
+    --shadow: 0 1px 2px rgba(15,23,42,.05), 0 4px 16px rgba(15,23,42,.06);
+    --chrome-h: 112px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --primary: #60A5FA; --primary-dark: #BFDBFE; --primary-light: #1E3A8A;
+      --accent: #A78BFA;
+      --good: #4ADE80; --warn: #FBBF24; --bad: #F87171;
+      --muted: #94A3B8; --border: #334155; --divider: #475569;
+      --card: #111827; --alt: #1E293B; --page: #0B1120;
+      --text: #F1F5F9; --text-2: #CBD5E1;
+      --fill-good: #052E16; --fill-good-text: #BBF7D0; --line-good: #166534;
+      --fill-info: #172554; --fill-info-text: #BFDBFE; --line-info: #1E40AF;
+      --fill-warn: #422006; --fill-warn-text: #FDE68A; --line-warn: #92400E;
+      --fill-bad: #450A0A; --fill-bad-text: #FECACA; --line-bad: #991B1B;
+      --c-benign: #4ADE80; --c-grid: #F472B6; --c-replay: #38BDF8; --c-dosrand: #A78BFA; --c-dosdis: #FB923C;
+      --c-len: #64748B; --c-len-text: #FFFFFF;
+      --hero-glow: rgba(30,58,138,.55);
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.35);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --primary: #60A5FA; --primary-dark: #BFDBFE; --primary-light: #1E3A8A;
+    --accent: #A78BFA;
+    --good: #4ADE80; --warn: #FBBF24; --bad: #F87171;
+    --muted: #94A3B8; --border: #334155; --divider: #475569;
+    --card: #111827; --alt: #1E293B; --page: #0B1120;
+    --text: #F1F5F9; --text-2: #CBD5E1;
+    --fill-good: #052E16; --fill-good-text: #BBF7D0; --line-good: #166534;
+    --fill-info: #172554; --fill-info-text: #BFDBFE; --line-info: #1E40AF;
+    --fill-warn: #422006; --fill-warn-text: #FDE68A; --line-warn: #92400E;
+    --fill-bad: #450A0A; --fill-bad-text: #FECACA; --line-bad: #991B1B;
+    --c-benign: #4ADE80; --c-grid: #F472B6; --c-replay: #38BDF8; --c-dosrand: #A78BFA; --c-dosdis: #FB923C;
+    --c-len: #64748B; --c-len-text: #FFFFFF;
+    --hero-glow: rgba(30,58,138,.55);
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.35);
+    color-scheme: dark;
+  }
+
+  html, body { height: 100%; }
+  body {
+    background: var(--page); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 14px; line-height: 1.5;
+    display: flex; flex-direction: column; align-items: center;
+    overflow-x: hidden;
+  }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .86em; background: var(--alt); padding: .05em .35em; border-radius: 4px; color: var(--text); }
+
+  /* ---------- Deck chrome (same as stage1-input-slides.html) ---------- */
+  .deck { width: min(100vw - 32px, (100vh - var(--chrome-h)) * 16 / 9); max-width: 1600px; margin: 12px auto; display: flex; flex-direction: column; outline: none; }
+  .deck-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--alt); border: 1px solid var(--border); border-bottom: 0; border-radius: 12px 12px 0 0; }
+  .deck-bar .spacer { flex: 1; min-width: 0; }
+  .deck-btn { font: inherit; font-size: 13px; font-weight: 500; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+  .deck-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .deck-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+  .deck-btn:disabled { opacity: .45; cursor: default; border-color: var(--border); color: var(--text); }
+  .deck-counter { font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .deck-title { font-size: 13px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .deck-progress { height: 4px; background: var(--border); }
+  .deck-progress > span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width .3s ease; }
+
+  .stage { container-type: inline-size; position: relative; aspect-ratio: 16 / 9; width: 100%; overflow: hidden; background: var(--card); border: 1px solid var(--border); border-top: 0; border-radius: 0 0 12px 12px; box-shadow: var(--shadow); cursor: pointer; }
+  .deck:fullscreen { width: 100vw; height: 100vh; max-width: none; margin: 0; justify-content: center; background: var(--page); padding: 0 max(0px, calc((100vw - (100vh - 60px) * 16 / 9) / 2)); }
+  .deck:fullscreen .stage { border-radius: 0; }
+
+  .dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 12px 8px 4px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; border: 0; background: var(--divider); cursor: pointer; padding: 0; }
+  .dot:hover { background: var(--muted); }
+  .dot.is-active { background: var(--primary); transform: scale(1.25); }
+  .dot:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .hint { font-size: 12px; color: var(--muted); text-align: center; padding: 2px 8px 12px; }
+
+  /* ---------- Slides: bigger type than the input deck (read from the back of a room) ---------- */
+  .slide { position: absolute; inset: 0; display: none; flex-direction: column; padding: 3cqw 4cqw 2cqw; overflow: auto; font-size: clamp(14px, 2.15cqw, 32px); color: var(--text-2); line-height: 1.38; cursor: auto; }
+  .slide.is-active { display: flex; animation: fade .25s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .slide > * + * { margin-top: .5em; }
+  .slide strong, .slide b { color: var(--text); font-weight: 650; }
+
+  .kicker { font-size: .6em; font-weight: 650; text-transform: uppercase; letter-spacing: .08em; color: var(--primary); }
+  .slide h2 { font-size: 1.62em; font-weight: 750; color: var(--text); letter-spacing: -.02em; line-height: 1.12; margin-top: .1em; }
+  .lead { font-size: 1em; color: var(--text-2); }
+
+  .cols { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: 2.2cqw; align-items: start; flex: 0 0 auto; margin-top: .8em; }
+  .col { min-width: 0; display: flex; flex-direction: column; gap: .55em; }
+
+  .card { background: var(--alt); border: 1px solid var(--border); border-left: 5px solid var(--divider); border-radius: 10px; padding: .55em .8em; color: var(--text-2); }
+  .card > b:first-child { display: block; margin-bottom: .1em; }
+  .card.good { background: var(--fill-good); border-color: var(--line-good); border-left-color: var(--good); }
+  .card.warn { background: var(--fill-warn); border-color: var(--line-warn); border-left-color: var(--warn); }
+  .card.bad  { background: var(--fill-bad);  border-color: var(--line-bad);  border-left-color: var(--bad); }
+  .card.info { background: var(--fill-info); border-color: var(--line-info); border-left-color: var(--primary); }
+  .card.good, .card.warn, .card.bad, .card.info { color: var(--text); }
+
+  table.tbl { width: 100%; border-collapse: collapse; font-size: .78em; font-variant-numeric: tabular-nums; }
+  table.tbl th { text-align: left; font-size: .78em; font-weight: 650; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; padding: .4em .55em; border-bottom: 1.5px solid var(--border); background: var(--alt); vertical-align: bottom; }
+  table.tbl td { padding: .38em .55em; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+  table.tbl td.num, table.tbl th.num { text-align: right; white-space: nowrap; }
+  table.tbl tr:last-child td { border-bottom: 0; }
+  table.tbl td.hi { background: var(--fill-warn); font-weight: 700; }
+  table.tbl td.dim { color: var(--muted); }
+
+  .note { margin-top: auto !important; padding-top: .55em; border-top: 1px dashed var(--border); font-size: .55em; color: var(--muted); line-height: 1.4; flex-shrink: 0; }
+
+  .sw { display: inline-block; width: .7em; height: .7em; border-radius: 3px; margin-right: .4em; vertical-align: .02em; }
+  .a-benign { background: var(--c-benign); } .a-grid { background: var(--c-grid); } .a-replay { background: var(--c-replay); }
+  .a-dosrand { background: var(--c-dosrand); } .a-dosdis { background: var(--c-dosdis); }
+
+  /* Slide 1: hero + verdicts + 19-behaviour map */
+  .s1 { background: radial-gradient(120% 90% at 100% 0%, var(--hero-glow) 0%, transparent 55%), var(--card); }
+  .verdicts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.4cqw; margin-top: .9em !important; }
+  .verdict { border-radius: 12px; padding: .6em .8em; border: 1px solid var(--border); border-top: 6px solid var(--divider); background: var(--alt); }
+  .verdict .v { display: block; font-size: 1.35em; font-weight: 800; letter-spacing: -.01em; }
+  .verdict .who { display: block; color: var(--text); font-weight: 650; }
+  .verdict .why { display: block; font-size: .78em; color: var(--text-2); margin-top: .15em; }
+  .verdict.yes { border-top-color: var(--good); } .verdict.yes .v { color: var(--good); }
+  .verdict.part { border-top-color: var(--warn); } .verdict.part .v { color: var(--warn); }
+  .verdict.no { border-top-color: var(--bad); } .verdict.no .v { color: var(--bad); }
+  .map { margin-top: 1.4em !important; }
+  .map-head { font-size: .8em; color: var(--text-2); margin-bottom: .35em; }
+  .map-head b { color: var(--text); }
+  .tiles { display: grid; grid-template-columns: repeat(23, minmax(0, 1fr)); gap: 3px; }
+  .tile.syb { grid-column: span 2; }
+  .tile { min-height: 4.6em; border-radius: 6px; background: var(--alt); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; padding: .2em .05em; font-size: .4em; line-height: 1.1; color: var(--muted); text-align: center; overflow-wrap: normal; hyphens: manual; }
+  .tile.syb { color: #fff; font-weight: 700; border: 0; font-size: .44em; }
+  .tile.syb.grid { background: var(--c-grid); } .tile.syb.replay { background: var(--c-replay); }
+  .tile.syb.dosrand { background: var(--c-dosrand); } .tile.syb.dosdis { background: var(--c-dosdis); }
+  :root[data-theme="dark"] .tile.syb { color: #0B1120; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tile.syb { color: #0B1120; } }
+  .tiles.big { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 5px; }
+  .tile-legend { display: flex; justify-content: space-between; font-size: .55em; color: var(--muted); margin-top: .25em; }
+
+  /* Slide 2: life length bars */
+  .bar { position: relative; height: .7em; background: var(--alt); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; min-width: 4em; }
+  .bar > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; }
+  .barcell { display: flex; align-items: center; gap: .45em; }
+  .barcell .bar { flex: 1 1 auto; }
+  .barcell b { min-width: 3.1em; text-align: right; }
+  .quote { font-style: italic; color: var(--text-2); font-size: .92em; }
+
+  /* Slide 1 callout + slide 4 table */
+  .same { margin-top: .8em !important; font-size: .82em; }
+  .same .quote { color: var(--text); }
+  .tag { display: inline-block; font-size: .85em; font-weight: 700; border-radius: 999px; padding: .05em .55em; white-space: nowrap; }
+  .tag.yes { background: var(--fill-good); color: var(--fill-good-text); border: 1px solid var(--line-good); }
+  .tag.no { background: var(--fill-bad); color: var(--fill-bad-text); border: 1px solid var(--line-bad); }
+  table.why-tbl { font-size: .74em; }
+  table.why-tbl td { vertical-align: top; }
+
+  /* Slide 5: window length T */
+  .len-tbl td.num, .len-tbl th.num { text-align: right; }
+  table.len-tbl { font-size: .74em; }
+  .tchart { display: flex; flex-direction: column; gap: .45em; }
+  .trow { display: grid; grid-template-columns: 3.4em minmax(0, 1fr); gap: .5em; align-items: center; padding: .3em .5em; border-radius: 8px; border: 1px solid var(--border); background: var(--alt); }
+  .trow.pick { border-color: var(--good); box-shadow: inset 4px 0 0 var(--good); }
+  .trow .tl { font-weight: 750; color: var(--text); font-size: .95em; white-space: nowrap; }
+  .trow .tl small { display: block; font-weight: 500; font-size: .62em; color: var(--muted); }
+  .tbars { display: flex; flex-direction: column; gap: .2em; font-size: .72em; }
+  .tbar { display: grid; grid-template-columns: 6.2em minmax(0, 1fr) 2.6em; gap: .45em; align-items: center; }
+  .tbar span { color: var(--text-2); white-space: nowrap; }
+  .tbar b { text-align: right; font-variant-numeric: tabular-nums; }
+  .tbar .bar { height: .85em; }
+  .i-whole { background: var(--good); } .i-pad { background: var(--warn); }
+  .tlegend { font-size: .62em; color: var(--muted); }
+  .strip-wrap { font-size: .78em; }
+  .strip { display: grid; grid-template-columns: repeat(48, minmax(0, 1fr)); gap: 1px; margin: .3em 0 .2em; }
+  .strip i { display: block; height: 1.3em; border-radius: 2px; background: repeating-linear-gradient(135deg, var(--alt) 0 3px, var(--border) 3px 5px); border: 1px solid var(--border); }
+  .strip i.real { background: var(--c-grid); border-color: var(--c-grid); }
+  .strip i.real.b { background: var(--c-benign); border-color: var(--c-benign); }
+  .strip-cap { display: flex; justify-content: space-between; gap: .5em; font-size: .78em; color: var(--muted); }
+  .tpick { font-size: .82em; }
+
+  /* Slide 6 */
+  .recs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2cqw; margin-top: .8em !important; }
+  .recs .card { font-size: .95em; }
+
+  /* ---------- Mobile (≈390 px): stack, no fixed aspect ---------- */
+  @media (max-width: 700px) {
+    .deck { width: calc(100vw - 32px); margin: 8px 16px; }
+    .deck-bar { flex-wrap: wrap; gap: 6px; padding: 8px; }
+    .deck-title { order: 10; flex: 1 1 100%; white-space: normal; }
+    .deck-bar .spacer { display: none; }
+    .deck-btn { padding: 6px 10px; }
+    .stage { aspect-ratio: auto; min-height: 60vh; container-type: normal; cursor: auto; }
+    .slide { position: relative; inset: auto; padding: 18px 16px 14px; font-size: 15px; overflow: visible; }
+    .slide h2 { font-size: 22px; }
+    .kicker { font-size: 11px; }
+    .note { font-size: 11.5px; margin-top: 1em !important; }
+    .cols { grid-auto-flow: row; grid-template-columns: 1fr; gap: 14px; }
+    .verdicts, .recs { grid-template-columns: 1fr; gap: 8px; }
+    .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .tile.syb { grid-column: span 2; }
+    .tile { font-size: 9.5px; min-height: 2.6em; }
+    .tile.syb { font-size: 10px; }
+    .wrap-x { overflow-x: auto; }
+    table.tbl { min-width: 680px; }
+    .quote { display: block; min-width: 14em; }
+    .same .quote { display: inline; min-width: 0; }
+    table.why-tbl { min-width: 0; }
+    table.len-tbl { min-width: 0; font-size: 13px; }
+    .strip i { height: 14px; }
+    table.why-tbl thead { display: none; }
+    table.why-tbl tr { display: block; padding: .5em 0; border-bottom: 1px solid var(--border); }
+    table.why-tbl tr:last-child { border-bottom: 0; }
+    table.why-tbl td { display: block; border: 0; padding: .1em .2em; }
+    table.why-tbl td:nth-child(2)::before { content: "Identities: "; color: var(--muted); }
+  }
+
+  /* ---------- Print / PDF: one slide per page ---------- */
+  @media print {
+    @page { size: 13.333in 7.5in; margin: 0; }
+    html, body { height: auto; background: #fff; display: block; }
+    .deck-bar, .deck-progress, .dots, .hint { display: none !important; }
+    .deck { width: 13.333in; max-width: none; margin: 0; }
+    .stage { aspect-ratio: auto; overflow: visible; border: 0; border-radius: 0; box-shadow: none; container-type: normal; }
+    .slide, .slide.is-active { display: flex !important; position: relative; inset: auto; width: 13.333in; height: 7.5in; overflow: hidden; animation: none; break-after: page; page-break-after: always; font-size: 21px !important; padding: 28px 40px 18px; }
+    .slide:last-child { break-after: auto; page-break-after: auto; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+  @media (prefers-reduced-motion: reduce) { .slide.is-active { animation: none; } .deck-progress > span { transition: none; } }
+
+  /* ---------- Step-by-step deck additions ---------- */
+  .kicker .part { color: var(--muted); font-weight: 600; }
+  .slide h2 { font-size: 1.5em; }
+  .roadmap { list-style: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1.2cqw; margin-top: 1.1em !important; counter-reset: part; }
+  .roadmap li { position: relative; background: var(--alt); border: 1px solid var(--border); border-top: 5px solid var(--primary); border-radius: 10px; padding: .55em .7em .6em; font-size: .82em; color: var(--text-2); }
+  .roadmap li b { display: block; color: var(--text); font-size: 1.05em; line-height: 1.2; margin: .15em 0 .2em; }
+  .roadmap li .pl { font-size: .72em; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--primary); }
+  .roadmap li .st { display: block; font-size: .78em; color: var(--muted); margin-top: .3em; }
+  .roadmap li:nth-child(2) { border-top-color: var(--c-grid); } .roadmap li:nth-child(3) { border-top-color: var(--warn); }
+  .roadmap li:nth-child(4) { border-top-color: var(--accent); } .roadmap li:nth-child(5) { border-top-color: var(--good); }
+
+  svg.fig { display: block; width: 100%; height: auto; font-family: inherit; overflow: visible; }
+  svg.fig text { fill: var(--text); font-size: 15px; }
+  svg.fig .t-muted { fill: var(--muted); }
+  svg.fig .t-2 { fill: var(--text-2); }
+  svg.fig .t-b { font-weight: 700; }
+  svg.fig .t-sm { font-size: 12.5px; }
+  svg.fig .t-lg { font-size: 18px; }
+  svg.fig .t-mid { text-anchor: middle; }
+  svg.fig .t-end { text-anchor: end; }
+  svg.fig .t-onfill { fill: #fff; font-weight: 700; }
+  svg.fig .ln { stroke: var(--divider); stroke-width: 1.5; fill: none; }
+  svg.fig .ln-muted { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+  svg.fig .ln-dash { stroke-dasharray: 5 4; }
+  svg.fig .box { fill: var(--alt); stroke: var(--border); stroke-width: 1.5; }
+  svg.fig .box-info { fill: var(--fill-info); stroke: var(--line-info); stroke-width: 1.5; }
+  svg.fig .box-good { fill: var(--fill-good); stroke: var(--line-good); stroke-width: 1.5; }
+  svg.fig .wheel { fill: var(--text); }
+  svg.fig .f-benign { fill: var(--c-benign); } svg.fig .f-grid { fill: var(--c-grid); } svg.fig .f-replay { fill: var(--c-replay); }
+  svg.fig .f-dosrand { fill: var(--c-dosrand); } svg.fig .f-dosdis { fill: var(--c-dosdis); } svg.fig .f-primary { fill: var(--primary); }
+  svg.fig .f-accent { fill: var(--accent); } svg.fig .f-pad { fill: var(--alt); stroke: var(--border); }
+  svg.fig .s-grid { stroke: var(--c-grid); } svg.fig .s-replay { stroke: var(--c-replay); } svg.fig .s-benign { stroke: var(--c-benign); }
+  svg.fig .s-dosdis { stroke: var(--c-dosdis); } svg.fig .s-primary { stroke: var(--primary); } svg.fig .s-bad { stroke: var(--bad); }
+  svg.fig .ghost { fill: none; stroke: var(--c-grid); stroke-width: 2; stroke-dasharray: 5 3; }
+  svg.fig .arrow { stroke: var(--muted); stroke-width: 2; fill: none; marker-end: url(#ah); }
+  svg.fig marker path { fill: var(--muted); }
+  :root[data-theme="dark"] svg.fig .t-onfill { fill: #0B1120; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) svg.fig .t-onfill { fill: #0B1120; } }
+
+  svg.fig.fig-narrow { display: none; }
+  .fig-wrap { background: var(--alt); border: 1px solid var(--border); border-radius: 12px; padding: .6em .8em; }
+  .cards3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.2cqw; }
+  .cards2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2cqw; }
+  .cards3 .card, .cards2 .card { font-size: .8em; }
+  .sm { font-size: .8em; }
+  .row2 { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 2cqw; align-items: start; margin-top: .7em !important; }
+  .row2 > div { min-width: 0; display: flex; flex-direction: column; gap: .5em; }
+
+  /* Slide 6: four map panels */
+  .panels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.2cqw; margin-top: .7em !important; }
+  .panel { background: var(--alt); border: 1px solid var(--border); border-top: 5px solid var(--divider); border-radius: 10px; padding: .45em .55em .55em; display: flex; flex-direction: column; gap: .3em; min-width: 0; }
+  .panel h3 { font-size: .8em; color: var(--text); font-weight: 700; line-height: 1.2; }
+  .panel p { font-size: .74em; color: var(--text-2); line-height: 1.35; }
+  .panel svg.fig { background: var(--card); border: 1px solid var(--border); border-radius: 8px; }
+  .panel.grid { border-top-color: var(--c-grid); } .panel.replay { border-top-color: var(--c-replay); }
+  .panel.dosrand { border-top-color: var(--c-dosrand); } .panel.dosdis { border-top-color: var(--c-dosdis); }
+
+  .tiles.big .tile { min-height: 2.6em; font-size: .7em; } .tiles.big .tile.syb { font-size: .74em; }
+  /* Slide 9: link-length bins */
+  .bins { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: .35em; align-items: end; height: 5.2em; padding: 0 .2em; border-bottom: 1.5px solid var(--divider); }
+  .bins .bin { display: flex; gap: 2px; align-items: flex-end; height: 100%; }
+  .bins .bin i { flex: 1; border-radius: 3px 3px 0 0; display: block; }
+  .bins-x { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: .35em; font-size: .55em; color: var(--muted); text-align: center; padding: .2em .2em 0; font-variant-numeric: tabular-nums; }
+  .legend { font-size: .6em; color: var(--muted); display: flex; gap: 1em; flex-wrap: wrap; }
+
+  /* Slide 11: options table bars */
+  table.opt-tbl { font-size: .74em; }
+  table.opt-tbl td .barcell { min-width: 7em; }
+  table.opt-tbl tr.pick td { background: var(--fill-good); }
+  table.opt-tbl tr.alt2 td { background: var(--fill-info); }
+
+  /* Slide 12: masked strip */
+  .strip.mask i.hid { background: var(--fill-warn); border-color: var(--warn); }
+  .tasks { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 1.2cqw; }
+  .tasks .card { font-size: .8em; }
+
+  /* Slide 14: flow */
+  .flow { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr); gap: .6em; align-items: stretch; margin-top: .7em !important; }
+  .flow .card { font-size: .78em; }
+  .flow .arr { align-self: center; color: var(--muted); font-size: 1.3em; font-weight: 700; }
+  .chips { display: flex; flex-wrap: wrap; gap: .4em; }
+  .chip { font-size: .72em; background: var(--alt); border: 1px solid var(--border); border-radius: 999px; padding: .2em .7em; color: var(--text); }
+  .chip.skip { background: var(--fill-bad); border-color: var(--line-bad); color: var(--fill-bad-text); }
+  .chip.use { background: var(--fill-info); border-color: var(--line-info); color: var(--fill-info-text); }
+  .chip.fl { background: var(--fill-good); border-color: var(--line-good); color: var(--fill-good-text); font-weight: 650; }
+  .lbl { font-size: .62em; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+
+  @media (max-width: 700px) {
+    .roadmap, .cards3, .cards2, .panels, .tasks, .row2 { grid-template-columns: 1fr; gap: 10px; }
+    .flow { grid-template-columns: 1fr; gap: 6px; }
+    .flow .arr { transform: rotate(90deg); justify-self: center; }
+    .slide h2 { font-size: 21px; }
+    table.tbl.fit { min-width: 0; font-size: 12.5px; }
+    table.tbl.fit th, table.tbl.fit td { padding: .3em .35em; }
+    table.tbl.fit .barcell .bar { min-width: 2em; }
+    table.tbl.fit .barcell b { min-width: 0; }
+    table.tbl.fit th.num { white-space: normal; }
+    table.opt-tbl td .barcell { min-width: 4.5em; }
+    .panel p { font-size: 13px; } .panel h3 { font-size: 15px; }
+    .cards3 .card, .cards2 .card, .tasks .card, .flow .card { font-size: 14px; }
+    .bins { height: 70px; }
+    .fig-wrap.sx svg.fig.wide { display: none; }
+    .fig-wrap.sx svg.fig-narrow { display: block; max-width: 360px; margin: 0 auto; }
+    .panel svg.fig { max-width: 260px; margin: 0 auto; }
+    .tiles.big { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .tiles.big .tile { min-height: 2.6em; font-size: 9.5px; } .tiles.big .tile.syb { font-size: 10px; }
+    .bins-x { font-size: 9.5px; }
+    .chip { font-size: 12.5px; }
+    .legend { font-size: 11.5px; }
+    .strip-cap { font-size: 11.5px; }
+  }
+  @media print { .slide h2 { font-size: 1.5em; } }
+
+  /* Slide 8: network animation (map + three log cards) */
+  .net { display: grid; grid-template-columns: 52fr 32fr 32fr; gap: 1.2cqw; align-items: stretch; margin-top: .6em !important; }
+  .net-ab { display: flex; flex-direction: column; justify-content: space-between; gap: .4em; min-width: 0; }
+  .net > svg, .net-ab > svg { min-width: 0; }
+  svg.fig .net-bg { fill: var(--card); stroke: var(--border); stroke-width: 1.5; }
+  svg.fig .net-card { fill: var(--alt); stroke: var(--border); stroke-width: 1.5; }
+  svg.fig .net-road { fill: var(--divider); opacity: .55; }
+  svg.fig .net-lane { stroke: var(--card); stroke-width: 2.5; stroke-dasharray: 14 10; }
+  svg.fig .net-clock { font-size: 24px; font-weight: 750; }
+  svg.fig .net-car text { font-size: 15px; }
+  svg.fig .net-car .t-onfill { font-size: 15px; }
+  svg.fig .net-tag { fill: var(--card); stroke-width: 2; }
+  svg.fig .net-tag.a { stroke: var(--primary); } svg.fig .net-tag.b { stroke: var(--accent); }
+  svg.fig .net-tag.c { stroke: var(--c-benign); } svg.fig .net-tag.d { stroke: var(--muted); }
+  svg.fig .net-d { fill: var(--muted); }
+  svg.fig .net-oor { fill: var(--bad); font-weight: 700; opacity: 0; }
+  svg.fig .net-halo { fill: none; stroke: var(--warn); stroke-width: 4; opacity: 0; }
+  svg.fig .net-ring { stroke-width: 3; opacity: 0; }
+  svg.fig .net-ring.a { fill: color-mix(in srgb, var(--primary) 12%, transparent); stroke: var(--primary); }
+  svg.fig .net-ring.b { fill: color-mix(in srgb, var(--accent) 12%, transparent); stroke: var(--accent); }
+  .net-car { transition: transform .9s ease-in-out; }
+  svg.fig .lrow { opacity: 0; transition: opacity .45s ease, transform .9s ease-in-out; }
+  svg.fig .lrow.on { opacity: 1; }
+  svg.fig .lrow rect { fill: var(--card); stroke-width: 1.5; transition: stroke-width .3s, fill .3s; }
+  svg.fig .lrow text { font-size: 13.5px; }
+  svg.fig .lrow.p17 rect { stroke: var(--primary); } svg.fig .lrow.p42 rect { stroke: var(--accent); }
+  svg.fig .lrow.hl rect { stroke-width: 3; }
+  svg.fig .lrow.p17.hl rect { fill: var(--fill-info); }
+  svg.fig .net-br { opacity: 0; transition: opacity .6s ease; }
+  svg.fig .net-br.on { opacity: 1; }
+  svg.fig .net-br path { fill: none; stroke-width: 2.5; }
+  svg.fig .net-br.p17 text { fill: var(--primary); } svg.fig .net-br.p17 path { stroke: var(--primary); }
+  svg.fig .net-br.p42 text { fill: var(--accent); } svg.fig .net-br.p42 path { stroke: var(--accent); }
+  svg.fig .net-badge { display: none; }
+  svg.fig .net-badge circle { fill: var(--warn); }
+  svg.fig .net-badge text { fill: #0B1120; font-size: 13px; font-weight: 800; }
+  .net.is-static svg.fig .net-badge { display: inline; }
+  .net.is-static svg.fig .net-ring.a { opacity: .6; stroke-dasharray: 8 6; }
+  .net.is-static svg.fig .net-oor { opacity: 1; }
+  .net.no-tr .net-car, .net.no-tr .lrow, .net.no-tr .net-br, .net.no-tr .lrow rect { transition: none !important; }
+  .net-bar { display: flex; align-items: center; gap: .5em; margin-top: .45em !important; }
+  .net-cap { flex: 1 1 auto; min-width: 0; font-size: .72em; font-weight: 650; color: var(--text); background: var(--fill-warn); border: 1px solid var(--line-warn); border-radius: 8px; padding: .25em .7em; }
+  .net-bar .deck-btn { font-size: .58em; padding: .3em .8em; }
+  .net-pts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.2cqw; margin-top: .55em !important; }
+  .net-pts .card { font-size: .66em; line-height: 1.35; }
+  @media (max-width: 700px) {
+    .net { grid-template-columns: 1fr; gap: 10px; }
+    .net-ab { gap: 10px; }
+    .net-bar { flex-wrap: wrap; }
+    .net-cap { flex: 1 1 100%; font-size: 14px; }
+    .net-bar .deck-btn { font-size: 13px; padding: 6px 12px; }
+    .net-pts { grid-template-columns: 1fr; gap: 8px; }
+    .net-pts .card { font-size: 14px; }
+    svg.fig.net-map .t-sm { font-size: 18px; }
+    svg.fig.net-map .net-clock { font-size: 30px; }
+    svg.fig.net-map .net-car text { font-size: 18px; }
+    svg.fig.net-map .net-car .t-sm { font-size: 18px; }
+    svg.fig.net-map .net-badge text { font-size: 15px; }
+  }
+  @media print { .net-bar .deck-btn { display: none; } }
+
+  /* Slide 10: link-length stats + horizontal share bars */
+  table.stat-tbl { font-size: .74em; }
+  .hbars { display: flex; flex-direction: column; gap: .22em; font-size: .7em; }
+  .hrow { display: grid; grid-template-columns: 3.6em minmax(0, 1fr); gap: .5em; align-items: center; }
+  .hrow > span { color: var(--text); font-weight: 650; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .hpair { display: flex; flex-direction: column; gap: 2px; }
+  .hb { display: grid; grid-template-columns: minmax(0, 1fr) 3em; gap: .4em; align-items: center; }
+  .hb i { display: block; height: .75em; border-radius: 0 3px 3px 0; }
+  .hb b { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-2); font-size: .92em; }
+  .hrow.hl { background: var(--fill-info); border-radius: 6px; }
+  .defs { font-size: .78em; display: flex; flex-direction: column; gap: .2em; }
+  .defs b { color: var(--text); }
+
+  /* Slide 16: genuine-vehicle comparison bars */
+  .vbars { display: flex; flex-direction: column; gap: .35em; margin-top: .3em; font-size: .78em; }
+  .vbar { display: grid; grid-template-columns: 4.6em minmax(0, 1fr) 3.6em; gap: .5em; align-items: center; }
+  .vbar > span { color: var(--text); font-weight: 650; line-height: 1.1; }
+  .vbar > span small { display: block; font-weight: 500; font-size: .78em; color: var(--muted); }
+  .vbar > b { text-align: right; font-variant-numeric: tabular-nums; }
+  .vbar .bar { height: 1em; }
+  .vbar.mix .bar > i { background: var(--primary); }
+  .caution { display: block; margin-top: .3em; font-size: .78em; color: var(--text-2); }
+
+  /* Slide 13: preprocessing recipe */
+  .recipe { list-style: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .9cqw 1.6cqw; margin-top: .6em !important; counter-reset: rstep; }
+  .rstep { position: relative; background: var(--alt); border: 1px solid var(--border); border-top: 4px solid var(--divider); border-radius: 9px; padding: .4em .55em .45em; font-size: .62em; line-height: 1.32; color: var(--text-2); display: flex; flex-direction: column; gap: .2em; min-width: 0; }
+  .rstep.dec { border-top-color: var(--good); } .rstep.rec { border-top-color: var(--primary); } .rstep.open { border-top-color: var(--warn); }
+  .rstep h3 { font-size: 1.12em; color: var(--text); font-weight: 750; line-height: 1.15; display: flex; gap: .35em; align-items: baseline; }
+  .rstep h3 .n { display: inline-flex; align-items: center; justify-content: center; min-width: 1.45em; height: 1.45em; border-radius: 50%; background: var(--text); color: var(--card); font-size: .85em; flex-shrink: 0; }
+  .rstep .p { color: var(--text); font-weight: 650; }
+  .rstep .alt { color: var(--muted); }
+  .rstep:not(:nth-child(5n))::after { content: "\2192"; position: absolute; right: -1.45cqw; top: 1.1em; color: var(--muted); font-weight: 700; font-size: 1.2em; }
+  .stchips { display: flex; flex-wrap: wrap; gap: .25em; margin-top: auto; padding-top: .15em; }
+  .stc { font-size: .88em; font-weight: 700; border-radius: 999px; padding: .02em .55em; border: 1px solid; white-space: nowrap; }
+  .stc.dec { background: var(--fill-good); color: var(--fill-good-text); border-color: var(--line-good); }
+  .stc.rec { background: var(--fill-info); color: var(--fill-info-text); border-color: var(--line-info); }
+  .stc.open { background: var(--fill-warn); color: var(--fill-warn-text); border-color: var(--line-warn); }
+  .open-bar { font-size: .7em; color: var(--text); background: var(--fill-warn); border: 1px solid var(--line-warn); border-radius: 8px; padding: .3em .7em; margin-top: .6em !important; }
+  .why48 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35em .6em; font-size: .72em; }
+  .why48 > div { background: var(--fill-good); border: 1px solid var(--line-good); border-radius: 8px; padding: .3em .5em; color: var(--text); line-height: 1.3; }
+  .why48 > div b { margin-right: .2em; }
+  @media (max-width: 700px) {
+    .recipe { grid-template-columns: 1fr; gap: 8px; }
+    .rstep { font-size: 13.5px; }
+    .rstep:not(:nth-child(5n))::after { content: none; }
+    .hbars { font-size: 13px; }
+    table.stat-tbl { min-width: 0; font-size: 13px; }
+    .defs { font-size: 13.5px; }
+    .why48 { grid-template-columns: 1fr; font-size: 13.5px; }
+    .open-bar { font-size: 13.5px; }
+  }
+
+  /* Speaker notes: hidden in the slide, shown in a panel under the slide with N */
+  aside.notes { display: none !important; }
+  .notes-panel { display: none; margin-top: 8px; background: var(--alt); border: 1px solid var(--border); border-left: 5px solid var(--accent); border-radius: 10px; padding: 10px 14px; font-size: 15px; line-height: 1.5; color: var(--text); }
+  .notes-panel.is-open { display: block; }
+  .notes-panel .nl { display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+  .deck:fullscreen .notes-panel { position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 5; box-shadow: var(--shadow); }
+
+  /* Slide 18: decisions checklist */
+  .decide { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55em 1.6cqw; margin-top: .8em !important; }
+  .decide li { display: grid; grid-template-columns: 1.3em minmax(0, 1fr); gap: .5em; align-items: start; background: var(--alt); border: 1px solid var(--border); border-left: 5px solid var(--warn); border-radius: 10px; padding: .5em .75em; font-size: .82em; color: var(--text-2); }
+  .decide li .box { width: 1.05em; height: 1.05em; border: 2px solid var(--muted); border-radius: 4px; margin-top: .15em; background: var(--card); }
+  .decide li b { color: var(--text); }
+  .decide .vs { display: block; color: var(--text); }
+  .next-step { margin-top: .9em !important; }
+  @media (max-width: 700px) {
+    .decide { grid-template-columns: 1fr; gap: 8px; }
+    .decide li { font-size: 14px; }
+    .notes-panel { font-size: 14px; }
+  }
+  @media print { .notes-panel, aside.notes { display: none !important; } }
+
+  /* Overlap / stride slide */
+  svg.fig .ow-band { fill: var(--fill-warn); stroke: var(--line-warn); stroke-width: 1.5; stroke-dasharray: 5 4; }
+  svg.fig .ow-band-t { fill: var(--fill-warn-text); font-weight: 650; }
+  svg.fig .ow-hl { fill: none; stroke: var(--warn); stroke-width: 3; opacity: 0; transition: opacity .3s ease; }
+  svg.fig .ow-win.cur .ow-hl { opacity: 1; }
+  svg.fig .ow-br { transition: transform .6s ease-in-out; }
+  svg.fig .ow-br rect { fill: none; stroke: var(--warn); stroke-width: 3.5; }
+  svg.fig .ow-br-t { fill: var(--text); }
+  svg.fig .t-start { text-anchor: start; }
+  .ow.is-static svg.fig .ow-br { display: none; }
+  .ow.no-tr svg.fig .ow-br { transition: none !important; }
+  .ow .fig-wrap { padding: .45em .8em .35em; }
+  #owAnim + .cards3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 1fr); }
+  #owAnim + .cards3 .card { font-size: .7em; line-height: 1.32; }
+  svg.fig.wide.ow-svg text { font-size: 17px; }
+  svg.fig.wide.ow-svg .t-sm { font-size: 15px; }
+  @media (max-width: 700px) { #owAnim + .cards3 { grid-template-columns: 1fr; } #owAnim + .cards3 .card { font-size: 14px; } }
+  @media print { .ow svg.fig .ow-br { display: none; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--muted)"/></marker></defs>
+</svg>
+<main class="deck" id="deck" tabindex="0" aria-roledescription="slide deck" aria-label="Recognising Sybil attacks from vehicle trajectories: dataset, unit and plan">
+  <div class="deck-bar">
+    <button class="deck-btn" id="prev" type="button" aria-label="Previous slide">&larr; Prev</button>
+    <span class="deck-counter" id="counter" aria-live="polite">1 / 19</span>
+    <button class="deck-btn" id="next" type="button" aria-label="Next slide">Next &rarr;</button>
+    <span class="deck-title" id="slideTitle"></span>
+    <span class="spacer"></span>
+    <button class="deck-btn" id="theme" type="button" aria-label="Toggle light or dark theme">Theme</button>
+    <button class="deck-btn" id="fs" type="button" aria-label="Toggle fullscreen">Fullscreen</button>
+  </div>
+  <div class="deck-progress"><span id="bar"></span></div>
+  <div class="stage" id="stage">
+
+<!-- ===== 1. Title + roadmap ===== -->
+<section class="slide s1" data-title="Title and roadmap">
+  <div class="kicker">Planning review <span class="part">· 2026-10-21 · VeReMi-Extension</span></div>
+  <h2>Recognising Sybil attacks from vehicle trajectories</h2>
+  <p class="lead"><b>Planning review</b> &middot; 2026-10-21. Five parts, one idea per slide; data facts only, <b>no model results</b>.</p>
+  <ol class="roadmap" aria-label="Roadmap">
+    <li><span class="pl">Part A</span><b>Sybil attacks &amp; identities</b>What the attack is; what a pseudonym (identity) is.<span class="st">Steps 2&ndash;3</span></li>
+    <li><span class="pl">Part B</span><b>Which attacks</b>Which of the 19 behaviours show a Sybil in a trajectory.<span class="st">Steps 4&ndash;7</span></li>
+    <li><span class="pl">Part C</span><b>Link, window &amp; T</b>How the network logs messages; the link, its length, T, padding, overlap, the recipe.<span class="st">Steps 8&ndash;14</span></li>
+    <li><span class="pl">Part D</span><b>The encoder</b>Stage 1: what it learns without labels; what goes in and out.<span class="st">Steps 15&ndash;16</span></li>
+    <li><span class="pl">Part E</span><b>Data, plan &amp; decisions</b>Is the data enough? Stage 1 / Stage 2, and the decisions for today.<span class="st">Steps 17&ndash;19</span></li>
+  </ol>
+  <div class="note">Sources: VeReMi Extension paper (Kamel et al., ICC 2020; text in <code>varemi.txt</code>), <code>docs/research-notes/trajectory-sybil-attacks.md</code>, <code>src/eda/eda_window_size.ipynb</code>, <code>agent.md</code>.</div>
+  <aside class="notes">Today is a planning review: data facts and design choices, no model results. Five parts: the attack, which attacks matter, the link and window, the encoder, then data, plan and the decisions I need today.</aside>
+</section>
+
+<!-- ===== 2. What is a Sybil attack? ===== -->
+<section class="slide" data-title="A Sybil attack: one car, many pseudonyms">
+  <div class="kicker">Part A · Step 2 <span class="part">· Sybil attacks &amp; identities</span></div>
+  <h2>A Sybil attack is one car pretending to be many</h2>
+  <p class="lead">Every car broadcasts ~1 message per second (position, speed, heading), signed with a <b>pseudonym (identity)</b>, a temporary ID. A Sybil attacker is <b>one real car using several pseudonyms at once</b>.</p>
+  <div class="row2">
+    <div class="fig-wrap">
+      <svg class="fig" viewBox="0 0 560 235" role="img" aria-label="One real attacker car sends messages under three pseudonyms, which receivers see as three ghost cars">
+        <rect x="40" y="95" width="74" height="30" rx="8" class="f-grid"/><rect x="56" y="79" width="40" height="19" rx="5" class="f-grid" opacity=".75"/>
+        <circle cx="60" cy="127" r="7" class="wheel"/><circle cx="96" cy="127" r="7" class="wheel"/>
+        <text x="77" y="160" class="t-mid t-b">1 real car</text><text x="77" y="178" class="t-mid t-muted t-sm">the attacker</text>
+        <path d="M124 104 C 220 104, 230 45, 318 45" class="arrow"/>
+        <path d="M124 110 C 220 110, 230 110, 318 110" class="arrow"/>
+        <path d="M124 116 C 220 116, 230 175, 318 175" class="arrow"/>
+        <g><rect x="330" y="30" width="74" height="30" rx="8" class="ghost"/><rect x="346" y="15" width="40" height="17" rx="5" class="ghost"/><text x="418" y="51" class="t-b">pseudonym A</text></g>
+        <g><rect x="330" y="95" width="74" height="30" rx="8" class="ghost"/><rect x="346" y="80" width="40" height="17" rx="5" class="ghost"/><text x="418" y="116" class="t-b">pseudonym B</text></g>
+        <g><rect x="330" y="160" width="74" height="30" rx="8" class="ghost"/><rect x="346" y="145" width="40" height="17" rx="5" class="ghost"/><text x="418" y="181" class="t-b">pseudonym C</text></g>
+        <text x="280" y="226" class="t-mid t-2 t-sm">Receivers hear 3 &ldquo;cars&rdquo;. Only 1 exists.</text>
+      </svg>
+    </div>
+    <div>
+      <div class="card bad"><b>Harm</b>Fake traffic jams, outvoting honest cars, flooding the channel.</div>
+      <div class="card warn"><b>Hard to stop</b>Each pseudonym has a valid certificate (the PKI gives every car several, for privacy). Only the <i>content</i> gives the attacker away.</div>
+    </div>
+  </div>
+  <div class="note">Paper L140&ndash;152: &ldquo;the vehicular PKI issues multiple pseudonym certificates to the same vehicle to ensure user&rsquo;s privacy &hellip; one vehicles pretends to be simultaneously multiple entities on the road. This type of malicious behavior is called a Sybil attack.&rdquo; Pseudonym letters are illustrative.</div>
+  <aside class="notes">A Sybil attacker is one real car that broadcasts under several pseudonyms at once, so receivers see ghost cars. Certificates do not help, because the PKI legitimately gives each car several pseudonyms; only the content of the messages can expose it.</aside>
+</section>
+
+<!-- ===== 3. What is an identity? ===== -->
+<section class="slide" data-title="An identity is the pseudonym">
+  <div class="kicker">Part A · Step 3 <span class="part">· Sybil attacks &amp; identities</span></div>
+  <h2>An identity is the pseudonym on the air, not the car</h2>
+  <p class="lead">Receivers see only <code>senderPseudo</code>. The true car (<code>sender</code>) exists only in the dataset&rsquo;s ground truth.</p>
+  <div class="fig-wrap sx">
+    <svg class="fig wide" style="max-width:34em;margin:0 auto" viewBox="0 0 640 170" role="img" aria-label="Timelines: an honest car uses one pseudonym at a time; a Sybil car uses several at once">
+      <text x="0" y="36" class="t-b">Honest car</text><text x="0" y="54" class="t-muted t-sm">one at a time</text>
+      <rect x="170" y="20" width="200" height="26" rx="6" class="f-benign"/><text x="270" y="38" class="t-mid t-onfill t-sm">pseudonym A</text>
+      <rect x="376" y="20" width="250" height="26" rx="6" class="f-benign" opacity=".7"/><text x="501" y="38" class="t-mid t-onfill t-sm">pseudonym B</text>
+      <text x="373" y="14" class="t-mid t-muted t-sm">rotated for privacy</text>
+      <text x="0" y="96" class="t-b">Sybil car</text><text x="0" y="114" class="t-muted t-sm">many at once</text>
+      <rect x="170" y="70" width="456" height="16" rx="5" class="f-grid"/><text x="180" y="82" class="t-onfill t-sm">pseudonym A</text>
+      <rect x="170" y="90" width="456" height="16" rx="5" class="f-grid" opacity=".8"/><text x="180" y="102" class="t-onfill t-sm">pseudonym B</text>
+      <rect x="170" y="110" width="456" height="16" rx="5" class="f-grid" opacity=".6"/><text x="180" y="122" class="t-onfill t-sm">pseudonym C &hellip;</text>
+      <line x1="170" y1="148" x2="626" y2="148" class="arrow"/><text x="626" y="166" class="t-end t-muted t-sm">time</text>
+    </svg>
+    <svg class="fig fig-narrow" viewBox="0 0 340 214" role="img" aria-label="Timelines: an honest car uses one pseudonym at a time; a Sybil car uses several at once">
+      <text x="0" y="16" class="t-b">Honest car</text><text x="92" y="16" class="t-muted t-sm">one at a time</text>
+      <rect x="0" y="26" width="165" height="26" rx="6" class="f-benign"/><text x="82" y="44" class="t-mid t-onfill t-sm">pseudonym A</text>
+      <rect x="169" y="26" width="171" height="26" rx="6" class="f-benign" opacity=".7"/><text x="254" y="44" class="t-mid t-onfill t-sm">pseudonym B</text>
+      <text x="167" y="70" class="t-mid t-muted t-sm">rotated for privacy</text>
+      <text x="0" y="100" class="t-b">Sybil car</text><text x="80" y="100" class="t-muted t-sm">many at once</text>
+      <rect x="0" y="110" width="340" height="16" rx="5" class="f-grid"/><text x="10" y="122" class="t-onfill t-sm">pseudonym A</text>
+      <rect x="0" y="130" width="340" height="16" rx="5" class="f-grid" opacity=".8"/><text x="10" y="142" class="t-onfill t-sm">pseudonym B</text>
+      <rect x="0" y="150" width="340" height="16" rx="5" class="f-grid" opacity=".6"/><text x="10" y="162" class="t-onfill t-sm">pseudonym C &hellip;</text>
+      <line x1="0" y1="186" x2="334" y2="186" class="arrow"/><text x="340" y="208" class="t-end t-muted t-sm">time</text>
+    </svg>
+  </div>
+  <div class="cards3">
+    <div class="card good"><b>Honest</b>One pseudonym at a time, changed now and then for privacy.</div>
+    <div class="card bad"><b>Sybil</b>One car, many pseudonyms at once: GridSybil &asymp; 6 per attacker.</div>
+    <div class="card warn"><b>Standing still decides nothing</b>A parked honest car is normal. GridSybil ghosts sit near one point while claiming nonzero speed: the mismatch is the signal.</div>
+  </div>
+  <div class="note">GridSybil pseudonyms per physical sender, p50 = 6 (benign 1); claimed vs implied speed differ by 10.1 m/s, p50 (benign 0.09); group 1416, <code>trajectory-sybil-attacks.md</code> &sect;2. Paper: the grid sits &ldquo;in a chosen position&rdquo; (L343&ndash;347). Field names from the paper (L370&ndash;383); ground truth is a separate file (L387&ndash;388).</div>
+  <aside class="notes">Receivers only see the pseudonym; the true sender exists only in the ground truth. Honest cars use one pseudonym at a time; a GridSybil attacker uses about six at once. The useful signal is the mismatch between claimed speed and actual movement.</aside>
+</section>
+
+<!-- ===== 4. 19 behaviours, 4 Sybil ===== -->
+<section class="slide" data-title="19 behaviours, only 4 Sybil">
+  <div class="kicker">Part B · Step 4 <span class="part">· which attacks</span></div>
+  <h2>VeReMi-Extension has 19 behaviours; only 4 are Sybil</h2>
+  <div class="map" aria-label="The 19 behaviours of the paper: 4 Sybil, 15 single-identity" style="margin-top:.6em">
+    <div class="map-head">Only <b>4 use many identities</b>. Our local copy holds exactly those 4 (<b>A16&ndash;A19</b>) plus benign (<b>A0</b>).</div>
+    <div class="tiles big">
+      <div class="tile syb grid">Grid&shy;Sybil &middot; A16</div>
+      <div class="tile syb replay">Data&shy;Replay&shy;Sybil &middot; A17</div>
+      <div class="tile syb dosrand">DoS&shy;Random&shy;Sybil &middot; A18</div>
+      <div class="tile syb dosdis">DoS&shy;Disruptive&shy;Sybil &middot; A19</div>
+      <div class="tile">Const&shy;Pos</div><div class="tile">Const&shy;Pos&shy;Offset</div><div class="tile">Random&shy;Pos</div>
+      <div class="tile">Random&shy;Pos&shy;Offset</div><div class="tile">Const&shy;Speed</div><div class="tile">Const&shy;Speed&shy;Offset</div>
+      <div class="tile">Random&shy;Speed</div><div class="tile">Random&shy;Speed&shy;Offset</div><div class="tile">Delayed&shy;Messages</div>
+      <div class="tile">Eventual&shy;Stop</div><div class="tile">DoS</div><div class="tile">DoS&shy;Random</div>
+      <div class="tile">Data&shy;Replay</div><div class="tile">Disruptive</div><div class="tile">DoS&shy;Disruptive</div>
+    </div>
+    <div class="tile-legend"><span>4 Sybil (many identities) &mdash; in our copy</span><span>15 single-identity &mdash; full release only</span></div>
+  </div>
+  <div class="card info same"><b>GridSybil (= TrafficSybil, A16): one attack, two names.</b> The paper says &ldquo;Traffic congestion Sybil&rdquo; (Table III: &ldquo;TrafficSybil&rdquo;); the dataset folder says GridSybil. They match by description: <span class="quote">&ldquo;a grid of fake vehicles &hellip; a new identity and a correct message frequency for each fake vehicle&rdquo;</span>.</div>
+  <div class="note">Paper &sect;IV-C attack definitions (L283&ndash;347) and Table III (L463&ndash;464). Codes: A16 GridSybil, A17 DataReplaySybil, A18 DoSRandomSybil, A19 DoSDisruptiveSybil.</div>
+  <aside class="notes">The paper defines 19 behaviours, but only four use many identities, and those four are exactly what our local copy holds. GridSybil and TrafficSybil are the same attack under two names.</aside>
+</section>
+
+<!-- ===== 5. Which show a Sybil in the trajectory ===== -->
+<section class="slide" data-title="Only GridSybil shows a Sybil fully">
+  <div class="kicker">Part B · Step 5 <span class="part">· which attacks</span></div>
+  <h2>Only GridSybil fully shows a Sybil in the trajectory</h2>
+  <div class="verdicts" style="margin-top:.5em !important">
+    <div class="verdict yes"><span class="v">Yes</span><span class="who"><span class="sw a-grid"></span>GridSybil (= TrafficSybil)</span><span class="why">Ghost pseudonyms live as long as real cars</span></div>
+    <div class="verdict part"><span class="v">Partial</span><span class="who"><span class="sw a-replay"></span>DataReplaySybil</span><span class="why">Needs a multi-identity unit</span></div>
+    <div class="verdict no"><span class="v">No</span><span class="who"><span class="sw a-dosrand"></span>DoSRandom- &amp; <span class="sw a-dosdis"></span>DoSDisruptiveSybil</span><span class="why">Pseudonyms last 1&ndash;2 messages</span></div>
+  </div>
+  <p class="lead" style="margin-top:.7em">A trajectory needs a fake pseudonym that <b>lives long enough</b>.</p>
+  <table class="tbl fit">
+    <thead><tr><th>Attack</th><th class="num">Msgs per pseudonym (p50)</th><th>Pseudonyms with 1&ndash;3 msgs</th></tr></thead>
+    <tbody>
+      <tr><td class="dim"><span class="sw a-benign"></span>Benign</td><td class="num">91</td><td><div class="barcell"><div class="bar"><i class="a-benign" style="width:0.9%"></i></div><b>0.9%</b></div></td></tr>
+      <tr><td><b><span class="sw a-grid"></span>GridSybil</b></td><td class="num hi">68</td><td><div class="barcell"><div class="bar"><i class="a-grid" style="width:1.9%"></i></div><b>1.9%</b></div></td></tr>
+      <tr><td><b><span class="sw a-replay"></span>DataReplay&shy;Sybil</b></td><td class="num">1</td><td><div class="barcell"><div class="bar"><i class="a-replay" style="width:89%"></i></div><b>89.0%</b></div></td></tr>
+      <tr><td><b><span class="sw a-dosrand"></span>DoSRandom&shy;Sybil</b></td><td class="num">2</td><td><div class="barcell"><div class="bar"><i class="a-dosrand" style="width:89.8%"></i></div><b>89.8%</b></div></td></tr>
+      <tr><td><b><span class="sw a-dosdis"></span>DoSDisruptive&shy;Sybil</b></td><td class="num">2</td><td><div class="barcell"><div class="bar"><i class="a-dosdis" style="width:89.8%"></i></div><b>89.8%</b></div></td></tr>
+    </tbody>
+  </table>
+  <div class="note">Group 1416, messages deduplicated by <code>messageID</code>; tracks keyed by (true sender, pseudonym), which a receiver does not know. <code>trajectory-sybil-attacks.md</code> &sect;2.</div>
+  <aside class="notes">To see a Sybil in a trajectory, a fake pseudonym must live long enough to form a track. GridSybil ghosts last as long as real cars; DataReplaySybil and the DoS Sybils rotate pseudonyms every one or two messages.</aside>
+</section>
+
+<!-- ===== 6. On a map ===== -->
+<section class="slide" data-title="Each Sybil attack on a map">
+  <div class="kicker">Part B · Step 6 <span class="part">· which attacks</span></div>
+  <h2>Each Sybil attack leaves a different trace on the map</h2>
+  <div class="panels">
+    <div class="panel grid">
+      <h3><span class="sw a-grid"></span>GridSybil (= TrafficSybil)</h3>
+      <svg class="fig" viewBox="0 0 200 130" role="img" aria-label="A cluster of ghost cars moving together near the attacker, with one impossible jump">
+        <circle cx="70" cy="58" r="6" class="f-grid"/><circle cx="88" cy="58" r="6" class="f-grid"/><circle cx="70" cy="76" r="6" class="f-grid"/><circle cx="88" cy="76" r="6" class="f-grid"/><circle cx="106" cy="67" r="6" class="f-grid"/>
+        <path d="M62 38 h44" class="arrow"/><text x="58" y="30" class="t-sm t-2">move together</text>
+        <circle cx="52" cy="104" r="7" class="wheel"/><text x="64" y="109" class="t-sm t-2">attacker</text>
+        <path d="M110 62 L168 22" class="ln s-bad ln-dash" style="stroke-width:2"/><circle cx="170" cy="20" r="6" class="f-grid"/>
+        <text x="146" y="54" class="t-sm" style="fill:var(--bad)">jump</text>
+      </svg>
+      <p>Fake cars move together near the attacker (~13 m apart, ~0.19 m/s speed difference), with impossible jumps.</p>
+    </div>
+    <div class="panel replay">
+      <h3><span class="sw a-replay"></span>DataReplaySybil</h3>
+      <svg class="fig" viewBox="0 0 200 130" role="img" aria-label="A ghost retraces a real neighbour's path about 3 seconds late">
+        <polyline points="15,115 60,92 105,72 150,50 190,20" class="ln s-benign" style="stroke-width:2.5"/>
+        <polyline points="15,121 60,98 105,78" class="ln s-replay ln-dash" style="stroke-width:2.5"/>
+        <circle cx="150" cy="50" r="7" class="f-benign"/><text x="164" y="72" class="t-sm t-mid t-2">real car</text>
+        <circle cx="105" cy="78" r="7" class="f-replay"/><text x="62" y="62" class="t-sm t-mid" style="fill:var(--c-replay)">ghost</text>
+        <text x="100" y="18" class="t-sm t-mid t-2">same path, ~3 s late</text>
+      </svg>
+      <p>A ghost retraces a real neighbour&rsquo;s path ~3 s late: 81% of its messages match an earlier message.</p>
+    </div>
+    <div class="panel dosrand">
+      <h3><span class="sw a-dosrand"></span>DoSRandomSybil</h3>
+      <svg class="fig" viewBox="0 0 200 130" role="img" aria-label="Random dots with no path, far from the true position">
+        <circle cx="30" cy="30" r="5" class="f-dosrand"/><circle cx="150" cy="18" r="5" class="f-dosrand"/><circle cx="95" cy="48" r="5" class="f-dosrand"/>
+        <circle cx="180" cy="70" r="5" class="f-dosrand"/><circle cx="60" cy="80" r="5" class="f-dosrand"/><circle cx="130" cy="100" r="5" class="f-dosrand"/><circle cx="175" cy="118" r="5" class="f-dosrand"/>
+        <circle cx="26" cy="112" r="7" class="f-benign"/><text x="38" y="117" class="t-sm t-2">truth</text>
+        <path d="M32 106 L90 52" class="ln-muted ln-dash"/><text x="66" y="96" class="t-sm t-2">far</text>
+      </svg>
+      <p>Random dots, no path: claimed positions sit ~705 m from the truth (median).</p>
+    </div>
+    <div class="panel dosdis">
+      <h3><span class="sw a-dosdis"></span>DoSDisruptiveSybil</h3>
+      <svg class="fig" viewBox="0 0 200 130" role="img" aria-label="Scattered copies of other cars' old positions">
+        <polyline points="10,30 70,40 130,35 190,50" class="ln-muted"/><polyline points="20,120 70,95 110,80 180,110" class="ln-muted"/><polyline points="40,10 60,60 75,125" class="ln-muted"/>
+        <circle cx="70" cy="40" r="5.5" class="f-dosdis"/><circle cx="160" cy="43" r="5.5" class="f-dosdis"/><circle cx="110" cy="80" r="5.5" class="f-dosdis"/>
+        <circle cx="45" cy="108" r="5.5" class="f-dosdis"/><circle cx="66" cy="94" r="5.5" class="f-dosdis"/><circle cx="153" cy="99" r="5.5" class="f-dosdis"/>
+      </svg>
+      <p>Scattered copies of other cars&rsquo; old positions (grey = their paths): 98% match an earlier message, ~4 s later.</p>
+    </div>
+  </div>
+  <div class="note">Sketches, not plotted data. Numbers: group 1416 (<code>trajectory-sybil-attacks.md</code> &sect;2): same-second pairs of one attacker p50 13 m / 0.19 m/s; replay match &le; 0.5 m and &le; 0.2 m/s, lag p50 3.1 s (DataReplay), 3.7 s (DoSDisruptive), 98.3% matched; DoSRandom claimed vs true position p50 705 m. GridSybil jumps: partly several ghosts merged under pseudonym 1 (F13).</div>
+  <aside class="notes">These are sketches with measured numbers. GridSybil ghosts move together near the attacker; DataReplaySybil retraces a neighbour about 3 s late; DoSRandomSybil scatters random positions; DoSDisruptiveSybil replays old positions of other cars.</aside>
+</section>
+
+<!-- ===== 7. The other attacks ===== -->
+<section class="slide" data-title="The other attacks: no Sybil, some help Stage 2">
+  <div class="kicker">Part B · Step 7 <span class="part">· which attacks</span></div>
+  <h2>The other 15 attacks show no Sybil; two groups still help Stage 2</h2>
+  <div class="wrap-x">
+  <table class="tbl why-tbl">
+    <thead><tr><th>Attack(s)</th><th>Identities</th><th>Why it shows no Sybil in trajectories</th><th>Useful later?</th></tr></thead>
+    <tbody>
+      <tr><td><b><span class="sw a-dosrand"></span>DoSRandomSybil, <span class="sw a-dosdis"></span>DoSDisruptiveSybil</b></td><td>many, new one every 1&ndash;2 msgs</td><td>No track; the signal is rate, identity churn, replay</td><td><span class="tag no">No</span></td></tr>
+      <tr><td><b>ConstPos, ConstPosOffset, RandomPos, RandomPosOffset, EventualStop</b></td><td>one</td><td>Falsified motion, but one identity: not a Sybil</td><td><span class="tag yes">Stage 2</span> hard negatives</td></tr>
+      <tr><td><b>ConstSpeed, ConstSpeedOffset, RandomSpeed, RandomSpeedOffset</b></td><td>one</td><td>Only the speed field is wrong; track shape unchanged</td><td><span class="tag no">No</span></td></tr>
+      <tr><td><b>DelayedMessages, DoS</b></td><td>one</td><td>Timing / rate only; no trajectory change</td><td><span class="tag no">No</span></td></tr>
+      <tr><td><b>DataReplay, DoSRandom, Disruptive, DoSDisruptive</b></td><td>one</td><td>Non-Sybil twins: the same attack without many identities</td><td><span class="tag yes">Stage 2</span> isolate what Sybil mode adds</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="lead"><b>None shows the Sybil signature</b> (many coordinated pseudonyms with a track). Two groups still help in <b>Stage 2 (few-shot fine-tuning)</b>.</p>
+  <div class="note">Paper &sect;IV-C (L283&ndash;347), Table III. Twin effect in the paper&rsquo;s rules, F1 1416: DataReplay 0.880 vs DataReplaySybil 0.524. The 15 single-identity behaviours need the full VeReMi-Extension release (not downloaded).</div>
+  <aside class="notes">None of the 15 single-identity attacks is a Sybil. Two groups still help in Stage 2: position falsifications as hard negatives, and the non-Sybil twins to isolate what Sybil mode adds. They need the full release.</aside>
+</section>
+
+<!-- ===== 8. How the network is organised ===== -->
+<section class="slide" data-title="Broadcasts, logs and links">
+  <div class="kicker">Part C · Step 8 <span class="part">· link, window &amp; T</span></div>
+  <h2>Cars broadcast, every receiver logs, and each log groups into links</h2>
+  <div class="net" id="netAnim">
+    <svg class="fig net-map" viewBox="0 0 520 250" role="img" aria-label="Animation, looping: four cars on a road, each with a pseudonym (A = P17, B = P42, C = P08, D = P63). At t = 1 s car A broadcasts; a radio-range ring spreads from A, cars B and C inside it receive the beacon, car D outside does not. B and C each add a row &lsquo;from P17&rsquo; to their own log. Car B broadcasts; A and C add a row &lsquo;from P42&rsquo;. At t = 2 and 3 s the cars move a little, A and B broadcast again and the rows pile up. Finally, in C&rsquo;s log the P17 rows are gathered into &lsquo;link C from P17&rsquo; and the P42 rows into &lsquo;link C from P42&rsquo;, each in time order.">
+      <defs><clipPath id="netClip"><rect width="520" height="250" rx="10"/></clipPath></defs>
+      <rect width="520" height="250" rx="10" class="net-bg"/>
+      <text x="16" y="34" class="net-clock" id="netClock">t = 1 s</text>
+      <text x="16" y="62" class="t-sm t-muted">beacon (BSM) &asymp; once per second</text>
+      <text x="16" y="84" class="t-sm t-muted">radio range: a few hundred metres</text>
+      <rect x="0" y="138" width="520" height="68" class="net-road"/>
+      <line x1="0" y1="172" x2="520" y2="172" class="net-lane"/>
+      <g clip-path="url(#netClip)">
+        <circle class="net-ring a" id="netRingA" cx="170" cy="188" r="200"/>
+        <circle class="net-ring b" id="netRingB" cx="260" cy="156" r="200"/>
+      </g>
+      <g class="net-car" id="netCarC" data-x="80" data-y="156" transform="translate(80 156)"><circle class="net-halo" r="30"/><rect x="-22" y="-11" width="44" height="22" rx="6" class="f-benign"/><text y="5" class="t-mid t-onfill">C</text><rect x="-25" y="-40" width="50" height="21" rx="10" class="net-tag c"/><text y="-24" class="t-mid t-b net-tag-t">P08</text></g>
+      <g class="net-car" id="netCarA" data-x="170" data-y="188" transform="translate(170 188)"><circle class="net-halo" r="30"/><rect x="-22" y="-11" width="44" height="22" rx="6" class="f-primary"/><text y="5" class="t-mid t-onfill">A</text><rect x="-25" y="18" width="50" height="21" rx="10" class="net-tag a"/><text y="34" class="t-mid t-b net-tag-t">P17</text></g>
+      <g class="net-car" id="netCarB" data-x="260" data-y="156" transform="translate(260 156)"><circle class="net-halo" r="30"/><rect x="-22" y="-11" width="44" height="22" rx="6" class="f-accent"/><text y="5" class="t-mid t-onfill">B</text><rect x="-25" y="-40" width="50" height="21" rx="10" class="net-tag b"/><text y="-24" class="t-mid t-b net-tag-t">P42</text></g>
+      <g class="net-car" id="netCarD" data-x="470" data-y="188" transform="translate(470 188)"><rect x="-22" y="-11" width="44" height="22" rx="6" class="net-d"/><text y="5" class="t-mid t-onfill">D</text><rect x="-25" y="18" width="50" height="21" rx="10" class="net-tag d"/><text y="34" class="t-mid t-b net-tag-t">P63</text><text x="22" y="-28" class="t-end t-sm net-oor" id="netOor">out of range</text></g>
+      <g class="net-badge" transform="translate(134 25)"><circle r="11"/><text y="5" class="t-mid">4</text></g>
+      <g class="net-badge" transform="translate(194 128)"><circle r="11"/><text y="5" class="t-mid">1</text></g>
+    </svg>
+    <div class="net-ab">
+      <svg class="fig net-log" viewBox="0 0 320 100" role="img" aria-label="Car A's log: rows heard from P42">
+        <rect x="1" y="1" width="318" height="98" rx="10" class="net-card"/><rect x="1" y="10" width="5" height="80" rx="2" class="f-primary"/>
+        <text x="16" y="22" class="t-b">A&rsquo;s log</text><text x="306" y="22" class="t-sm t-muted t-end">+ own GPS every second</text>
+        <g class="lrow p42" data-x="14" data-y="34" transform="translate(14 34)"><rect width="280" height="22" rx="5"/><text x="10" y="15.5">t=1 s &middot; from <tspan class="t-b">P42</tspan> &middot; pos, speed, heading</text></g>
+        <g class="lrow p42" data-x="14" data-y="60" transform="translate(14 60)"><rect width="280" height="22" rx="5"/><text x="10" y="15.5">t=2 s &middot; from <tspan class="t-b">P42</tspan> &middot; pos, speed, heading</text></g>
+        <g class="net-badge" transform="translate(306 45)"><circle r="10"/><text y="5" class="t-mid">3</text></g>
+      </svg>
+      <svg class="fig net-log" viewBox="0 0 320 126" role="img" aria-label="Car B's log: rows heard from P17">
+        <rect x="1" y="1" width="318" height="124" rx="10" class="net-card"/><rect x="1" y="10" width="5" height="106" rx="2" class="f-accent"/>
+        <text x="16" y="22" class="t-b">B&rsquo;s log</text><text x="306" y="22" class="t-sm t-muted t-end">+ own GPS every second</text>
+        <g class="lrow p17" data-x="14" data-y="34" transform="translate(14 34)"><rect width="280" height="22" rx="5"/><text x="10" y="15.5">t=1 s &middot; from <tspan class="t-b">P17</tspan> &middot; pos, speed, heading</text></g>
+        <g class="lrow p17" data-x="14" data-y="60" transform="translate(14 60)"><rect width="280" height="22" rx="5"/><text x="10" y="15.5">t=2 s &middot; from <tspan class="t-b">P17</tspan> &middot; pos, speed, heading</text></g>
+        <g class="lrow p17" data-x="14" data-y="86" transform="translate(14 86)"><rect width="280" height="22" rx="5"/><text x="10" y="15.5">t=3 s &middot; from <tspan class="t-b">P17</tspan> &middot; pos, speed, heading</text></g>
+        <g class="net-badge" transform="translate(306 45)"><circle r="10"/><text y="5" class="t-mid">2</text></g>
+      </svg>
+    </div>
+    <svg class="fig net-log" viewBox="0 0 320 250" role="img" aria-label="Car C's log: rows from P17 and P42 as they arrive, then grouped by sender into two links in time order">
+      <rect x="1" y="1" width="318" height="248" rx="10" class="net-card"/><rect x="1" y="10" width="5" height="230" rx="2" class="f-benign"/>
+      <text x="16" y="22" class="t-b">C&rsquo;s log</text><text x="306" y="22" class="t-sm t-muted t-end">+ own GPS every second</text>
+      <g class="net-br p17"><text x="16" y="49" class="t-sm t-b">link C &larr; P17 (time-ordered)</text><path d="M24 58 h-7 v72 h7"/></g>
+      <g class="net-br p42"><text x="16" y="155" class="t-sm t-b">link C &larr; P42 (time-ordered)</text><path d="M24 164 h-7 v46 h7"/></g>
+      <g class="lrow p17" data-x="14" data-y="34" transform="translate(14 34)" data-gx="30" data-gy="58"><rect width="280" height="22" rx="5"/><text x="10" y="15.5">t=1 s &middot; from <tspan class="t-b">P17</tspan> &middot; pos, speed, heading</text></g>
+      <g class="lrow p42" data-x="14" data-y="60" transform="translate(14 60)" data-gx="30" data-gy="164"><rect width="280" height="22" rx="5"/><text x="10" y="15.5">t=1 s &middot; from <tspan class="t-b">P42</tspan> &middot; pos, speed, heading</text></g>
+      <g class="lrow p17" data-x="14" data-y="86" transform="translate(14 86)" data-gx="30" data-gy="84"><rect width="280" height="22" rx="5"/><text x="10" y="15.5">t=2 s &middot; from <tspan class="t-b">P17</tspan> &middot; pos, speed, heading</text></g>
+      <g class="lrow p42" data-x="14" data-y="112" transform="translate(14 112)" data-gx="30" data-gy="190"><rect width="280" height="22" rx="5"/><text x="10" y="15.5">t=2 s &middot; from <tspan class="t-b">P42</tspan> &middot; pos, speed, heading</text></g>
+      <g class="lrow p17" data-x="14" data-y="138" transform="translate(14 138)" data-gx="30" data-gy="110"><rect width="280" height="22" rx="5"/><text x="10" y="15.5">t=3 s &middot; from <tspan class="t-b">P17</tspan> &middot; pos, speed, heading</text></g>
+      <g class="net-badge" transform="translate(300 44)"><circle r="10"/><text y="5" class="t-mid">5</text></g>
+    </svg>
+  </div>
+  <div class="net-bar">
+    <p class="net-cap" id="netCap">1 &middot; A broadcasts to everyone in range</p>
+    <button class="deck-btn" id="netPlay" type="button" aria-label="Pause the animation">Pause</button>
+    <button class="deck-btn" id="netReplay" type="button" aria-label="Replay the animation from the start">Replay</button>
+  </div>
+  <div class="net-pts">
+    <div class="card"><b>1 &middot; Broadcast</b>~1 beacon (BSM) per second: position, speed, heading + pseudonym, to everyone in radio range (a few hundred metres).</div>
+    <div class="card"><b>2 &middot; Receive</b>Every car in range hears it: one beacon, many receivers.</div>
+    <div class="card"><b>3 &middot; Logs</b>VeReMi keeps one log per receiver: everything it heard, plus its own GPS.</div>
+    <div class="card info"><b>4 &middot; Links</b>Group one receiver&rsquo;s log by sender pseudonym, in time order: a <b>link</b> = what car R heard from pseudonym P. No central server.</div>
+  </div>
+  <div class="note">Labels: a car&rsquo;s own broadcasts are all benign or all attack (an attacker&rsquo;s messages before its attack starts are labelled genuine). As a receiver, a car holds links from benign and attacking senders mixed. Positions, ranges and pseudonyms in the animation are illustrative.</div>
+  <aside class="notes">Every car broadcasts about once a second; everyone in range logs it. VeReMi keeps one log per receiver. Grouping one receiver's log by sender pseudonym in time order gives a link, our data unit.</aside>
+</section>
+
+<!-- ===== 9. The unit: a link ===== -->
+<section class="slide" data-title="The unit: a link">
+  <div class="kicker">Part C · Step 9 <span class="part">· link, window &amp; T</span></div>
+  <h2>The unit is a link: one receiver, one pseudonym, in time order</h2>
+  <div class="row2">
+    <div>
+      <div class="fig-wrap">
+        <svg class="fig" viewBox="0 0 440 104" role="img" aria-label="A receiver hears pseudonym A once per second; those messages in time order form one link">
+          <rect x="4" y="40" width="58" height="26" rx="7" class="f-primary"/><circle cx="20" cy="68" r="6" class="wheel"/><circle cx="48" cy="68" r="6" class="wheel"/>
+          <text x="33" y="94" class="t-mid t-sm t-b">receiver R</text>
+          <path d="M100 53 L76 53" class="arrow"/>
+          <circle cx="118" cy="53" r="8" class="f-benign"/><circle cx="148" cy="53" r="8" class="f-benign"/><circle cx="178" cy="53" r="8" class="f-benign"/><circle cx="208" cy="53" r="8" class="f-benign"/>
+          <circle cx="238" cy="53" r="8" class="f-benign"/><circle cx="268" cy="53" r="8" class="f-benign"/><circle cx="298" cy="53" r="8" class="f-benign"/><circle cx="328" cy="53" r="8" class="f-benign"/>
+          <text x="352" y="58" class="t-2">&hellip; n</text>
+          <text x="118" y="24" class="t-sm t-b">messages from pseudonym A</text>
+          <text x="118" y="88" class="t-sm t-muted">1 message &asymp; 1 s, in time order</text>
+        </svg>
+      </div>
+      <div class="card info sm"><b>Reading p90 = 46</b>90% of benign links have &le; 46 messages. It is about length, not attacks.</div>
+      <div class="card warn sm"><b>Outliers</b>&gt; p99 (~120 msgs) is ~1%. GridSybil&rsquo;s 861: likely pseudonym 1 shared by all ghosts (F13), several merged into one link; split by time.</div>
+    </div>
+    <div>
+      <table class="tbl fit">
+        <thead><tr><th>Link length</th><th class="num">min</th><th class="num">p50</th><th class="num">p75</th><th class="num">p90</th><th class="num">p99</th><th class="num">max</th></tr></thead>
+        <tbody>
+          <tr><td><span class="sw a-benign"></span>Benign</td><td class="num">1</td><td class="num">14</td><td class="num">26</td><td class="num hi">46</td><td class="num">119</td><td class="num">272</td></tr>
+          <tr><td><span class="sw a-grid"></span>GridSybil</td><td class="num">1</td><td class="num">11</td><td class="num">23</td><td class="num hi">44</td><td class="num">125</td><td class="num">861</td></tr>
+          <tr><td class="dim"><span class="sw a-replay"></span>DataReplay&shy;Sybil</td><td class="num dim">1</td><td class="num dim">1</td><td class="num dim">2</td><td class="num dim">2</td><td class="num dim">6</td><td class="num dim">66</td></tr>
+        </tbody>
+      </table>
+      <div class="lbl" style="margin-top:.4em">Share of links by length (messages)</div>
+      <div class="bins" aria-label="Share of links by length: benign and GridSybil">
+        <div class="bin"><i class="a-benign" style="height:20%"></i><i class="a-grid" style="height:31.8%"></i></div>
+        <div class="bin"><i class="a-benign" style="height:17.2%"></i><i class="a-grid" style="height:24.5%"></i></div>
+        <div class="bin"><i class="a-benign" style="height:28.8%"></i><i class="a-grid" style="height:39.1%"></i></div>
+        <div class="bin"><i class="a-benign" style="height:49.6%"></i><i class="a-grid" style="height:58.4%"></i></div>
+        <div class="bin"><i class="a-benign" style="height:86.5%"></i><i class="a-grid" style="height:78.1%"></i></div>
+        <div class="bin"><i class="a-benign" style="height:100%"></i><i class="a-grid" style="height:77%"></i></div>
+        <div class="bin"><i class="a-benign" style="height:44.2%"></i><i class="a-grid" style="height:37.6%"></i></div>
+        <div class="bin"><i class="a-benign" style="height:16.1%"></i><i class="a-grid" style="height:15%"></i></div>
+        <div class="bin"><i class="a-benign" style="height:2.6%"></i><i class="a-grid" style="height:3.3%"></i></div>
+      </div>
+      <div class="bins-x"><span>1</span><span>2</span><span>3&ndash;4</span><span>5&ndash;8</span><span>9&ndash;16</span><span>17&ndash;32</span><span>33&ndash;64</span><span>65&ndash;128</span><span>&gt;128</span></div>
+      <div class="legend"><span><span class="sw a-benign"></span>Benign (peak 27.4%)</span><span><span class="sw a-grid"></span>GridSybil</span></div>
+      <div class="card bad sm"><b>1-message links have no motion</b>5.5% of benign links, 8.7% of GridSybil links.</div>
+    </div>
+  </div>
+  <div class="note">All 8 scenario folders, both groups; receiver view, every received copy. Source: <code>src/eda/eda_window_size.ipynb</code> (link-length table and length bins).</div>
+  <aside class="notes">A link is one receiver, one pseudonym, in time order. Benign and GridSybil links have similar lengths, p90 46 and 44; DataReplaySybil links are one or two messages. One-message links carry no motion.</aside>
+</section>
+
+<!-- ===== 10. How long are links? ===== -->
+<section class="slide" data-title="Links are mostly short">
+  <div class="kicker">Part C · Step 10 <span class="part">· link, window &amp; T</span></div>
+  <h2>Links are mostly short, with a long tail</h2>
+  <div class="row2">
+    <div>
+      <table class="tbl stat-tbl fit">
+        <thead><tr><th>Messages per link</th><th class="num">median</th><th class="num">mean</th><th class="num">mode</th></tr></thead>
+        <tbody>
+          <tr><td><span class="sw a-benign"></span>Benign</td><td class="num">14</td><td class="num">20.8</td><td class="num">1</td></tr>
+          <tr><td><span class="sw a-grid"></span>GridSybil</td><td class="num">11</td><td class="num">19.1</td><td class="num">1</td></tr>
+        </tbody>
+      </table>
+      <div class="defs">
+        <div><b>Median</b> = the typical link.</div>
+        <div><b>Mean</b> = messages &divide; links (10,445,832 / 502,282; 4,364,413 / 228,527): pulled up by long links (max 272 / 861).</div>
+        <div><b>Mode</b> = most common exact length = 1.</div>
+      </div>
+      <div class="card warn sm"><b>mode &lt; median &lt; mean &rArr; skewed</b>Many very short links, a few very long ones.</div>
+      <div class="card info sm"><b>Takeaways</b>About half of links are 9&ndash;32 messages (benign 51%, GridSybil 42.5%). 10&ndash;15% are 1&ndash;2 messages (little motion). ~5% are longer than 64.</div>
+    </div>
+    <div>
+      <div class="lbl">Share of links by length (messages)</div>
+      <div class="hbars" role="img" aria-label="Share of links by length, benign vs GridSybil: 1 message 5.5 vs 8.7%; 2: 4.7 vs 6.7%; 3-4: 7.9 vs 10.7%; 5-8: 13.6 vs 16.0%; 9-16: 23.7 vs 21.4%; 17-32: 27.4 vs 21.1%; 33-64: 12.1 vs 10.3%; 65-128: 4.4 vs 4.1%; over 128: 0.7 vs 0.9%">
+        <div class="hrow"><span>1</span><div class="hpair"><div class="hb"><i class="a-benign" style="width:20.1%"></i><b>5.5%</b></div><div class="hb"><i class="a-grid" style="width:31.8%"></i><b>8.7%</b></div></div></div>
+        <div class="hrow"><span>2</span><div class="hpair"><div class="hb"><i class="a-benign" style="width:17.2%"></i><b>4.7%</b></div><div class="hb"><i class="a-grid" style="width:24.5%"></i><b>6.7%</b></div></div></div>
+        <div class="hrow"><span>3&ndash;4</span><div class="hpair"><div class="hb"><i class="a-benign" style="width:28.8%"></i><b>7.9%</b></div><div class="hb"><i class="a-grid" style="width:39.1%"></i><b>10.7%</b></div></div></div>
+        <div class="hrow"><span>5&ndash;8</span><div class="hpair"><div class="hb"><i class="a-benign" style="width:49.6%"></i><b>13.6%</b></div><div class="hb"><i class="a-grid" style="width:58.4%"></i><b>16.0%</b></div></div></div>
+        <div class="hrow hl"><span>9&ndash;16</span><div class="hpair"><div class="hb"><i class="a-benign" style="width:86.5%"></i><b>23.7%</b></div><div class="hb"><i class="a-grid" style="width:78.1%"></i><b>21.4%</b></div></div></div>
+        <div class="hrow hl"><span>17&ndash;32</span><div class="hpair"><div class="hb"><i class="a-benign" style="width:100%"></i><b>27.4%</b></div><div class="hb"><i class="a-grid" style="width:77%"></i><b>21.1%</b></div></div></div>
+        <div class="hrow"><span>33&ndash;64</span><div class="hpair"><div class="hb"><i class="a-benign" style="width:44.2%"></i><b>12.1%</b></div><div class="hb"><i class="a-grid" style="width:37.6%"></i><b>10.3%</b></div></div></div>
+        <div class="hrow"><span>65&ndash;128</span><div class="hpair"><div class="hb"><i class="a-benign" style="width:16.1%"></i><b>4.4%</b></div><div class="hb"><i class="a-grid" style="width:15%"></i><b>4.1%</b></div></div></div>
+        <div class="hrow"><span>&gt; 128</span><div class="hpair"><div class="hb"><i class="a-benign" style="width:2.6%"></i><b>0.7%</b></div><div class="hb"><i class="a-grid" style="width:3.3%"></i><b>0.9%</b></div></div></div>
+      </div>
+      <div class="legend"><span><span class="sw a-benign"></span>Benign</span><span><span class="sw a-grid"></span>GridSybil</span><span>Shares of links, not of messages.</span></div>
+    </div>
+  </div>
+  <div class="note">Source: <code>src/eda/eda_window_size.ipynb</code> (link-length table and length histogram). Mode from the histogram: the 1- and 2-message bins are exact, longer lengths are binned.</div>
+  <aside class="notes">The length distribution is skewed: the most common length is 1, the benign median 14 and mean 20.8. About half of links are 9 to 32 messages, and only about 5% are longer than 64.</aside>
+</section>
+
+<!-- ===== 11. Choosing T ===== -->
+<section class="slide" data-title="Window length T = 48">
+  <div class="kicker">Part C · Step 11 <span class="part">· link, window &amp; T</span></div>
+  <h2>Window length T = 48 (&asymp; p90) is the balanced choice</h2>
+  <div class="cols">
+    <div class="col">
+      <div class="tchart" aria-label="Whole links versus padding share for T = 32, 48 and 64">
+        <div class="trow"><div class="tl">T = 32<small>442,701 win.</small></div><div class="tbars">
+          <div class="tbar"><span>links whole</span><div class="bar"><i class="i-whole" style="width:84%"></i></div><b>84%</b></div>
+          <div class="tbar"><span>padding rows</span><div class="bar"><i class="i-pad" style="width:51%"></i></div><b>51%</b></div></div></div>
+        <div class="trow pick"><div class="tl">T = 48<small>395,851 win.</small></div><div class="tbars">
+          <div class="tbar"><span>links whole</span><div class="bar"><i class="i-whole" style="width:91%"></i></div><b>91%</b></div>
+          <div class="tbar"><span>padding rows</span><div class="bar"><i class="i-pad" style="width:63%"></i></div><b>63%</b></div></div></div>
+        <div class="trow"><div class="tl">T = 64<small>376,427 win.</small></div><div class="tbars">
+          <div class="tbar"><span>links whole</span><div class="bar"><i class="i-whole" style="width:95%"></i></div><b>95%</b></div>
+          <div class="tbar"><span>padding rows</span><div class="bar"><i class="i-pad" style="width:71%"></i></div><b>71%</b></div></div></div>
+        <div class="tlegend">Links whole = the link fits in one window. Longer links are cut into ceil(n / T) windows; the last one is padded.</div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="strip-wrap" aria-label="A 12-message link inside a 48-row window: 12 real rows, 36 padding rows">
+        <b>A typical 12-message link in a T = 48 window</b>
+        <div class="strip"><i class="real b"></i><i class="real b"></i><i class="real b"></i><i class="real b"></i><i class="real b"></i><i class="real b"></i><i class="real b"></i><i class="real b"></i><i class="real b"></i><i class="real b"></i><i class="real b"></i><i class="real b"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="strip-cap"><span>12 real rows (mask = 1)</span><span>36 padding rows (mask = 0) = 75%</span></div>
+      </div>
+      <div class="card warn tpick"><b>Rows vs real messages</b>395,851 &times; 48 = 19.0 M rows, but only ~7.0 M (37%) are real messages.</div>
+    </div>
+  </div>
+  <div class="lbl" style="margin-top:.55em">Choice: T = 48 (&asymp; p90), because</div>
+  <div class="why48">
+    <div><b>1</b>For a typical 11&ndash;14-message link T does not matter (same window, more padding). T only decides how the longest ~16% (&gt; 32) are cut.</div>
+    <div><b>2</b>Sequence signals (position change vs claimed velocity, ghosts drifting together) need tens of seconds; 48 keeps ~90% of tracks whole.</div>
+    <div><b>3</b>TimesNet finds periods up to T/2: 24 s at 48 vs 16 s at 32. The planned block masking of 20&ndash;40 steps does not fit a 32-row window.</div>
+    <div><b>4</b>64 adds only +4 points of whole links for +8 points of padding and ~33% more compute. 32 and 64 stay as sensitivity checks (D1 said 64).</div>
+  </div>
+  <div class="note">Benign + GridSybil links of the GridSybil folders, both groups. Source: <code>src/eda/eda_window_size.ipynb</code> (window-size sweep with padding).</div>
+  <aside class="notes">T trades whole links against padding. T = 48 sits near p90: 91% of links fit whole, and it covers the planned block masking and longer periods. 64 adds little for more padding and compute; 32 and 64 stay as sensitivity checks.</aside>
+</section>
+
+<!-- ===== 12. Padding vs context ===== -->
+<section class="slide" data-title="Padding vs context: length buckets">
+  <div class="kicker">Part C · Step 12 <span class="part">· link, window &amp; T</span></div>
+  <h2>Smaller T cuts padding but loses context; length buckets avoid the trade-off</h2>
+  <p class="lead">A long link is split, not lost, but patterns longer than T are: TimesNet sees periods up to T/2, <b>12 s at T = 24, 24 s at T = 48</b>.</p>
+  <div class="defs">
+    <div><b>Links whole</b> = links that fit in one window. Fixed T = 24: 75% fit whole; the rest are split.</div>
+    <div><b>Padding rows</b> = empty rows (mask = 0) that fill a window up to T. Fixed T = 24: 42% of all rows.</div>
+    <div><b>Length bucket</b> = each link goes into the smallest of 8 / 16 / 32 / 64 that fits; ~26% padding; batches are built per bucket.</div>
+  </div>
+  <table class="tbl opt-tbl fit">
+    <thead><tr><th>Option</th><th>Links whole</th><th>Padding rows</th></tr></thead>
+    <tbody>
+      <tr><td>Fixed T = 48</td><td><div class="barcell"><div class="bar"><i class="i-whole" style="width:91%"></i></div><b>91%</b></div></td><td><div class="barcell"><div class="bar"><i class="i-pad" style="width:63%"></i></div><b>63%</b></div></td></tr>
+      <tr><td>Fixed T = 24</td><td><div class="barcell"><div class="bar"><i class="i-whole" style="width:75%"></i></div><b>75%</b></div></td><td><div class="barcell"><div class="bar"><i class="i-pad" style="width:42%"></i></div><b>42%</b></div></td></tr>
+      <tr><td>Fixed T = 16</td><td><div class="barcell"><div class="bar"><i class="i-whole" style="width:60%"></i></div><b>60%</b></div></td><td><div class="barcell"><div class="bar"><i class="i-pad" style="width:31%"></i></div><b>31%</b></div></td></tr>
+      <tr class="pick"><td><b>Length buckets 8 / 16 / 32 / 64</b></td><td><div class="barcell"><div class="bar"><i class="i-whole" style="width:95%"></i></div><b>95%</b></div></td><td><div class="barcell"><div class="bar"><i class="i-pad" style="width:26%"></i></div><b>~26%</b></div></td></tr>
+      <tr><td>Overlap windows / average z per link</td><td colspan="2" class="dim">recovers context across a split link</td></tr>
+    </tbody>
+  </table>
+  <div class="cards2">
+    <div class="card good"><b>Recommendation</b>Length buckets if possible; else fixed T = 48.</div>
+    <div class="card warn"><b>DataReplaySybil</b>No per-ID T works: it needs a receiver time window.</div>
+  </div>
+  <div class="note">Fixed T: <code>src/eda/eda_window_size.ipynb</code>. Buckets: measured in the T64 pipeline (26.3% padding, <code>agent.md</code> &sect;1); links up to 64 messages stay whole, as at T = 64.</div>
+  <aside class="notes">Two terms: links whole means the link fits in one window; padding rows are empty rows with mask 0. Smaller fixed T cuts padding but loses context. Length buckets keep 95% of links whole with about 26% padding.</aside>
+</section>
+
+<!-- ===== 13. Overlap and stride ===== -->
+<section class="slide" data-title="Overlap and stride">
+  <div class="kicker">Part C · Step 13 <span class="part">· link, window &amp; T</span></div>
+  <h2>Overlap and stride: how windows are cut from a link</h2>
+  <div class="defs">
+    <div><b>Window</b> = T messages taken from one link. <b>Stride</b> = how far the window moves before the next one is cut. <b>Overlap</b> = messages two neighbouring windows share = T &minus; stride.</div>
+    <div><b>Stride = T</b> (our data now): back to back, every message used once. <b>Stride = T/2 = 24</b> at T = 48 (50% overlap): each window starts halfway through the previous one; every message except the ends sits in two windows.</div>
+  </div>
+  <div class="ow" id="owAnim">
+    <div class="fig-wrap sx">
+        <svg class="fig wide ow-svg" data-s="5.4" style="max-width:42em;margin:0 auto" viewBox="0 0 960 262" role="img" aria-label="One link of 100 messages cut into windows of 48. Stride 48: windows 1 to 48, 49 to 96, and 97 to 100 plus 44 padding rows, 3 windows. Stride 24: windows 1 to 48, 25 to 72, 49 to 96, and 73 to 100 plus 20 padding rows, 4 windows; messages 25 to 96 sit in two windows. A short link of 12 messages gives 1 window either way, 12 real rows plus 36 padding rows. A highlighted bracket slides along the link window by window.">
+        <text x="0" y="40" class="t-b">Link</text><text x="0" y="57" class="t-sm t-muted">100 messages</text>
+        <rect x="178" y="28" width="540" height="24" rx="4" class="f-benign"/>
+        <text x="180.7" y="74" class="t-sm t-muted t-mid">1</text>
+        <text x="310.3" y="74" class="t-sm t-muted t-mid">25</text>
+        <text x="439.9" y="74" class="t-sm t-muted t-mid">49</text>
+        <text x="569.5" y="74" class="t-sm t-muted t-mid">73</text>
+        <text x="699.1" y="74" class="t-sm t-muted t-mid">97</text>
+        <text x="720" y="74" class="t-sm t-muted t-start">100</text>
+        <g class="ow-br"><rect x="176.5" y="21" width="262.2" height="38" rx="6"/><text x="307.6" y="14" class="t-sm t-mid t-b ow-br-t">window, T = 48</text></g>
+        <text x="0" y="101" class="t-b">Stride 48 = T</text><text x="0" y="119" class="t-sm t-muted">no overlap &middot; 3 win.</text>
+        <g class="ow-win" data-k="48-0"><rect x="178" y="88" width="258.2" height="26" rx="4" class="f-primary"/><text x="307.6" y="105.5" class="t-mid t-onfill t-sm">1&ndash;48</text><rect x="176.5" y="86.5" width="261.2" height="29" rx="5" class="ow-hl"/></g>
+        <g class="ow-win" data-k="48-1"><rect x="437.2" y="88" width="258.2" height="26" rx="4" class="f-primary"/><text x="566.8" y="105.5" class="t-mid t-onfill t-sm">49&ndash;96</text><rect x="435.7" y="86.5" width="261.2" height="29" rx="5" class="ow-hl"/></g>
+        <g class="ow-win" data-k="48-2"><rect x="696.4" y="88" width="21.6" height="26" rx="4" class="f-primary"/><rect x="718" y="88" width="236.6" height="26" rx="4" class="f-pad"/><text x="726" y="105.5" class="t-sm t-2">97&ndash;100 + 44 padding</text><rect x="694.9" y="86.5" width="261.2" height="29" rx="5" class="ow-hl"/></g>
+        <rect x="307.6" y="140" width="388.8" height="64" rx="6" class="ow-band"/>
+        <text x="502" y="135" class="t-sm t-mid ow-band-t">messages 25&ndash;96 sit in 2 windows</text>
+        <text x="0" y="163" class="t-b">Stride 24 = T/2</text><text x="0" y="179" class="t-sm t-muted">50% overlap</text><text x="0" y="195" class="t-sm t-muted">4 windows</text>
+        <g class="ow-win" data-k="24-0"><rect x="178" y="146" width="258.2" height="24" rx="4" class="f-primary"/><text x="307.6" y="162.5" class="t-mid t-onfill t-sm">1&ndash;48</text><rect x="176.5" y="144.5" width="261.2" height="27" rx="5" class="ow-hl"/></g>
+        <g class="ow-win" data-k="24-2"><rect x="437.2" y="146" width="258.2" height="24" rx="4" class="f-primary"/><text x="566.8" y="162.5" class="t-mid t-onfill t-sm">49&ndash;96</text><rect x="435.7" y="144.5" width="261.2" height="27" rx="5" class="ow-hl"/></g>
+        <g class="ow-win" data-k="24-1"><rect x="307.6" y="176" width="258.2" height="24" rx="4" class="f-accent"/><text x="437.2" y="192.5" class="t-mid t-onfill t-sm">25&ndash;72</text><rect x="306.1" y="174.5" width="261.2" height="27" rx="5" class="ow-hl"/></g>
+        <g class="ow-win" data-k="24-3"><rect x="566.8" y="176" width="151.2" height="24" rx="4" class="f-accent"/><rect x="718" y="176" width="107" height="24" rx="4" class="f-pad"/><text x="642.4" y="192.5" class="t-mid t-onfill t-sm">73&ndash;100</text><text x="726" y="192.5" class="t-sm t-2">+ 20 padding</text><rect x="565.3" y="174.5" width="261.2" height="27" rx="5" class="ow-hl"/></g>
+        <text x="0" y="234" class="t-b">Short link</text><text x="0" y="250" class="t-sm t-muted">12 messages</text>
+        <rect x="178" y="222" width="64.8" height="24" rx="4" class="f-benign"/>
+        <rect x="242.8" y="222" width="194.4" height="24" rx="4" class="f-pad"/>
+        <text x="250.8" y="238.5" class="t-sm t-2">+ 36 padding</text>
+        <text x="453.2" y="232" class="t-sm t-b">1 window with stride 48 or 24</text><text x="453.2" y="249" class="t-sm t-muted">overlap changes nothing</text>
+        </svg>
+        <svg class="fig fig-narrow ow-svg" data-s="2.4" viewBox="0 0 360 290" role="img" aria-label="One link of 100 messages cut into windows of 48. Stride 48 gives 3 windows (1 to 48, 49 to 96, 97 to 100 plus 44 padding); stride 24 gives 4 windows (1 to 48, 25 to 72, 49 to 96, 73 to 100 plus 20 padding). A 12-message link gives 1 window either way.">
+        <text x="0" y="13" class="t-sm t-b">Link &middot; 100 messages</text>
+        <rect x="8" y="26" width="240" height="22" rx="4" class="f-benign"/>
+        <text x="9.2" y="66" class="t-sm t-muted t-mid">1</text>
+        <text x="66.8" y="66" class="t-sm t-muted t-mid">25</text>
+        <text x="124.4" y="66" class="t-sm t-muted t-mid">49</text>
+        <text x="182" y="66" class="t-sm t-muted t-mid">73</text>
+        <text x="254" y="66" class="t-sm t-muted t-end">100</text>
+        <g class="ow-br"><rect x="6.5" y="20" width="118.2" height="34" rx="5"/></g>
+        <text x="0" y="88" class="t-sm t-b">Stride 48 = T &middot; no overlap &middot; 3 windows</text>
+        <g class="ow-win" data-k="48-0"><rect x="8" y="96" width="114.2" height="22" rx="4" class="f-primary"/><text x="65.6" y="111.5" class="t-mid t-onfill t-sm">1&ndash;48</text><rect x="6.5" y="94.5" width="117.2" height="25" rx="5" class="ow-hl"/></g>
+        <g class="ow-win" data-k="48-1"><rect x="123.2" y="96" width="114.2" height="22" rx="4" class="f-primary"/><text x="180.8" y="111.5" class="t-mid t-onfill t-sm">49&ndash;96</text><rect x="121.7" y="94.5" width="117.2" height="25" rx="5" class="ow-hl"/></g>
+        <g class="ow-win" data-k="48-2"><rect x="238.4" y="96" width="9.6" height="22" rx="4" class="f-primary"/><rect x="248" y="96" width="104.6" height="22" rx="4" class="f-pad"/><text x="256" y="111.5" class="t-sm t-2">+ 44 padding</text><rect x="236.9" y="94.5" width="117.2" height="25" rx="5" class="ow-hl"/></g>
+        <text x="0" y="142" class="t-sm t-b">Stride 24 = T/2 &middot; 50% overlap &middot; 4 windows</text>
+        <rect x="65.6" y="148" width="172.8" height="56" rx="5" class="ow-band"/>
+        <g class="ow-win" data-k="24-0"><rect x="8" y="152" width="114.2" height="22" rx="4" class="f-primary"/><text x="65.6" y="167.5" class="t-mid t-onfill t-sm">1&ndash;48</text><rect x="6.5" y="150.5" width="117.2" height="25" rx="5" class="ow-hl"/></g>
+        <g class="ow-win" data-k="24-2"><rect x="123.2" y="152" width="114.2" height="22" rx="4" class="f-primary"/><text x="180.8" y="167.5" class="t-mid t-onfill t-sm">49&ndash;96</text><rect x="121.7" y="150.5" width="117.2" height="25" rx="5" class="ow-hl"/></g>
+        <g class="ow-win" data-k="24-1"><rect x="65.6" y="178" width="114.2" height="22" rx="4" class="f-accent"/><text x="123.2" y="193.5" class="t-mid t-onfill t-sm">25&ndash;72</text><rect x="64.1" y="176.5" width="117.2" height="25" rx="5" class="ow-hl"/></g>
+        <g class="ow-win" data-k="24-3"><rect x="180.8" y="178" width="67.2" height="22" rx="4" class="f-accent"/><rect x="248" y="178" width="47" height="22" rx="4" class="f-pad"/><text x="214.4" y="193.5" class="t-mid t-onfill t-sm">73&ndash;100</text><text x="300" y="193.5" class="t-sm t-2">+20 pad</text><rect x="179.3" y="176.5" width="117.2" height="25" rx="5" class="ow-hl"/></g>
+        <text x="152" y="220" class="t-sm t-mid ow-band-t">messages 25&ndash;96 sit in 2 windows</text>
+        <text x="0" y="246" class="t-sm t-b">Short link &middot; 12 messages</text>
+        <rect x="8" y="254" width="28.8" height="22" rx="4" class="f-benign"/>
+        <rect x="36.8" y="254" width="86.4" height="22" rx="4" class="f-pad"/>
+        <text x="42.8" y="269.5" class="t-sm t-2">+ 36 pad</text>
+        <text x="132" y="263" class="t-sm">1 window either way:</text><text x="132" y="279" class="t-sm t-muted">overlap changes nothing</text>
+        </svg>
+    </div>
+    <div class="net-bar">
+      <p class="net-cap" id="owCap">Stride 48 &middot; window 1 of 3 &middot; messages 1&ndash;48</p>
+      <button class="deck-btn" id="owPlay" type="button" aria-label="Pause the animation">Pause</button>
+    </div>
+  </div>
+  <div class="cards3">
+    <div class="card good"><b>What overlap gives</b>A pattern cut at a window boundary appears whole in the neighbouring window. Long links give more windows (a mild augmentation).</div>
+    <div class="card warn"><b>What it costs; why the gain is small</b>Only links longer than T get extra windows (~9% at T = 48; most links are 11&ndash;14 messages). Near-duplicate windows of one link must not be contrastive negatives (D13 already masks pairs from the same pseudonym and run). Long tracks get more weight. One link&rsquo;s windows stay in one split (the vehicle split ensures it). Overlap never mixes cars: a window holds one sender&rsquo;s messages.</div>
+    <div class="card info"><b>Verdict</b>Keep no overlap (stride = T) as the default. Test stride 24 as an ablation; keep it only if it improves the check-set losses or later results.</div>
+  </div>
+  <div class="note">Window counts: a link of n messages gives ceil(n / T) windows at stride T, and 1 + ceil((n &minus; T) / 24) at stride 24 when n &gt; T. Links longer than 48: <code>src/eda/eda_window_size.ipynb</code> (91% fit whole at T = 48). D13: <code>agent.md</code> &sect;3.</div>
+  <aside class="notes">Stride is how far the window moves; overlap is T minus stride. Today we cut windows back to back, so each message is used once; stride 24 would give long links extra, overlapping windows. Few links are longer than 48, so the gain is small: no overlap stays the default and stride 24 is an ablation.</aside>
+</section>
+
+<!-- ===== 14. Preprocessing recipe ===== -->
+<section class="slide" data-title="Preprocessing recipe: three steps open">
+  <div class="kicker">Part C · Step 14 <span class="part">· link, window &amp; T</span></div>
+  <h2>Ten preprocessing steps from raw logs to windows; three are open</h2>
+  <ol class="recipe" aria-label="Ten preprocessing steps with their status">
+    <li class="rstep dec"><h3><span class="n">1</span>Parse logs</h3><span>Each receiver&rsquo;s log &rarr; received BSMs. Dedup by <code>messageID</code> within a receiver; copies heard by other receivers kept (D1&prime;).</span><span class="stchips"><span class="stc dec">Decided</span></span></li>
+    <li class="rstep dec"><h3><span class="n">2</span>Build links</h3><span><span class="p">(receiver, sender pseudonym)</span>, sorted by receive time. True sender and time of day: never inputs.</span><span class="stchips"><span class="stc dec">Decided</span></span></li>
+    <li class="rstep open"><h3><span class="n">3</span>Features</h3><span><span class="p">13 (D3):</span> claimed pos x/y, receiver pos x/y, claimed vel x/y, receiver vel x/y, acl x/y, range, bearing, log&nbsp;&Delta;&tau;. No time of day (alone it separates 0709 from 1416).</span><span class="alt">Alternatives: (a) add sin/cos time of day + &Delta;&tau;; (b) 11 relative features (&Delta;x, &Delta;y, vx, vy, ax, ay, heading x/y, |v|, &Delta;t, residual).</span><span class="stchips"><span class="stc dec">Decided (ours)</span><span class="stc open">Open &mdash; to decide</span></span></li>
+    <li class="rstep rec"><h3><span class="n">4</span>Short links, outliers</h3><span>1&ndash;2-message links carry little motion. Links &gt; p99 (~120), e.g. GridSybil&rsquo;s 861 &rarr; split by time.</span><span class="stchips"><span class="stc rec">Recommended</span></span></li>
+    <li class="rstep rec"><h3><span class="n">5</span>Window length</h3><span><span class="p">T = 48 (&asymp; p90).</span> Efficient alternative: buckets 8 / 16 / 32 / 64 (~26% padding). 32 / 64 as sensitivity.</span><span class="stchips"><span class="stc rec">Recommended</span></span></li>
+    <li class="rstep open"><h3><span class="n">6</span>Overlap / stride</h3><span><span class="p">Now: none (stride = T)</span>, every message used once. Option: stride 24 &mdash; see Step 13.</span><span class="stchips"><span class="stc open">Open</span></span></li>
+    <li class="rstep dec"><h3><span class="n">7</span>Padding + mask</h3><span>Pad the last window to T; mask 1 = real, 0 = padding. Losses, pooling and FFT periods use real rows only.</span><span class="stchips"><span class="stc dec">Decided</span></span></li>
+    <li class="rstep dec"><h3><span class="n">8</span>Normalise</h3><span>z-score with mean / std from the <span class="p">train split only</span>, real rows; padding = 0, missing log&nbsp;&Delta;&tau; = 0; same statistics for every split. At load: claimed pos x/y and range re-scaled robustly (median / IQR, soft tail at |z| = 5, D13).</span><span class="stchips"><span class="stc dec">Decided</span></span></li>
+    <li class="rstep open"><h3><span class="n">9</span>Split by vehicle</h3><span><span class="p">Ours:</span> 90 / 10 train / test by sender vehicle, seed 0 (D8&prime;); check set = 10% of train vehicles.</span><span class="alt">Alternative: train/validate on 0709 (80/20 by vehicle), test on all of 1416 (cross-period).</span><span class="stchips"><span class="stc open">Open</span></span></li>
+    <li class="rstep dec"><h3><span class="n">10</span>Labels</h3><span>Kept in separate <code>_info</code> files, never read in pretraining (<code>LabelFirewall</code>).</span><span class="stchips"><span class="stc dec">Decided</span></span></li>
+  </ol>
+  <div class="open-bar"><b>Open decisions:</b> features (3), overlap (6, Step 13), split (9); with T (5), they are on the last slide.</div>
+  <div class="note">Current pipeline: <code>docs/plan/stage1-preprocessing-feature-engineering.md</code>, <code>agent.md</code> D1, D1&prime;, D3, D8&prime;, D13. Built today: T = 64 set; a T = 48 set is not built yet. Status: <span class="stc dec">Decided</span> <span class="stc rec">Recommended</span> <span class="stc open">Open &mdash; to decide</span></div>
+  <aside class="notes">Ten steps from raw logs to windows. Most are decided; T and outlier handling are recommendations. Three are open: the feature set, overlap and the split; they come back on the last slide.</aside>
+</section>
+
+<!-- ===== 15. What the encoder learns ===== -->
+<section class="slide" data-title="What the encoder learns (Stage 1)">
+  <div class="kicker">Part D · Step 15 <span class="part">· Stage 1 (self-supervised pretraining)</span></div>
+  <h2>With no attack labels, the encoder learns how real cars move</h2>
+  <div class="strip-wrap" aria-label="A link with four hidden messages that the encoder must fill back in">
+    <b>Core task: hide part of the track, fill it back in</b>
+    <div class="strip mask"><i class="real b"></i><i class="real b"></i><i class="real b"></i><i class="real b"></i><i class="hid"></i><i class="hid"></i><i class="hid"></i><i class="hid"></i><i class="real b"></i><i class="real b"></i><i class="real b"></i><i class="real b"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="strip-cap"><span><span class="sw a-benign"></span>seen &middot; <span class="sw" style="background:var(--fill-warn);border:1px solid var(--warn)"></span>hidden: predict these</span><span>padding (ignored)</span></div>
+  </div>
+  <div class="tasks">
+    <div class="card good"><b>Masked reconstruction (core)</b>To fill the gap it must learn how real cars move.</div>
+    <div class="card info"><b>Physics checks</b>Heads spot violations we inject (P1&ndash;P3).</div>
+    <div class="card info"><b>Contrastive views</b>Two physically consistent views of one window should agree.</div>
+  </div>
+  <div class="cards2">
+    <div class="card warn"><b>Not a detector</b>No labels: it does not know what &ldquo;Sybil&rdquo; is. Reconstruction is the means; the goal is a good z.</div>
+    <div class="card"><b>Data: benign + GridSybil (T = 64 set)</b>Train / test split by sender vehicle, 90 / 10; sizes on step 17.</div>
+  </div>
+  <div class="note">TimesNet, 4 TimesBlocks (<code>agent.md</code> &sect;3, D4, D8&prime;).</div>
+  <aside class="notes">Stage 1 hides part of each track and asks the encoder to fill it in, plus physics heads for injected violations and a contrastive view task. It never sees labels, so it is not a detector; the goal is a good embedding z.</aside>
+</section>
+
+<!-- ===== 16. Input -> output ===== -->
+<section class="slide" data-title="48 × 13 in, 128 out">
+  <div class="kicker">Part D · Step 16 <span class="part">· Stage 1 (self-supervised pretraining)</span></div>
+  <h2>After training: 48 &times; 13 numbers in, 128 numbers out</h2>
+  <div class="fig-wrap sx">
+    <svg class="fig wide" viewBox="0 0 940 262" role="img" aria-label="Input: up to 48 messages by 13 features plus a mask; TimesNet encoder; output z, 128 numbers">
+      <text x="40" y="22" class="t-b">Input: one link segment</text>
+      <text x="40" y="42" class="t-sm t-muted">13 features &rarr;</text>
+      <rect x="40" y="52" width="14" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="56" y="52" width="14" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="72" y="52" width="14" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="88" y="52" width="14" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="104" y="52" width="14" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="120" y="52" width="14" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="136" y="52" width="14" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="152" y="52" width="14" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="168" y="52" width="14" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="184" y="52" width="14" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="200" y="52" width="14" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="216" y="52" width="14" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="232" y="52" width="14" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="40" y="65" width="14" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="56" y="65" width="14" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="72" y="65" width="14" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="88" y="65" width="14" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="104" y="65" width="14" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="120" y="65" width="14" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="136" y="65" width="14" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="152" y="65" width="14" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="168" y="65" width="14" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="184" y="65" width="14" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="200" y="65" width="14" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="216" y="65" width="14" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="232" y="65" width="14" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="40" y="78" width="14" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="56" y="78" width="14" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="72" y="78" width="14" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="88" y="78" width="14" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="104" y="78" width="14" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="120" y="78" width="14" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="136" y="78" width="14" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="152" y="78" width="14" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="168" y="78" width="14" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="184" y="78" width="14" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="200" y="78" width="14" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="216" y="78" width="14" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="232" y="78" width="14" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="40" y="91" width="14" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="56" y="91" width="14" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="72" y="91" width="14" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="88" y="91" width="14" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="104" y="91" width="14" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="120" y="91" width="14" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="136" y="91" width="14" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="152" y="91" width="14" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="168" y="91" width="14" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="184" y="91" width="14" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="200" y="91" width="14" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="216" y="91" width="14" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="232" y="91" width="14" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="40" y="104" width="14" height="11" rx="2" class="f-pad"/><rect x="56" y="104" width="14" height="11" rx="2" class="f-pad"/><rect x="72" y="104" width="14" height="11" rx="2" class="f-pad"/><rect x="88" y="104" width="14" height="11" rx="2" class="f-pad"/><rect x="104" y="104" width="14" height="11" rx="2" class="f-pad"/><rect x="120" y="104" width="14" height="11" rx="2" class="f-pad"/><rect x="136" y="104" width="14" height="11" rx="2" class="f-pad"/><rect x="152" y="104" width="14" height="11" rx="2" class="f-pad"/><rect x="168" y="104" width="14" height="11" rx="2" class="f-pad"/><rect x="184" y="104" width="14" height="11" rx="2" class="f-pad"/><rect x="200" y="104" width="14" height="11" rx="2" class="f-pad"/><rect x="216" y="104" width="14" height="11" rx="2" class="f-pad"/><rect x="232" y="104" width="14" height="11" rx="2" class="f-pad"/><rect x="40" y="117" width="14" height="11" rx="2" class="f-pad"/><rect x="56" y="117" width="14" height="11" rx="2" class="f-pad"/><rect x="72" y="117" width="14" height="11" rx="2" class="f-pad"/><rect x="88" y="117" width="14" height="11" rx="2" class="f-pad"/><rect x="104" y="117" width="14" height="11" rx="2" class="f-pad"/><rect x="120" y="117" width="14" height="11" rx="2" class="f-pad"/><rect x="136" y="117" width="14" height="11" rx="2" class="f-pad"/><rect x="152" y="117" width="14" height="11" rx="2" class="f-pad"/><rect x="168" y="117" width="14" height="11" rx="2" class="f-pad"/><rect x="184" y="117" width="14" height="11" rx="2" class="f-pad"/><rect x="200" y="117" width="14" height="11" rx="2" class="f-pad"/><rect x="216" y="117" width="14" height="11" rx="2" class="f-pad"/><rect x="232" y="117" width="14" height="11" rx="2" class="f-pad"/><rect x="40" y="130" width="14" height="11" rx="2" class="f-pad"/><rect x="56" y="130" width="14" height="11" rx="2" class="f-pad"/><rect x="72" y="130" width="14" height="11" rx="2" class="f-pad"/><rect x="88" y="130" width="14" height="11" rx="2" class="f-pad"/><rect x="104" y="130" width="14" height="11" rx="2" class="f-pad"/><rect x="120" y="130" width="14" height="11" rx="2" class="f-pad"/><rect x="136" y="130" width="14" height="11" rx="2" class="f-pad"/><rect x="152" y="130" width="14" height="11" rx="2" class="f-pad"/><rect x="168" y="130" width="14" height="11" rx="2" class="f-pad"/><rect x="184" y="130" width="14" height="11" rx="2" class="f-pad"/><rect x="200" y="130" width="14" height="11" rx="2" class="f-pad"/><rect x="216" y="130" width="14" height="11" rx="2" class="f-pad"/><rect x="232" y="130" width="14" height="11" rx="2" class="f-pad"/><rect x="40" y="143" width="14" height="11" rx="2" class="f-pad"/><rect x="56" y="143" width="14" height="11" rx="2" class="f-pad"/><rect x="72" y="143" width="14" height="11" rx="2" class="f-pad"/><rect x="88" y="143" width="14" height="11" rx="2" class="f-pad"/><rect x="104" y="143" width="14" height="11" rx="2" class="f-pad"/><rect x="120" y="143" width="14" height="11" rx="2" class="f-pad"/><rect x="136" y="143" width="14" height="11" rx="2" class="f-pad"/><rect x="152" y="143" width="14" height="11" rx="2" class="f-pad"/><rect x="168" y="143" width="14" height="11" rx="2" class="f-pad"/><rect x="184" y="143" width="14" height="11" rx="2" class="f-pad"/><rect x="200" y="143" width="14" height="11" rx="2" class="f-pad"/><rect x="216" y="143" width="14" height="11" rx="2" class="f-pad"/><rect x="232" y="143" width="14" height="11" rx="2" class="f-pad"/><rect x="40" y="156" width="14" height="11" rx="2" class="f-pad"/><rect x="56" y="156" width="14" height="11" rx="2" class="f-pad"/><rect x="72" y="156" width="14" height="11" rx="2" class="f-pad"/><rect x="88" y="156" width="14" height="11" rx="2" class="f-pad"/><rect x="104" y="156" width="14" height="11" rx="2" class="f-pad"/><rect x="120" y="156" width="14" height="11" rx="2" class="f-pad"/><rect x="136" y="156" width="14" height="11" rx="2" class="f-pad"/><rect x="152" y="156" width="14" height="11" rx="2" class="f-pad"/><rect x="168" y="156" width="14" height="11" rx="2" class="f-pad"/><rect x="184" y="156" width="14" height="11" rx="2" class="f-pad"/><rect x="200" y="156" width="14" height="11" rx="2" class="f-pad"/><rect x="216" y="156" width="14" height="11" rx="2" class="f-pad"/><rect x="232" y="156" width="14" height="11" rx="2" class="f-pad"/><rect x="40" y="169" width="14" height="11" rx="2" class="f-pad"/><rect x="56" y="169" width="14" height="11" rx="2" class="f-pad"/><rect x="72" y="169" width="14" height="11" rx="2" class="f-pad"/><rect x="88" y="169" width="14" height="11" rx="2" class="f-pad"/><rect x="104" y="169" width="14" height="11" rx="2" class="f-pad"/><rect x="120" y="169" width="14" height="11" rx="2" class="f-pad"/><rect x="136" y="169" width="14" height="11" rx="2" class="f-pad"/><rect x="152" y="169" width="14" height="11" rx="2" class="f-pad"/><rect x="168" y="169" width="14" height="11" rx="2" class="f-pad"/><rect x="184" y="169" width="14" height="11" rx="2" class="f-pad"/><rect x="200" y="169" width="14" height="11" rx="2" class="f-pad"/><rect x="216" y="169" width="14" height="11" rx="2" class="f-pad"/><rect x="232" y="169" width="14" height="11" rx="2" class="f-pad"/><rect x="40" y="182" width="14" height="11" rx="2" class="f-pad"/><rect x="56" y="182" width="14" height="11" rx="2" class="f-pad"/><rect x="72" y="182" width="14" height="11" rx="2" class="f-pad"/><rect x="88" y="182" width="14" height="11" rx="2" class="f-pad"/><rect x="104" y="182" width="14" height="11" rx="2" class="f-pad"/><rect x="120" y="182" width="14" height="11" rx="2" class="f-pad"/><rect x="136" y="182" width="14" height="11" rx="2" class="f-pad"/><rect x="152" y="182" width="14" height="11" rx="2" class="f-pad"/><rect x="168" y="182" width="14" height="11" rx="2" class="f-pad"/><rect x="184" y="182" width="14" height="11" rx="2" class="f-pad"/><rect x="200" y="182" width="14" height="11" rx="2" class="f-pad"/><rect x="216" y="182" width="14" height="11" rx="2" class="f-pad"/><rect x="232" y="182" width="14" height="11" rx="2" class="f-pad"/><rect x="40" y="195" width="14" height="11" rx="2" class="f-pad"/><rect x="56" y="195" width="14" height="11" rx="2" class="f-pad"/><rect x="72" y="195" width="14" height="11" rx="2" class="f-pad"/><rect x="88" y="195" width="14" height="11" rx="2" class="f-pad"/><rect x="104" y="195" width="14" height="11" rx="2" class="f-pad"/><rect x="120" y="195" width="14" height="11" rx="2" class="f-pad"/><rect x="136" y="195" width="14" height="11" rx="2" class="f-pad"/><rect x="152" y="195" width="14" height="11" rx="2" class="f-pad"/><rect x="168" y="195" width="14" height="11" rx="2" class="f-pad"/><rect x="184" y="195" width="14" height="11" rx="2" class="f-pad"/><rect x="200" y="195" width="14" height="11" rx="2" class="f-pad"/><rect x="216" y="195" width="14" height="11" rx="2" class="f-pad"/><rect x="232" y="195" width="14" height="11" rx="2" class="f-pad"/>
+      <rect x="272" y="52" width="14" height="11" rx="2" class="f-benign"/><rect x="272" y="65" width="14" height="11" rx="2" class="f-benign"/><rect x="272" y="78" width="14" height="11" rx="2" class="f-benign"/><rect x="272" y="91" width="14" height="11" rx="2" class="f-benign"/><rect x="272" y="104" width="14" height="11" rx="2" class="f-pad"/><rect x="272" y="117" width="14" height="11" rx="2" class="f-pad"/><rect x="272" y="130" width="14" height="11" rx="2" class="f-pad"/><rect x="272" y="143" width="14" height="11" rx="2" class="f-pad"/><rect x="272" y="156" width="14" height="11" rx="2" class="f-pad"/><rect x="272" y="169" width="14" height="11" rx="2" class="f-pad"/><rect x="272" y="182" width="14" height="11" rx="2" class="f-pad"/><rect x="272" y="195" width="14" height="11" rx="2" class="f-pad"/>
+      <text x="279" y="42" class="t-sm t-mid t-muted">mask</text>
+      <text x="22" y="140" class="t-sm t-muted t-mid" transform="rotate(-90 22 140)">&le; 48 messages</text>
+      <text x="4" y="232" class="t-sm t-2">claimed pos x/y &middot; receiver pos x/y &middot; claimed vel x/y</text>
+      <text x="4" y="252" class="t-sm t-2">receiver vel x/y &middot; acl x/y &middot; range &middot; bearing &middot; time gap</text>
+      <path d="M302 130 L352 130" class="arrow"/>
+      <rect x="360" y="40" width="250" height="180" rx="12" class="box-info"/>
+      <text x="485" y="66" class="t-mid t-b t-lg">TimesNet encoder</text>
+      <rect x="385" y="80" width="200" height="25" rx="6" class="box"/><text x="485" y="97" class="t-mid t-sm">TimesBlock 1</text>
+      <rect x="385" y="110" width="200" height="25" rx="6" class="box"/><text x="485" y="127" class="t-mid t-sm">TimesBlock 2</text>
+      <rect x="385" y="140" width="200" height="25" rx="6" class="box"/><text x="485" y="157" class="t-mid t-sm">TimesBlock 3</text>
+      <rect x="385" y="170" width="200" height="25" rx="6" class="box"/><text x="485" y="187" class="t-mid t-sm">TimesBlock 4</text>
+      <text x="485" y="212" class="t-mid t-sm t-muted">pool over real rows</text>
+      <path d="M616 130 L654 130" class="arrow"/>
+      <text x="662" y="40" class="t-b">Output: z = 128 numbers</text>
+      <text x="662" y="58" class="t-sm t-muted">a &ldquo;fingerprint&rdquo; of how the track moves</text>
+      <rect x="662" y="70" width="14" height="14" rx="2" class="f-accent" opacity="0.2"/><rect x="678" y="70" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="694" y="70" width="14" height="14" rx="2" class="f-accent" opacity="0.3"/><rect x="710" y="70" width="14" height="14" rx="2" class="f-accent" opacity="0.8"/><rect x="726" y="70" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="742" y="70" width="14" height="14" rx="2" class="f-accent" opacity="0.9"/><rect x="758" y="70" width="14" height="14" rx="2" class="f-accent" opacity="0.5"/><rect x="774" y="70" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="790" y="70" width="14" height="14" rx="2" class="f-accent" opacity="0.6"/><rect x="806" y="70" width="14" height="14" rx="2" class="f-accent" opacity="0.2"/><rect x="822" y="70" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="838" y="70" width="14" height="14" rx="2" class="f-accent" opacity="0.3"/><rect x="854" y="70" width="14" height="14" rx="2" class="f-accent" opacity="0.8"/><rect x="870" y="70" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="886" y="70" width="14" height="14" rx="2" class="f-accent" opacity="0.9"/><rect x="902" y="70" width="14" height="14" rx="2" class="f-accent" opacity="0.5"/><rect x="662" y="86" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="678" y="86" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="694" y="86" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="710" y="86" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="726" y="86" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="742" y="86" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="758" y="86" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="774" y="86" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="790" y="86" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="806" y="86" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="822" y="86" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="838" y="86" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="854" y="86" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="870" y="86" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="886" y="86" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="902" y="86" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="662" y="102" width="14" height="14" rx="2" class="f-accent" opacity="0.6"/><rect x="678" y="102" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="694" y="102" width="14" height="14" rx="2" class="f-accent" opacity="0.2"/><rect x="710" y="102" width="14" height="14" rx="2" class="f-accent" opacity="0.9"/><rect x="726" y="102" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="742" y="102" width="14" height="14" rx="2" class="f-accent" opacity="0.5"/><rect x="758" y="102" width="14" height="14" rx="2" class="f-accent" opacity="0.3"/><rect x="774" y="102" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="790" y="102" width="14" height="14" rx="2" class="f-accent" opacity="0.8"/><rect x="806" y="102" width="14" height="14" rx="2" class="f-accent" opacity="0.6"/><rect x="822" y="102" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="838" y="102" width="14" height="14" rx="2" class="f-accent" opacity="0.2"/><rect x="854" y="102" width="14" height="14" rx="2" class="f-accent" opacity="0.9"/><rect x="870" y="102" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="886" y="102" width="14" height="14" rx="2" class="f-accent" opacity="0.5"/><rect x="902" y="102" width="14" height="14" rx="2" class="f-accent" opacity="0.3"/><rect x="662" y="118" width="14" height="14" rx="2" class="f-accent" opacity="0.8"/><rect x="678" y="118" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="694" y="118" width="14" height="14" rx="2" class="f-accent" opacity="0.6"/><rect x="710" y="118" width="14" height="14" rx="2" class="f-accent" opacity="0.5"/><rect x="726" y="118" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="742" y="118" width="14" height="14" rx="2" class="f-accent" opacity="0.3"/><rect x="758" y="118" width="14" height="14" rx="2" class="f-accent" opacity="0.2"/><rect x="774" y="118" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="790" y="118" width="14" height="14" rx="2" class="f-accent" opacity="0.9"/><rect x="806" y="118" width="14" height="14" rx="2" class="f-accent" opacity="0.8"/><rect x="822" y="118" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="838" y="118" width="14" height="14" rx="2" class="f-accent" opacity="0.6"/><rect x="854" y="118" width="14" height="14" rx="2" class="f-accent" opacity="0.5"/><rect x="870" y="118" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="886" y="118" width="14" height="14" rx="2" class="f-accent" opacity="0.3"/><rect x="902" y="118" width="14" height="14" rx="2" class="f-accent" opacity="0.2"/><rect x="662" y="134" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="678" y="134" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="694" y="134" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="710" y="134" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="726" y="134" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="742" y="134" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="758" y="134" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="774" y="134" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="790" y="134" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="806" y="134" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="822" y="134" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="838" y="134" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="854" y="134" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="870" y="134" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="886" y="134" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="902" y="134" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="662" y="150" width="14" height="14" rx="2" class="f-accent" opacity="0.3"/><rect x="678" y="150" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="694" y="150" width="14" height="14" rx="2" class="f-accent" opacity="0.5"/><rect x="710" y="150" width="14" height="14" rx="2" class="f-accent" opacity="0.6"/><rect x="726" y="150" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="742" y="150" width="14" height="14" rx="2" class="f-accent" opacity="0.8"/><rect x="758" y="150" width="14" height="14" rx="2" class="f-accent" opacity="0.9"/><rect x="774" y="150" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="790" y="150" width="14" height="14" rx="2" class="f-accent" opacity="0.2"/><rect x="806" y="150" width="14" height="14" rx="2" class="f-accent" opacity="0.3"/><rect x="822" y="150" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="838" y="150" width="14" height="14" rx="2" class="f-accent" opacity="0.5"/><rect x="854" y="150" width="14" height="14" rx="2" class="f-accent" opacity="0.6"/><rect x="870" y="150" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="886" y="150" width="14" height="14" rx="2" class="f-accent" opacity="0.8"/><rect x="902" y="150" width="14" height="14" rx="2" class="f-accent" opacity="0.9"/><rect x="662" y="166" width="14" height="14" rx="2" class="f-accent" opacity="0.5"/><rect x="678" y="166" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="694" y="166" width="14" height="14" rx="2" class="f-accent" opacity="0.9"/><rect x="710" y="166" width="14" height="14" rx="2" class="f-accent" opacity="0.2"/><rect x="726" y="166" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="742" y="166" width="14" height="14" rx="2" class="f-accent" opacity="0.6"/><rect x="758" y="166" width="14" height="14" rx="2" class="f-accent" opacity="0.8"/><rect x="774" y="166" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="790" y="166" width="14" height="14" rx="2" class="f-accent" opacity="0.3"/><rect x="806" y="166" width="14" height="14" rx="2" class="f-accent" opacity="0.5"/><rect x="822" y="166" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="838" y="166" width="14" height="14" rx="2" class="f-accent" opacity="0.9"/><rect x="854" y="166" width="14" height="14" rx="2" class="f-accent" opacity="0.2"/><rect x="870" y="166" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="886" y="166" width="14" height="14" rx="2" class="f-accent" opacity="0.6"/><rect x="902" y="166" width="14" height="14" rx="2" class="f-accent" opacity="0.8"/><rect x="662" y="182" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="678" y="182" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="694" y="182" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="710" y="182" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="726" y="182" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="742" y="182" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="758" y="182" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="774" y="182" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="790" y="182" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="806" y="182" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="822" y="182" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="838" y="182" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="854" y="182" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/><rect x="870" y="182" width="14" height="14" rx="2" class="f-accent" opacity="1.0"/><rect x="886" y="182" width="14" height="14" rx="2" class="f-accent" opacity="0.4"/><rect x="902" y="182" width="14" height="14" rx="2" class="f-accent" opacity="0.7"/>
+      <text x="662" y="220" class="t-sm t-2">similar driving &rarr; close z</text>
+      <text x="662" y="240" class="t-sm t-2">ghost jumping 100 m in 1 s &rarr; far z</text>
+    </svg>
+    <svg class="fig fig-narrow" viewBox="0 0 340 630" role="img" aria-label="Input: up to 48 messages by 13 features plus a mask; TimesNet encoder; output z, 128 numbers">
+      <text x="0" y="16" class="t-b">Input: one link segment</text>
+      <text x="0" y="36" class="t-sm t-muted">&le; 48 messages &times; 13 features + mask</text>
+      <rect x="16" y="48" width="16" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="34" y="48" width="16" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="52" y="48" width="16" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="70" y="48" width="16" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="88" y="48" width="16" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="106" y="48" width="16" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="124" y="48" width="16" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="142" y="48" width="16" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="160" y="48" width="16" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="178" y="48" width="16" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="196" y="48" width="16" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="214" y="48" width="16" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="232" y="48" width="16" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="260" y="48" width="16" height="11" rx="2" class="f-benign"/><rect x="16" y="61" width="16" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="34" y="61" width="16" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="52" y="61" width="16" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="70" y="61" width="16" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="88" y="61" width="16" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="106" y="61" width="16" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="124" y="61" width="16" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="142" y="61" width="16" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="160" y="61" width="16" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="178" y="61" width="16" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="196" y="61" width="16" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="214" y="61" width="16" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="232" y="61" width="16" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="260" y="61" width="16" height="11" rx="2" class="f-benign"/><rect x="16" y="74" width="16" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="34" y="74" width="16" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="52" y="74" width="16" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="70" y="74" width="16" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="88" y="74" width="16" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="106" y="74" width="16" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="124" y="74" width="16" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="142" y="74" width="16" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="160" y="74" width="16" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="178" y="74" width="16" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="196" y="74" width="16" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="214" y="74" width="16" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="232" y="74" width="16" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="260" y="74" width="16" height="11" rx="2" class="f-benign"/><rect x="16" y="87" width="16" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="34" y="87" width="16" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="52" y="87" width="16" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="70" y="87" width="16" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="88" y="87" width="16" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="106" y="87" width="16" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="124" y="87" width="16" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="142" y="87" width="16" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="160" y="87" width="16" height="11" rx="2" class="f-primary" opacity="0.57"/><rect x="178" y="87" width="16" height="11" rx="2" class="f-primary" opacity="0.95"/><rect x="196" y="87" width="16" height="11" rx="2" class="f-primary" opacity="0.7"/><rect x="214" y="87" width="16" height="11" rx="2" class="f-primary" opacity="0.45"/><rect x="232" y="87" width="16" height="11" rx="2" class="f-primary" opacity="0.82"/><rect x="260" y="87" width="16" height="11" rx="2" class="f-benign"/><rect x="16" y="100" width="16" height="11" rx="2" class="f-pad"/><rect x="34" y="100" width="16" height="11" rx="2" class="f-pad"/><rect x="52" y="100" width="16" height="11" rx="2" class="f-pad"/><rect x="70" y="100" width="16" height="11" rx="2" class="f-pad"/><rect x="88" y="100" width="16" height="11" rx="2" class="f-pad"/><rect x="106" y="100" width="16" height="11" rx="2" class="f-pad"/><rect x="124" y="100" width="16" height="11" rx="2" class="f-pad"/><rect x="142" y="100" width="16" height="11" rx="2" class="f-pad"/><rect x="160" y="100" width="16" height="11" rx="2" class="f-pad"/><rect x="178" y="100" width="16" height="11" rx="2" class="f-pad"/><rect x="196" y="100" width="16" height="11" rx="2" class="f-pad"/><rect x="214" y="100" width="16" height="11" rx="2" class="f-pad"/><rect x="232" y="100" width="16" height="11" rx="2" class="f-pad"/><rect x="260" y="100" width="16" height="11" rx="2" class="f-pad"/><rect x="16" y="113" width="16" height="11" rx="2" class="f-pad"/><rect x="34" y="113" width="16" height="11" rx="2" class="f-pad"/><rect x="52" y="113" width="16" height="11" rx="2" class="f-pad"/><rect x="70" y="113" width="16" height="11" rx="2" class="f-pad"/><rect x="88" y="113" width="16" height="11" rx="2" class="f-pad"/><rect x="106" y="113" width="16" height="11" rx="2" class="f-pad"/><rect x="124" y="113" width="16" height="11" rx="2" class="f-pad"/><rect x="142" y="113" width="16" height="11" rx="2" class="f-pad"/><rect x="160" y="113" width="16" height="11" rx="2" class="f-pad"/><rect x="178" y="113" width="16" height="11" rx="2" class="f-pad"/><rect x="196" y="113" width="16" height="11" rx="2" class="f-pad"/><rect x="214" y="113" width="16" height="11" rx="2" class="f-pad"/><rect x="232" y="113" width="16" height="11" rx="2" class="f-pad"/><rect x="260" y="113" width="16" height="11" rx="2" class="f-pad"/><rect x="16" y="126" width="16" height="11" rx="2" class="f-pad"/><rect x="34" y="126" width="16" height="11" rx="2" class="f-pad"/><rect x="52" y="126" width="16" height="11" rx="2" class="f-pad"/><rect x="70" y="126" width="16" height="11" rx="2" class="f-pad"/><rect x="88" y="126" width="16" height="11" rx="2" class="f-pad"/><rect x="106" y="126" width="16" height="11" rx="2" class="f-pad"/><rect x="124" y="126" width="16" height="11" rx="2" class="f-pad"/><rect x="142" y="126" width="16" height="11" rx="2" class="f-pad"/><rect x="160" y="126" width="16" height="11" rx="2" class="f-pad"/><rect x="178" y="126" width="16" height="11" rx="2" class="f-pad"/><rect x="196" y="126" width="16" height="11" rx="2" class="f-pad"/><rect x="214" y="126" width="16" height="11" rx="2" class="f-pad"/><rect x="232" y="126" width="16" height="11" rx="2" class="f-pad"/><rect x="260" y="126" width="16" height="11" rx="2" class="f-pad"/><rect x="16" y="139" width="16" height="11" rx="2" class="f-pad"/><rect x="34" y="139" width="16" height="11" rx="2" class="f-pad"/><rect x="52" y="139" width="16" height="11" rx="2" class="f-pad"/><rect x="70" y="139" width="16" height="11" rx="2" class="f-pad"/><rect x="88" y="139" width="16" height="11" rx="2" class="f-pad"/><rect x="106" y="139" width="16" height="11" rx="2" class="f-pad"/><rect x="124" y="139" width="16" height="11" rx="2" class="f-pad"/><rect x="142" y="139" width="16" height="11" rx="2" class="f-pad"/><rect x="160" y="139" width="16" height="11" rx="2" class="f-pad"/><rect x="178" y="139" width="16" height="11" rx="2" class="f-pad"/><rect x="196" y="139" width="16" height="11" rx="2" class="f-pad"/><rect x="214" y="139" width="16" height="11" rx="2" class="f-pad"/><rect x="232" y="139" width="16" height="11" rx="2" class="f-pad"/><rect x="260" y="139" width="16" height="11" rx="2" class="f-pad"/>
+      <text x="268" y="44" class="t-sm t-mid t-muted">mask</text>
+      <text x="8" y="98" class="t-sm t-muted t-mid" transform="rotate(-90 8 98)">rows</text>
+      <text x="0" y="170" class="t-sm t-2">claimed pos x/y &middot; receiver pos x/y</text>
+      <text x="0" y="188" class="t-sm t-2">claimed vel x/y &middot; receiver vel x/y</text>
+      <text x="0" y="206" class="t-sm t-2">acl x/y &middot; range &middot; bearing &middot; time gap</text>
+      <path d="M170 216 L170 242" class="arrow"/>
+      <rect x="45" y="250" width="250" height="150" rx="12" class="box-info"/>
+      <text x="170" y="274" class="t-mid t-b">TimesNet encoder</text>
+      <rect x="70" y="284" width="200" height="20" rx="6" class="box"/><text x="170" y="298" class="t-mid t-sm">TimesBlock 1</text>
+      <rect x="70" y="308" width="200" height="20" rx="6" class="box"/><text x="170" y="322" class="t-mid t-sm">TimesBlock 2</text>
+      <rect x="70" y="332" width="200" height="20" rx="6" class="box"/><text x="170" y="346" class="t-mid t-sm">TimesBlock 3</text>
+      <rect x="70" y="356" width="200" height="20" rx="6" class="box"/><text x="170" y="370" class="t-mid t-sm">TimesBlock 4</text>
+      <text x="170" y="392" class="t-mid t-sm t-muted">pool over real rows</text>
+      <path d="M170 406 L170 432" class="arrow"/>
+      <g transform="translate(0,22)"><text x="170" y="428" class="t-b t-mid">Output: z = 128 numbers</text>
+      <text x="170" y="444" class="t-sm t-muted t-mid">a &ldquo;fingerprint&rdquo; of how the track moves</text>
+      <rect x="58" y="452" width="12" height="12" rx="2" class="f-accent" opacity="0.2"/><rect x="72" y="452" width="12" height="12" rx="2" class="f-accent" opacity="0.7"/><rect x="86" y="452" width="12" height="12" rx="2" class="f-accent" opacity="0.3"/><rect x="100" y="452" width="12" height="12" rx="2" class="f-accent" opacity="0.8"/><rect x="114" y="452" width="12" height="12" rx="2" class="f-accent" opacity="0.4"/><rect x="128" y="452" width="12" height="12" rx="2" class="f-accent" opacity="0.9"/><rect x="142" y="452" width="12" height="12" rx="2" class="f-accent" opacity="0.5"/><rect x="156" y="452" width="12" height="12" rx="2" class="f-accent" opacity="1.0"/><rect x="170" y="452" width="12" height="12" rx="2" class="f-accent" opacity="0.6"/><rect x="184" y="452" width="12" height="12" rx="2" class="f-accent" opacity="0.2"/><rect x="198" y="452" width="12" height="12" rx="2" class="f-accent" opacity="0.7"/><rect x="212" y="452" width="12" height="12" rx="2" class="f-accent" opacity="0.3"/><rect x="226" y="452" width="12" height="12" rx="2" class="f-accent" opacity="0.8"/><rect x="240" y="452" width="12" height="12" rx="2" class="f-accent" opacity="0.4"/><rect x="254" y="452" width="12" height="12" rx="2" class="f-accent" opacity="0.9"/><rect x="268" y="452" width="12" height="12" rx="2" class="f-accent" opacity="0.5"/><rect x="58" y="466" width="12" height="12" rx="2" class="f-accent" opacity="1.0"/><rect x="72" y="466" width="12" height="12" rx="2" class="f-accent" opacity="0.6"/><rect x="86" y="466" width="12" height="12" rx="2" class="f-accent" opacity="0.2"/><rect x="100" y="466" width="12" height="12" rx="2" class="f-accent" opacity="0.7"/><rect x="114" y="466" width="12" height="12" rx="2" class="f-accent" opacity="0.3"/><rect x="128" y="466" width="12" height="12" rx="2" class="f-accent" opacity="0.8"/><rect x="142" y="466" width="12" height="12" rx="2" class="f-accent" opacity="0.4"/><rect x="156" y="466" width="12" height="12" rx="2" class="f-accent" opacity="0.9"/><rect x="170" y="466" width="12" height="12" rx="2" class="f-accent" opacity="0.5"/><rect x="184" y="466" width="12" height="12" rx="2" class="f-accent" opacity="1.0"/><rect x="198" y="466" width="12" height="12" rx="2" class="f-accent" opacity="0.6"/><rect x="212" y="466" width="12" height="12" rx="2" class="f-accent" opacity="0.2"/><rect x="226" y="466" width="12" height="12" rx="2" class="f-accent" opacity="0.7"/><rect x="240" y="466" width="12" height="12" rx="2" class="f-accent" opacity="0.3"/><rect x="254" y="466" width="12" height="12" rx="2" class="f-accent" opacity="0.8"/><rect x="268" y="466" width="12" height="12" rx="2" class="f-accent" opacity="0.4"/><rect x="58" y="480" width="12" height="12" rx="2" class="f-accent" opacity="0.9"/><rect x="72" y="480" width="12" height="12" rx="2" class="f-accent" opacity="0.5"/><rect x="86" y="480" width="12" height="12" rx="2" class="f-accent" opacity="1.0"/><rect x="100" y="480" width="12" height="12" rx="2" class="f-accent" opacity="0.6"/><rect x="114" y="480" width="12" height="12" rx="2" class="f-accent" opacity="0.2"/><rect x="128" y="480" width="12" height="12" rx="2" class="f-accent" opacity="0.7"/><rect x="142" y="480" width="12" height="12" rx="2" class="f-accent" opacity="0.3"/><rect x="156" y="480" width="12" height="12" rx="2" class="f-accent" opacity="0.8"/><rect x="170" y="480" width="12" height="12" rx="2" class="f-accent" opacity="0.4"/><rect x="184" y="480" width="12" height="12" rx="2" class="f-accent" opacity="0.9"/><rect x="198" y="480" width="12" height="12" rx="2" class="f-accent" opacity="0.5"/><rect x="212" y="480" width="12" height="12" rx="2" class="f-accent" opacity="1.0"/><rect x="226" y="480" width="12" height="12" rx="2" class="f-accent" opacity="0.6"/><rect x="240" y="480" width="12" height="12" rx="2" class="f-accent" opacity="0.2"/><rect x="254" y="480" width="12" height="12" rx="2" class="f-accent" opacity="0.7"/><rect x="268" y="480" width="12" height="12" rx="2" class="f-accent" opacity="0.3"/><rect x="58" y="494" width="12" height="12" rx="2" class="f-accent" opacity="0.8"/><rect x="72" y="494" width="12" height="12" rx="2" class="f-accent" opacity="0.4"/><rect x="86" y="494" width="12" height="12" rx="2" class="f-accent" opacity="0.9"/><rect x="100" y="494" width="12" height="12" rx="2" class="f-accent" opacity="0.5"/><rect x="114" y="494" width="12" height="12" rx="2" class="f-accent" opacity="1.0"/><rect x="128" y="494" width="12" height="12" rx="2" class="f-accent" opacity="0.6"/><rect x="142" y="494" width="12" height="12" rx="2" class="f-accent" opacity="0.2"/><rect x="156" y="494" width="12" height="12" rx="2" class="f-accent" opacity="0.7"/><rect x="170" y="494" width="12" height="12" rx="2" class="f-accent" opacity="0.3"/><rect x="184" y="494" width="12" height="12" rx="2" class="f-accent" opacity="0.8"/><rect x="198" y="494" width="12" height="12" rx="2" class="f-accent" opacity="0.4"/><rect x="212" y="494" width="12" height="12" rx="2" class="f-accent" opacity="0.9"/><rect x="226" y="494" width="12" height="12" rx="2" class="f-accent" opacity="0.5"/><rect x="240" y="494" width="12" height="12" rx="2" class="f-accent" opacity="1.0"/><rect x="254" y="494" width="12" height="12" rx="2" class="f-accent" opacity="0.6"/><rect x="268" y="494" width="12" height="12" rx="2" class="f-accent" opacity="0.2"/><rect x="58" y="508" width="12" height="12" rx="2" class="f-accent" opacity="0.7"/><rect x="72" y="508" width="12" height="12" rx="2" class="f-accent" opacity="0.3"/><rect x="86" y="508" width="12" height="12" rx="2" class="f-accent" opacity="0.8"/><rect x="100" y="508" width="12" height="12" rx="2" class="f-accent" opacity="0.4"/><rect x="114" y="508" width="12" height="12" rx="2" class="f-accent" opacity="0.9"/><rect x="128" y="508" width="12" height="12" rx="2" class="f-accent" opacity="0.5"/><rect x="142" y="508" width="12" height="12" rx="2" class="f-accent" opacity="1.0"/><rect x="156" y="508" width="12" height="12" rx="2" class="f-accent" opacity="0.6"/><rect x="170" y="508" width="12" height="12" rx="2" class="f-accent" opacity="0.2"/><rect x="184" y="508" width="12" height="12" rx="2" class="f-accent" opacity="0.7"/><rect x="198" y="508" width="12" height="12" rx="2" class="f-accent" opacity="0.3"/><rect x="212" y="508" width="12" height="12" rx="2" class="f-accent" opacity="0.8"/><rect x="226" y="508" width="12" height="12" rx="2" class="f-accent" opacity="0.4"/><rect x="240" y="508" width="12" height="12" rx="2" class="f-accent" opacity="0.9"/><rect x="254" y="508" width="12" height="12" rx="2" class="f-accent" opacity="0.5"/><rect x="268" y="508" width="12" height="12" rx="2" class="f-accent" opacity="1.0"/><rect x="58" y="522" width="12" height="12" rx="2" class="f-accent" opacity="0.6"/><rect x="72" y="522" width="12" height="12" rx="2" class="f-accent" opacity="0.2"/><rect x="86" y="522" width="12" height="12" rx="2" class="f-accent" opacity="0.7"/><rect x="100" y="522" width="12" height="12" rx="2" class="f-accent" opacity="0.3"/><rect x="114" y="522" width="12" height="12" rx="2" class="f-accent" opacity="0.8"/><rect x="128" y="522" width="12" height="12" rx="2" class="f-accent" opacity="0.4"/><rect x="142" y="522" width="12" height="12" rx="2" class="f-accent" opacity="0.9"/><rect x="156" y="522" width="12" height="12" rx="2" class="f-accent" opacity="0.5"/><rect x="170" y="522" width="12" height="12" rx="2" class="f-accent" opacity="1.0"/><rect x="184" y="522" width="12" height="12" rx="2" class="f-accent" opacity="0.6"/><rect x="198" y="522" width="12" height="12" rx="2" class="f-accent" opacity="0.2"/><rect x="212" y="522" width="12" height="12" rx="2" class="f-accent" opacity="0.7"/><rect x="226" y="522" width="12" height="12" rx="2" class="f-accent" opacity="0.3"/><rect x="240" y="522" width="12" height="12" rx="2" class="f-accent" opacity="0.8"/><rect x="254" y="522" width="12" height="12" rx="2" class="f-accent" opacity="0.4"/><rect x="268" y="522" width="12" height="12" rx="2" class="f-accent" opacity="0.9"/><rect x="58" y="536" width="12" height="12" rx="2" class="f-accent" opacity="0.5"/><rect x="72" y="536" width="12" height="12" rx="2" class="f-accent" opacity="1.0"/><rect x="86" y="536" width="12" height="12" rx="2" class="f-accent" opacity="0.6"/><rect x="100" y="536" width="12" height="12" rx="2" class="f-accent" opacity="0.2"/><rect x="114" y="536" width="12" height="12" rx="2" class="f-accent" opacity="0.7"/><rect x="128" y="536" width="12" height="12" rx="2" class="f-accent" opacity="0.3"/><rect x="142" y="536" width="12" height="12" rx="2" class="f-accent" opacity="0.8"/><rect x="156" y="536" width="12" height="12" rx="2" class="f-accent" opacity="0.4"/><rect x="170" y="536" width="12" height="12" rx="2" class="f-accent" opacity="0.9"/><rect x="184" y="536" width="12" height="12" rx="2" class="f-accent" opacity="0.5"/><rect x="198" y="536" width="12" height="12" rx="2" class="f-accent" opacity="1.0"/><rect x="212" y="536" width="12" height="12" rx="2" class="f-accent" opacity="0.6"/><rect x="226" y="536" width="12" height="12" rx="2" class="f-accent" opacity="0.2"/><rect x="240" y="536" width="12" height="12" rx="2" class="f-accent" opacity="0.7"/><rect x="254" y="536" width="12" height="12" rx="2" class="f-accent" opacity="0.3"/><rect x="268" y="536" width="12" height="12" rx="2" class="f-accent" opacity="0.8"/><rect x="58" y="550" width="12" height="12" rx="2" class="f-accent" opacity="0.4"/><rect x="72" y="550" width="12" height="12" rx="2" class="f-accent" opacity="0.9"/><rect x="86" y="550" width="12" height="12" rx="2" class="f-accent" opacity="0.5"/><rect x="100" y="550" width="12" height="12" rx="2" class="f-accent" opacity="1.0"/><rect x="114" y="550" width="12" height="12" rx="2" class="f-accent" opacity="0.6"/><rect x="128" y="550" width="12" height="12" rx="2" class="f-accent" opacity="0.2"/><rect x="142" y="550" width="12" height="12" rx="2" class="f-accent" opacity="0.7"/><rect x="156" y="550" width="12" height="12" rx="2" class="f-accent" opacity="0.3"/><rect x="170" y="550" width="12" height="12" rx="2" class="f-accent" opacity="0.8"/><rect x="184" y="550" width="12" height="12" rx="2" class="f-accent" opacity="0.4"/><rect x="198" y="550" width="12" height="12" rx="2" class="f-accent" opacity="0.9"/><rect x="212" y="550" width="12" height="12" rx="2" class="f-accent" opacity="0.5"/><rect x="226" y="550" width="12" height="12" rx="2" class="f-accent" opacity="1.0"/><rect x="240" y="550" width="12" height="12" rx="2" class="f-accent" opacity="0.6"/><rect x="254" y="550" width="12" height="12" rx="2" class="f-accent" opacity="0.2"/><rect x="268" y="550" width="12" height="12" rx="2" class="f-accent" opacity="0.7"/>
+      <text x="170" y="582" class="t-sm t-2 t-mid">similar driving &rarr; close z</text>
+      <text x="170" y="600" class="t-sm t-2 t-mid">ghost jumping 100 m in 1 s &rarr; far z</text></g>
+    </svg>
+  </div>
+  <div class="cards3">
+    <div class="card info"><b>Like a face-ID code</b>Numbers in, numbers out; not a text model. Keep T = 48 at inference.</div>
+    <div class="card"><b>Long or short links</b>Long: several windows (average z). One message: 1 real row + 47 padding rows (mask = 0).</div>
+    <div class="card warn"><b>One pseudonym per window</b>It never links two pseudonyms of one car. Many pseudonyms need a step on top: compare z of co-present pseudonyms, or a receiver time window.</div>
+  </div>
+  <div class="note">Each window = one receiver + one pseudonym; the true sender is never an input. 13 features: D3 in <code>agent.md</code> &sect;3 (bearing = one wrapped angle; no time of day). The grid shows only some of the 48 rows.</div>
+  <aside class="notes">In: up to 48 messages by 13 features plus a mask. Out: z, 128 numbers that summarise how the track moves. It sees one pseudonym per window, so detecting many identities needs a step on top.</aside>
+</section>
+
+<!-- ===== 17. Is the data enough? ===== -->
+<section class="slide" data-title="Is the data enough?">
+  <div class="kicker">Part E · Step 17 <span class="part">· data, plan &amp; decisions</span></div>
+  <h2>The data has enough volume to start, but thin variety</h2>
+  <div class="row2">
+    <div>
+      <div class="card good sm"><b>Volume: enough to start</b>Benign + GridSybil T = 64 set: <b>338,001 train windows</b> (304,733 train + 33,268 check set), &asymp; 6.3 M real messages (&asymp; 7.0 M with test). Small encoder: TimesNet, 2,301,312 parameters.</div>
+      <div class="card warn sm"><b>Variety: thin</b>One area (LuST, 1.61 km&sup2;), two 2-hour periods (07&ndash;09 h, 14&ndash;16 h), few cars: <b>2,846</b> genuine vehicles in 0709, <b>1,179</b> in 1416. Other attack folders re-simulate the same traffic (F1): near-copies, not new driving.</div>
+      <div class="card bad sm"><b>Risk</b>It may learn this scene well but generalise poorly to other times or densities; the 0709 &rarr; 1416 test will show it.</div>
+    </div>
+    <div>
+      <div class="fig-wrap">
+        <div class="lbl">Genuine vehicles per dataset (paper Table I)</div>
+        <div class="vbars" role="img" aria-label="Genuine vehicles: 0709 2,846; 1416 1,179">
+          <div class="vbar"><span>0709<small>07&ndash;09 h</small></span><div class="bar"><i class="a-benign" style="width:100%"></i></div><b>2,846</b></div>
+          <div class="vbar"><span>1416<small>14&ndash;16 h</small></span><div class="bar"><i class="a-benign" style="width:41.4%"></i></div><b>1,179</b></div>
+        </div>
+      </div>
+      <div class="card good sm"><b>Verdict</b>Current data is fine for the pipeline and the thesis experiments; limited variety is the main caveat to state.</div>
+    </div>
+  </div>
+  <div class="note">Paper Table I (<code>varemi.txt</code> L349&ndash;360; column &ldquo;Attack 1415&rdquo; = 14h&ndash;16h): genuine vehicles 2,846 / 1,179. Area: paper L199. Windows and messages: <code>encoder_input/benign_gridsybil/T64/metadata.json</code>, D8&prime;; parameters: D12.</div>
+  <aside class="notes">Volume is fine for a small encoder: 338,001 training windows. Variety is thin: one small area, two 2-hour periods, few distinct cars. Enough to run the pipeline; state limited variety as a caveat.</aside>
+</section>
+
+<!-- ===== 18. Plan ===== -->
+<section class="slide" data-title="Plan: Stage 1 → Stage 2 → zero-shot">
+  <div class="kicker">Part E · Step 18 <span class="part">· data, plan &amp; decisions</span></div>
+  <h2>Plan: pretrain without labels, fine-tune with few, test zero-shot</h2>
+  <div class="flow">
+    <div class="card good"><b>Stage 1 (self-supervised pretraining)</b>Benign + GridSybil, no labels.</div>
+    <div class="arr" aria-hidden="true">&rarr;</div>
+    <div class="card info"><b>Stage 2 (few-shot fine-tuning)</b>Supervised contrastive, n &isin; {10, 20, 30, 50} labels per attack: ConstPos, ConstPosOffset, RandomPos, RandomPosOffset, EventualStop (full release).</div>
+    <div class="arr" aria-hidden="true">&rarr;</div>
+    <div class="card warn"><b>Zero-shot test</b>DataReplaySybil, never seen in training.</div>
+  </div>
+  <div><span class="lbl">Skip</span> <span class="chips" style="display:inline-flex"><span class="chip skip">DoS Sybils</span><span class="chip skip">speed faults</span><span class="chip skip">DelayedMessages</span><span class="chip skip">DoS</span></span></div>
+  <div class="lbl">Uses of z</div>
+  <div class="chips">
+    <span class="chip use">normal vs unusual, without labels</span><span class="chip use">compare identities (co-movement)</span><span class="chip use">few labels for new attacks</span><span class="chip use">reuse across periods (0709 &rarr; 1416)</span><span class="chip fl">final use in the plan: exclude anomalous vehicles&rsquo; updates from the FL round (motivation; FL not simulated)</span>
+  </div>
+  <div class="card info sm"><b>Proof needed</b>Compare with the same encoder trained from scratch.</div>
+  <div class="note"><b>Caveats.</b> Attack measurements (steps 3, 5, 6) use group 1416 only; F14: GridSybil_0709 is a separate re-simulation (near-copies across the split).</div>
+  <aside class="notes">Stage 1 pretrains without labels; Stage 2 fine-tunes with 10 to 50 labels per attack; DataReplaySybil stays unseen for a zero-shot test. The proof is a comparison with the same encoder trained from scratch.</aside>
+</section>
+
+<!-- ===== 19. Decisions for today ===== -->
+<section class="slide" data-title="Decisions for today">
+  <div class="kicker">Part E · Step 19 <span class="part">· data, plan &amp; decisions</span></div>
+  <h2>Decisions for today</h2>
+  <ol class="decide" aria-label="Open decisions">
+    <li><span class="box" aria-hidden="true"></span><span><b>1 &middot; Feature set</b><span class="vs">our 13 vs (a) add sin/cos time of day + &Delta;&tau; vs (b) 11 relative features</span></span></li>
+    <li><span class="box" aria-hidden="true"></span><span><b>2 &middot; Window length</b><span class="vs">fixed T = 48 vs length buckets 8 / 16 / 32 / 64</span></span></li>
+    <li><span class="box" aria-hidden="true"></span><span><b>3 &middot; Overlap</b><span class="vs">none (stride = T, default) vs stride 24 as an ablation</span></span></li>
+    <li><span class="box" aria-hidden="true"></span><span><b>4 &middot; Split</b><span class="vs">90 / 10 by vehicle vs 0709 &rarr; 1416</span></span></li>
+    <li><span class="box" aria-hidden="true"></span><span><b>5 &middot; Full release</b><span class="vs">download it for the Stage 2 attacks: ConstPos, ConstPosOffset, RandomPos, RandomPosOffset, EventualStop</span></span></li>
+  </ol>
+  <div class="card good next-step"><b>Next step after decisions</b>Build the T = 48 (or bucketed) input and retrain Stage 1.</div>
+  <div class="note">Options: step 14 (features, split), step 13 (overlap), steps 11&ndash;12 (T, buckets), step 7 (full release).</div>
+  <aside class="notes">These five decisions unblock the next build. With them settled, I build the T = 48 or bucketed input and retrain Stage 1.</aside>
+</section>
+
+  </div>
+  <div class="notes-panel" id="notesPanel" aria-live="polite"></div>
+</main>
+<nav class="dots" id="dots" aria-label="Slides"></nav>
+<p class="hint">&larr; / &rarr; or click the slide to move · Home / End · F fullscreen · T theme · N speaker notes</p>
+
+<script>
+(function () {
+  'use strict';
+  var KEY = 'sybil-trajectory-slides:index';
+  var THEME_KEY = 'sybil-trajectory-slides:theme';
+  var deck = document.getElementById('deck');
+  var stage = document.getElementById('stage');
+  var slides = Array.prototype.slice.call(document.querySelectorAll('#stage > .slide'));
+  var prev = document.getElementById('prev');
+  var next = document.getElementById('next');
+  var counter = document.getElementById('counter');
+  var titleEl = document.getElementById('slideTitle');
+  var bar = document.getElementById('bar');
+  var dotsEl = document.getElementById('dots');
+  var fsBtn = document.getElementById('fs');
+  var themeBtn = document.getElementById('theme');
+  var notesPanel = document.getElementById('notesPanel');
+  var n = slides.length;
+  var cur = 0;
+
+  function load(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+  function save(key, v) { try { localStorage.setItem(key, v); } catch (e) { /* storage unavailable */ } }
+
+  function applyTheme(t) {
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    else document.documentElement.removeAttribute('data-theme');
+  }
+  function isDark() {
+    var t = document.documentElement.getAttribute('data-theme');
+    if (t) return t === 'dark';
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+  function toggleTheme() {
+    var t = isDark() ? 'light' : 'dark';
+    applyTheme(t);
+    save(THEME_KEY, t);
+  }
+  applyTheme(load(THEME_KEY));
+  themeBtn.addEventListener('click', toggleTheme);
+
+  var dots = slides.map(function (s, i) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'dot';
+    var t = s.getAttribute('data-title') || ('Slide ' + (i + 1));
+    b.title = (i + 1) + '. ' + t;
+    b.setAttribute('aria-label', 'Go to slide ' + (i + 1) + ': ' + t);
+    b.addEventListener('click', function () { go(i); });
+    dotsEl.appendChild(b);
+    return b;
+  });
+
+  // Shrinks a slide's text a little at a time until its content fits the 16:9 frame (no content is cut).
+  function fitToFrame(slide) {
+    slide.style.fontSize = '';
+    if (window.matchMedia && window.matchMedia('(max-width: 700px)').matches) return;
+    var size = parseFloat(getComputedStyle(slide).fontSize);
+    for (var tries = 0; tries < 12 && slide.scrollHeight > slide.clientHeight; tries++) {
+      size *= 0.95;
+      slide.style.fontSize = size + 'px';
+    }
+  }
+  window.addEventListener('resize', function () { if (n) fitToFrame(slides[cur]); });
+
+  function go(i) {
+    if (!n) return;
+    cur = Math.max(0, Math.min(n - 1, i));
+    slides.forEach(function (s, k) {
+      var on = k === cur;
+      s.classList.toggle('is-active', on);
+      s.setAttribute('aria-hidden', on ? 'false' : 'true');
+    });
+    dots.forEach(function (d, k) {
+      d.classList.toggle('is-active', k === cur);
+      if (k === cur) d.setAttribute('aria-current', 'step'); else d.removeAttribute('aria-current');
+    });
+    counter.textContent = (cur + 1) + ' / ' + n;
+    titleEl.textContent = slides[cur].getAttribute('data-title') || '';
+    renderNotes();
+    fitToFrame(slides[cur]);
+    bar.style.width = (n > 1 ? (cur / (n - 1)) * 100 : 100) + '%';
+    prev.disabled = cur === 0;
+    next.disabled = cur === n - 1;
+    slides[cur].scrollTop = 0;
+    save(KEY, String(cur));
+    try { document.dispatchEvent(new CustomEvent('deck:slide', { detail: cur })); } catch (e) { /* old browser */ }
+  }
+
+  function renderNotes() {
+    var a = slides[cur].querySelector('aside.notes');
+    notesPanel.innerHTML = '<span class="nl">Speaker notes &middot; slide ' + (cur + 1) + '</span>' + (a ? a.innerHTML : '');
+  }
+  function toggleNotes() { notesPanel.classList.toggle('is-open'); }
+
+  prev.addEventListener('click', function () { go(cur - 1); });
+  next.addEventListener('click', function () { go(cur + 1); });
+
+  // Click the slide: right two thirds = next, left third = previous (not on mobile, where the slide scrolls).
+  stage.addEventListener('click', function (e) {
+    if (window.matchMedia && window.matchMedia('(max-width: 700px)').matches) return;
+    if (e.target.closest && e.target.closest('a, button, code')) return;
+    var sel = window.getSelection && window.getSelection();
+    if (sel && String(sel).length) return;
+    var r = stage.getBoundingClientRect();
+    go(e.clientX - r.left < r.width / 3 ? cur - 1 : cur + 1);
+  });
+
+  function toggleFs() {
+    try {
+      if (document.fullscreenElement) { document.exitFullscreen(); }
+      else if (deck.requestFullscreen) { deck.requestFullscreen().catch(function () {}); }
+    } catch (e) { /* fullscreen unavailable */ }
+  }
+  fsBtn.addEventListener('click', toggleFs);
+  document.addEventListener('fullscreenchange', function () {
+    fsBtn.textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen';
+    fitToFrame(slides[cur]);
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    var tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    switch (e.key) {
+      case 'ArrowRight': case 'PageDown': go(cur + 1); break;
+      case 'ArrowLeft': case 'PageUp': go(cur - 1); break;
+      case ' ': if (tag === 'BUTTON') return; go(e.shiftKey ? cur - 1 : cur + 1); break;
+      case 'Home': go(0); break;
+      case 'End': go(n - 1); break;
+      case 'f': case 'F': toggleFs(); break;
+      case 't': case 'T': toggleTheme(); break;
+      case 'n': case 'N': toggleNotes(); break;
+      default: return;
+    }
+    e.preventDefault();
+  });
+
+  var start = parseInt(load(KEY), 10);
+  go(isNaN(start) ? 0 : start);
+})();
+</script>
+<script>
+/* Slide 8: looping network animation (broadcast -> receive -> log -> links). */
+(function () {
+  'use strict';
+  var root = document.getElementById('netAnim');
+  if (!root) return;
+  var slide = root.closest('.slide');
+  var cap = document.getElementById('netCap');
+  var playBtn = document.getElementById('netPlay');
+  var replayBtn = document.getElementById('netReplay');
+  var clock = document.getElementById('netClock');
+  var oor = document.getElementById('netOor');
+  var rings = { A: document.getElementById('netRingA'), B: document.getElementById('netRingB') };
+  var cars = {};
+  ['A', 'B', 'C', 'D'].forEach(function (id) {
+    var el = document.getElementById('netCar' + id);
+    cars[id] = { el: el, x: +el.getAttribute('data-x'), y: +el.getAttribute('data-y'), halo: el.querySelector('.net-halo') };
+  });
+  var rows = Array.prototype.slice.call(root.querySelectorAll('.lrow'));
+  var logA = rows.slice(0, 2), logB = rows.slice(2, 5), logC = rows.slice(5, 10);
+  var brackets = Array.prototype.slice.call(root.querySelectorAll('.net-br'));
+  var STEP = 12;           // car movement per second (SVG units)
+  var LOOP = 15500;        // ms
+  var CAPS = [
+    '1 · A broadcasts to everyone in range (t = 1 s)',
+    '2 · B and C each write the beacon into their own log; D is out of range',
+    '3 · B broadcasts: A and C log it (from P42)',
+    '4 · Time goes on (t = 2, 3 s): cars move, a beacon every second, rows pile up',
+    '5 · In C’s log, group by sender → links, each in time order'
+  ];
+  var STATIC_CAP = '1 A broadcasts · 2 receivers log it · 3 B broadcasts · 4 rows pile up every second · 5 group by sender → links';
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var k = 0;               // seconds elapsed since t = 1 s
+
+  function placeCars(step) {
+    k = step;
+    Object.keys(cars).forEach(function (id) {
+      var c = cars[id];
+      c.el.style.transform = 'translate(' + (c.x + step * STEP) + 'px,' + c.y + 'px)';
+    });
+  }
+  function placeRow(r, grouped) {
+    var gx = r.getAttribute('data-gx');
+    var x = grouped && gx ? gx : r.getAttribute('data-x');
+    var y = grouped && gx ? r.getAttribute('data-gy') : r.getAttribute('data-y');
+    r.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+  }
+  function setCap(i) { cap.textContent = CAPS[i]; }
+  function setClock(sec) { clock.textContent = 't = ' + sec + ' s'; }
+  function flash(el, ms) {
+    if (!el.animate) return;
+    el.animate([{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 1, offset: 0.7 }, { opacity: 0 }], { duration: ms || 1500, easing: 'ease' });
+  }
+  function broadcast(id) {
+    var ring = rings[id], c = cars[id];
+    var cx = c.x + k * STEP;
+    ring.setAttribute('cx', cx);
+    ring.setAttribute('cy', c.y);
+    ring.style.transformOrigin = cx + 'px ' + c.y + 'px';
+    if (ring.animate) ring.animate([{ transform: 'scale(0.06)', opacity: 0.95 }, { transform: 'scale(1)', opacity: 0.85, offset: 0.75 }, { transform: 'scale(1)', opacity: 0 }], { duration: 1500, easing: 'ease-out' });
+  }
+  function hear(ids) { ids.forEach(function (id) { flash(cars[id].halo, 1400); }); }
+  function show(list) { list.forEach(function (r) { r.classList.add('on'); }); }
+  function group() {
+    logC.forEach(function (r) { r.classList.add('hl'); placeRow(r, true); });
+  }
+
+  var EVENTS = [
+    { t: 0, fn: function () { setCap(0); setClock(1); } },
+    { t: 300, fn: function () { broadcast('A'); } },
+    { t: 900, fn: function () { hear(['B', 'C']); flash(oor, 1700); } },
+    { t: 2100, fn: function () { setCap(1); show([logB[0], logC[0]]); } },
+    { t: 3500, fn: function () { setCap(2); broadcast('B'); } },
+    { t: 4100, fn: function () { hear(['A', 'C']); } },
+    { t: 4500, fn: function () { show([logA[0], logC[1]]); } },
+    { t: 5900, fn: function () { setCap(3); setClock(2); placeCars(1); } },
+    { t: 6600, fn: function () { broadcast('A'); } },
+    { t: 7200, fn: function () { hear(['B', 'C']); show([logB[1], logC[2]]); } },
+    { t: 7700, fn: function () { broadcast('B'); } },
+    { t: 8300, fn: function () { hear(['A', 'C']); show([logA[1], logC[3]]); } },
+    { t: 8900, fn: function () { setClock(3); placeCars(2); } },
+    { t: 9600, fn: function () { broadcast('A'); } },
+    { t: 10200, fn: function () { hear(['B', 'C']); show([logB[2], logC[4]]); } },
+    { t: 11200, fn: function () { setCap(4); group(); } },
+    { t: 11900, fn: function () { brackets.forEach(function (b) { b.classList.add('on'); }); } }
+  ];
+
+  var t = 0, fired = 0, last = null, raf = null, playing = false, userPaused = false;
+
+  function cancelAnims() {
+    try { root.getAnimations({ subtree: true }).forEach(function (a) { if (a.cancel && !(window.CSSTransition && a instanceof window.CSSTransition)) a.cancel(); }); } catch (e) { /* no WAAPI */ }
+  }
+  function eachAnim(fn) {
+    try { root.getAnimations({ subtree: true }).forEach(fn); } catch (e) { /* no WAAPI */ }
+  }
+  function instant(fn) {
+    root.classList.add('no-tr');
+    fn();
+    void root.getBoundingClientRect();
+    root.classList.remove('no-tr');
+  }
+  function reset() {
+    cancelAnims();
+    instant(function () {
+      placeCars(0);
+      rows.forEach(function (r) { r.classList.remove('on', 'hl'); placeRow(r, false); });
+      brackets.forEach(function (b) { b.classList.remove('on'); });
+    });
+    t = 0; fired = 0;
+  }
+  function showFinal() {
+    stop();
+    cancelAnims();
+    root.classList.add('is-static');
+    instant(function () {
+      placeCars(2);
+      rings.A.setAttribute('cx', cars.A.x + 2 * STEP);
+      rings.A.setAttribute('cy', cars.A.y);
+      rows.forEach(function (r) { r.classList.add('on'); r.classList.remove('hl'); placeRow(r, false); });
+      group();
+      brackets.forEach(function (b) { b.classList.add('on'); });
+    });
+    setClock(3);
+    cap.textContent = STATIC_CAP;
+    setBtn();
+  }
+  function frame(ts) {
+    raf = null;
+    if (!playing) return;
+    if (last === null) last = ts;
+    t += Math.min(ts - last, 100);
+    last = ts;
+    while (fired < EVENTS.length && EVENTS[fired].t <= t) EVENTS[fired++].fn();
+    if (t >= LOOP) { reset(); }
+    raf = requestAnimationFrame(frame);
+  }
+  function setBtn() {
+    playBtn.textContent = playing ? 'Pause' : 'Play';
+    playBtn.setAttribute('aria-label', playing ? 'Pause the animation' : 'Play the animation');
+  }
+  function play() {
+    if (root.classList.contains('is-static')) { root.classList.remove('is-static'); reset(); }
+    playing = true; last = null;
+    eachAnim(function (a) { if (a.playState === 'paused') a.play(); });
+    if (!raf) raf = requestAnimationFrame(frame);
+    setBtn();
+  }
+  function stop() {
+    playing = false;
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    eachAnim(function (a) { if (a.playState === 'running') a.pause(); });
+    setBtn();
+  }
+  function active() { return slide.classList.contains('is-active'); }
+
+  playBtn.addEventListener('click', function () {
+    if (playing) { userPaused = true; stop(); } else { userPaused = false; play(); }
+  });
+  replayBtn.addEventListener('click', function () {
+    userPaused = false;
+    root.classList.remove('is-static');
+    stop(); reset(); play();
+  });
+  function onSlide() {
+    if (!active()) { if (playing) stop(); return; }
+    if (reduce) { if (!playing) showFinal(); return; }
+    if (userPaused) return;
+    if (!playing) { if (root.classList.contains('is-static')) root.classList.remove('is-static'); reset(); play(); }
+  }
+  document.addEventListener('deck:slide', onSlide);
+  window.addEventListener('beforeprint', showFinal);
+  window.addEventListener('afterprint', function () { if (!reduce) { root.classList.remove('is-static'); reset(); if (active() && !userPaused) play(); } });
+
+  if (reduce) showFinal(); else reset();
+  onSlide();
+})();
+</script>
+<script>
+/* Overlap / stride slide: a window bracket slides along a 100-message link (stride 48, then stride 24). */
+(function () {
+  'use strict';
+  var root = document.getElementById('owAnim');
+  if (!root) return;
+  var slide = root.closest('.slide');
+  var cap = document.getElementById('owCap');
+  var btn = document.getElementById('owPlay');
+  var svgs = Array.prototype.slice.call(root.querySelectorAll('svg.ow-svg'));
+  var T = 48;
+  var SEQ = [['48', 0, 1, 48], ['48', 1, 49, 96], ['48', 2, 97, 100], ['24', 0, 1, 48], ['24', 1, 25, 72], ['24', 2, 49, 96], ['24', 3, 73, 100]];
+  var COUNT = { '48': 3, '24': 4 };
+  var STATIC_CAP = 'Stride 48: 3 windows, back to back · stride 24: 4 windows, neighbours share 24 messages · 12-message link: 1 window either way';
+  var STEP_MS = 1600;
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var k = 0, timer = null, playing = false, userPaused = false;
+
+  function show(i, instant) {
+    var st = SEQ[i];
+    if (instant) root.classList.add('no-tr');
+    svgs.forEach(function (svg) {
+      var s = +svg.getAttribute('data-s');
+      var br = svg.querySelector('.ow-br');
+      if (br) br.style.transform = 'translate(' + ((st[2] - 1) * s) + 'px,0px)';
+      Array.prototype.forEach.call(svg.querySelectorAll('.ow-win'), function (w) {
+        w.classList.toggle('cur', w.getAttribute('data-k') === st[0] + '-' + st[1]);
+      });
+    });
+    if (instant) { void root.getBoundingClientRect(); root.classList.remove('no-tr'); }
+    var pad = T - (st[3] - st[2] + 1);
+    cap.textContent = 'Stride ' + st[0] + ' · window ' + (st[1] + 1) + ' of ' + COUNT[st[0]] + ' · messages ' + st[2] + '–' + st[3] + (pad ? ' + ' + pad + ' padding' : '');
+  }
+  function setBtn() {
+    btn.textContent = playing ? 'Pause' : 'Play';
+    btn.setAttribute('aria-label', playing ? 'Pause the animation' : 'Play the animation');
+  }
+  function tick() {
+    timer = null;
+    if (!playing) return;
+    k = (k + 1) % SEQ.length;
+    show(k, false);
+    timer = setTimeout(tick, STEP_MS);
+  }
+  function play() {
+    if (root.classList.contains('is-static')) { root.classList.remove('is-static'); k = 0; show(0, true); }
+    playing = true;
+    if (!timer) timer = setTimeout(tick, STEP_MS);
+    setBtn();
+  }
+  function stop() {
+    playing = false;
+    if (timer) { clearTimeout(timer); timer = null; }
+    setBtn();
+  }
+  function showStatic() {
+    stop();
+    root.classList.add('is-static');
+    svgs.forEach(function (svg) {
+      Array.prototype.forEach.call(svg.querySelectorAll('.ow-win'), function (w) { w.classList.remove('cur'); });
+    });
+    cap.textContent = STATIC_CAP;
+  }
+  function active() { return slide.classList.contains('is-active'); }
+
+  btn.addEventListener('click', function () {
+    if (playing) { userPaused = true; stop(); } else { userPaused = false; play(); }
+  });
+  function onSlide() {
+    if (!active()) { if (playing) stop(); return; }
+    if (reduce || userPaused) return;
+    if (!playing) { root.classList.remove('is-static'); k = 0; show(0, true); play(); }
+  }
+  document.addEventListener('deck:slide', onSlide);
+  window.addEventListener('beforeprint', showStatic);
+  window.addEventListener('afterprint', function () { if (!reduce && active() && !userPaused) { root.classList.remove('is-static'); k = 0; show(0, true); play(); } });
+
+  if (reduce) showStatic(); else show(0, true);
+  onSlide();
+})();
+</script>
+</body>
+</html>

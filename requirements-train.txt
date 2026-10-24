@@ -17,7 +17,7 @@ debugpy==1.8.22
 defusedxml==0.7.1
 executing==2.2.1
 fastjsonschema==2.22.2
-filelock==4.0.12
+filelock==4.2.1
 fonttools==4.66.1
 fsspec==2026.9.0
 h11==0.16.0

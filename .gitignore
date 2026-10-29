@@ -30,3 +30,15 @@ simulation/.cache/
 .DS_Store
 *.DS_Store
 .gstack/
+
+# Baseline encoder task outputs (runs, cache)
+/task/encoder/runs/
+
+# Autoencoder T48 runs
+/task/autoencoder/runs/
+
+# Autoencoder T48 overlap (stride 24) runs
+/task/autoencoder_overlap/runs/
+
+# Supervised autoencoder T48 runs
+/task/autoencoder_st/runs/

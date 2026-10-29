@@ -1,0 +1,129 @@
+Sybil Detection with a Trajectory Autoencoder: Task Guide for Bibek
+Oct 14, 2026 · @Luis
+1. Goal and big picture
+The task: detect Sybil identities in the VeReMi Extension dataset from their trajectories, using a small 1D convolutional autoencoder trained only on genuine ("real") trajectories. The pipeline has three phases.
+Phase 1, learn normal motion (no attack data). Train the autoencoder on genuine windows only. Its bottleneck learns a 16-number latent vector z that summarizes how real vehicles move.
+Phase 2, detect (no training). Freeze the model. Score each identity two ways: how badly it is reconstructed (does it move like a real car?) and how similar its z is to other identities present at the same time and place (is one source behind several identities?).
+Phase 3, fine-tune (uses labels, optional). Remove the decoder, add a small head on top of the encoder, and train with the labels to sharpen the latent space.
+The one rule to never break: Sybil data is never used to train the autoencoder in Phase 1. It is used only to evaluate, and later, in Phase 3, to fine-tune.
+Why two kinds of scores: a careful attacker can make each ghost look physically plausible on its own. Single-track scores catch crude fakes; the group score catches realistic ghosts because they move too much like each other.
+
+pipeline · 3 phases
+Read left to right: the model learns from honest vehicles first, detects without further training, and only then uses labels to sharpen z.
+2. Datasets
+Use four subsets of VeReMi Extension: TrafficSybil and DataReplaySybil, each in rush hour (0709) and low traffic (1416). Training on rush hour and testing on low traffic checks that the model generalizes across traffic density instead of memorizing one scenario.
+
+Where the "real" trajectories come from. About 70% of vehicles in every run are honest (the attacker rate is 30%). The genuine subdataset is every received message whose ground-truth label is genuine, taken from the 0709 runs. An attacker's messages from before its attack starts are also labeled genuine; to be safe, exclude every vehicle that is ever an attacker from the Phase 1 training set.
+Caveat to state in the thesis: all trajectories are simulated by SUMO from the LuST Luxembourg scenario, with synthetic sensor noise. "Real" means honest, not recorded from actual cars.
+3. Preprocessing
+The output of this step is one set of per-beacon feature tracks, each tagged with its receiver, pseudonym, physical sender and labels.
+Inspect first. Open one ground-truth file and one receiver file. Confirm the message type codes (in VeReMi, 2 = own GPS, 3 = received BSM), the name of the attacker label field, and the position units (meters on the SUMO map, not latitude/longitude). Check the typical gap between consecutive sendTime values (the beacon rate).
+Parse. From each receiver file keep received BSMs (type 3). Join each one to the ground truth by messageID to get its label: genuine or malicious.
+Build tracks. Within each receiver file, group messages by senderPseudo and sort by sendTime. One track = one claimed identity as seen by one receiver.
+Label tracks. A track is a ghost if most of its messages are malicious. Cross-check with identity: several pseudonyms from the same sender active at overlapping times are Sybil identities; one pseudonym replacing another over time is normal privacy rotation.
+Reduce duplication. The same beacon is heard by many receivers. Sample a subset of receivers (for example 20 to 30% of them) so the dataset stays manageable and near-copies do not flood training.
+Compute features. Eleven per beacon, all relative (no absolute coordinates, so the model learns motion and not map locations):
+
+Split by vehicle. Test = all 1416 data. Within 0709, split physical vehicles (sender) 80% train and 20% validation. No vehicle may appear on both sides.
+Normalize. Compute the mean and standard deviation of each feature on genuine training windows only. Apply them to every split. Clip normalized values to ±10 so one corrupted beacon cannot dominate.
+sender is used only for labels, splits and pairing. It is never an input feature.
+4. Windowing
+Use windows of 20 beacons with a stride of 10 (50% overlap), exactly as in activity recognition. At about one beacon per second (confirm in step 3.1), a window covers roughly 20 seconds of driving: long enough to see acceleration and turning, short enough to keep many windows per track.
+Shape: each window is a tensor of 11 features × 20 time steps. The full dataset is [number of windows, 11, 20].
+Short tracks: tracks with fewer than 20 beacons cannot form a window. Drop them, but count how many ghost tracks are dropped; they are missed detections in the final results.
+Overlap at test time: keep the same stride. A track's score is then the maximum or mean of its window scores.
+Sensitivity study: once the pipeline runs, repeat with 10, 20 and 40 beacons and report the effect.
+Window labels
+
+5. Autoencoder architecture and training
+A 1D convolutional autoencoder with a 16-number bottleneck, about 50,000 parameters in total. The convolutions slide along time and learn local motion patterns; the bottleneck forces the network to keep only the structure of normal driving, so it cannot simply copy the input.
+Encoder
+
+Decoder (mirror image)
+
+Kernel 4, stride 2 and padding 1 in the transposed convolutions exactly double the time length (5 → 10 → 20).
+Training settings
+
+What to expect from the ablation: with z too large, the network reconstructs everything well, attacks included, and detection collapses; with z too small, it reconstructs nothing well. Plotting this tradeoff is one of the best ways to understand autoencoders.
+Sanity checks before moving on: training and validation loss both fall and stay close; plots of input versus reconstruction for a few genuine windows look nearly identical.
+6. After training: when to remove the decoder
+The decoder exists only to force the encoder to learn a good z. Once Phase 1 is done, keep it only where reconstruction itself is needed.
+
+Practical advice: save the full trained autoencoder once, then load just the encoder whenever only z is needed. Do not retrain the autoencoder from scratch for each use.
+7. Using the latent vector z
+Every window now produces two things: a reconstruction error and a 16-number vector z. All thresholds are calibrated on the 0709 validation genuine windows, then applied unchanged to the 1416 test data.
+7.1 Reconstruction error (single track)
+Score = mean squared error between the window and its reconstruction.
+Threshold = the 99th percentile of validation genuine scores (also report 95th).
+Track score = maximum of its window scores (also report mean).
+Record the error per feature as well. It explains why a ghost was flagged, for example a large residual (feature 11).
+7.2 Latent anomaly (single track)
+Fit the mean and covariance of z on genuine training windows.
+Score = Mahalanobis distance of a window's z to that distribution. Alternative: the mean distance to its 10 nearest genuine training vectors.
+This often separates classes better than reconstruction error, because it measures what kind of motion a window is, not just how well it was copied.
+7.3 Co-movement (groups of tracks): the Sybil detector
+For each receiver, cut time into 20-second blocks aligned with the windows.
+In each block, collect every track present and its z.
+For each pair of tracks, compute:
+Cosine similarity of their z vectors
+Mean physical distance between them during the overlap
+Correlation of their velocities
+For replay, also compare one track with the other shifted by 1, 2 and 3 beacons, and keep the best match.
+Pair score: high similarity, small distance and high velocity correlation are all suspicious. Start with a simple rule (for example, similarity above the 99th percentile of genuine pairs and distance under 10 m), then learn the weights with logistic regression on validation pairs.
+Track Sybil score = its highest pair score.
+Optional: cluster co-present tracks with DBSCAN on z plus position. A tight cluster of several identities is a candidate Sybil group.
+What each attack should look like: TrafficSybil ghosts move in formation, so they have nearly identical z and sit close together. A DataReplaySybil ghost copies its target's motion, so it has a similar z with a time lag.
+Pair ground truth: the two pseudonyms share the same sender, or one is a replay ghost of the other.
+7.4 Final decision
+Combine the three track scores (7.1, 7.2, 7.3) with a logistic regression fitted on the validation set. Report each score alone as well, so the contribution of each is visible.
+7.5 Diagnostic plots
+Histogram of reconstruction error, genuine versus ghost, on the same axes
+Input versus reconstruction for one genuine and one ghost window, feature by feature
+A 2D projection of z (t-SNE or UMAP), colored by genuine and ghost
+8. When Sybil data is used
+Sybil data enters the pipeline only after the autoencoder has learned normal motion.
+
+How to describe this in the thesis: the autoencoder is one-class (semi-supervised) learning, because labels are used once to select genuine training data. Phase 3 is supervised. The 1416 test data is never touched until the final evaluation of each model.
+9. Fine-tuning
+Do we need an extra layer? Not to retrain the autoencoder itself: retraining with more genuine data uses the same architecture. An extra layer is needed only for fine-tuning with labels, and it sits on top of the encoder, after z. Do Phase 3 only after Phase 2 results exist, so the gain can be measured.
+Option A: contrastive fine-tuning (recommended first)
+Goal: make identities from the same physical vehicle land close together in latent space. This directly strengthens the co-movement detector (7.3).
+Extra layer: a projection head on z, Dense 16 → 32 → ReLU → 16, followed by L2 normalization. The contrastive loss is applied to the head's output; after training, the head is discarded and z is used as before.
+Positive pairs: two co-present tracks with the same sender.
+Negative pairs: co-present tracks with different senders. Include hard negatives: genuine vehicles close in space (a platoon of real cars) and DataReplay windows.
+Loss: supervised contrastive (or triplet) loss, plus 0.1 × the reconstruction loss so z keeps describing motion.
+Schedule: learning rate 1e-4 (ten times smaller than Phase 1), 20 to 30 epochs, early stopping on validation pair AUC.
+Option B: supervised classifier head
+Goal: directly classify a window as Sybil or not.
+Extra layer: a classifier head on z, Dense 16 → 32 → ReLU → Dropout 0.2 → Dense 1 → sigmoid. The decoder is removed.
+Labels: ghost windows = 1; genuine and hard-negative (DataReplay) windows = 0.
+Loss: binary cross-entropy with class weights, because genuine windows dominate.
+Schedule: first freeze the encoder and train only the head (learning rate 1e-3, about 10 epochs). Then unfreeze everything and train at 1e-4 until validation F1 stops improving.
+Option C: one-class tightening (Deep SVDD style)
+Use when labels are scarce or untrusted. No extra layer: continue training the encoder on genuine windows only, pulling every z toward one center point. Anomaly score = distance from the center.
+What the thesis compares
+
+10. Evaluation and milestones
+Metrics: precision, recall, F1, ROC-AUC and PR-AUC. Not accuracy: the data is imbalanced, as the VeReMi paper itself warns. Report every number per attack (TrafficSybil, DataReplaySybil), per time period and per method.
+Baseline to beat: the paper's Table III plausibility checks, F1 ≈ 0.74 on TrafficSybil and F1 ≈ 0.51 on DataReplaySybil. The baseline is measured per message, so map window predictions back to their messages for a fair comparison. Count the ghost tracks dropped as too short (section 4) as missed detections.
+Milestones, in order
+Data inspection notebook: field names, beacon rate, number of tracks per class, pseudonym lifetime histogram.
+Preprocessing and windowing: the [windows, 11, 20] tensors with labels and vehicle-wise splits saved to disk.
+Phase 1: trained autoencoder, loss curves, reconstruction plots.
+Phase 2, single track: reconstruction-error and Mahalanobis results on 1416.
+Phase 2, groups: co-movement detector results on 1416.
+Phase 3: contrastive fine-tuning, then the classifier head.
+Ablations: latent size (4, 16, 64) and window length (10, 20, 40).
+Results chapter: the comparison table in section 9, the diagnostic plots in 7.5, and the comparison with the paper's baseline.
+Expected story: reconstruction error alone works partially; co-movement in z catches TrafficSybil groups; contrastive fine-tuning gives the largest gain. That progression shows Sybil detection is a relational problem, which motivates the RSU-level group view in Sybil Guard.
+11. Pitfalls checklist
+☐ sender never appears as an input feature; it is used only for labels, splits and pairs
+☐ File names (which encode the attack type) never leak into features
+☐ No physical vehicle appears in both training and validation, and nothing from 1416 is used before final testing
+☐ Phase 1 trains on genuine windows from vehicles that are never attackers
+☐ Normalization statistics come from genuine training windows only
+☐ Duplicate beacons heard by many receivers are sampled down
+☐ Pseudonym rotation by genuine vehicles is checked, so "a new pseudonym appeared" does not become a shortcut
+☐ Ghost tracks shorter than one window are counted as missed detections
+☐ Results are reported per attack and per time period, with precision, recall and F1, not accuracy
+☐ Window predictions are mapped back to messages before comparing with the paper's baseline

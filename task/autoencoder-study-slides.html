@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Autoencoder Baseline Study</title>
+<style>
+:root {
+  --bg: #ffffff; --stage-bg: #eef0f3; --text: #1b1d21; --muted: #5b616c; --border: #d6d9de; --surface: #f4f5f7;
+  --accent: #2c5bc9; --good: #2f8a4f; --bad: #c0392b; --warn: #a86a00;
+  --train: #2c5bc9; --val: #d9730d; --grid: #e3e5e9;
+  --conv-f: #dce7fb; --conv-s: #3a69cf; --convt-f: #fde7cc; --convt-s: #c27414;
+  --lin-f: #ebe0fb; --lin-s: #7a4cc6; --shape-f: #eceef1; --shape-s: #737a85;
+  --io-f: #dcf1e2; --io-s: #2f8a4f; --z-f: #fff1b3; --z-s: #a88300; --loss-f: #fadada; --loss-s: #c03b3b;
+  --real: #9bb8ee; --pad: #eceef1; --benign: #2f8a4f; --sybil: #c0392b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17191d; --stage-bg: #0e0f12; --text: #e8eaee; --muted: #a3a9b4; --border: #3a3e46; --surface: #22252b;
+    --accent: #7ea6ff; --good: #5cc282; --bad: #ff7b6e; --warn: #e6a640;
+    --train: #7ea6ff; --val: #ffa65a; --grid: #2c3037;
+    --conv-f: #1d2e4f; --conv-s: #7ea6ff; --convt-f: #4a3215; --convt-s: #f0a54b;
+    --lin-f: #36264f; --lin-s: #b893ff; --shape-f: #2a2d33; --shape-s: #a3a9b4;
+    --io-f: #193826; --io-s: #5cc282; --z-f: #463c0c; --z-s: #f0cc3c; --loss-f: #4a1e1e; --loss-s: #ff7b6e;
+    --real: #3f6cc4; --pad: #2a2d33; --benign: #5cc282; --sybil: #ff7b6e;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17191d; --stage-bg: #0e0f12; --text: #e8eaee; --muted: #a3a9b4; --border: #3a3e46; --surface: #22252b;
+  --accent: #7ea6ff; --good: #5cc282; --bad: #ff7b6e; --warn: #e6a640;
+  --train: #7ea6ff; --val: #ffa65a; --grid: #2c3037;
+  --conv-f: #1d2e4f; --conv-s: #7ea6ff; --convt-f: #4a3215; --convt-s: #f0a54b;
+  --lin-f: #36264f; --lin-s: #b893ff; --shape-f: #2a2d33; --shape-s: #a3a9b4;
+  --io-f: #193826; --io-s: #5cc282; --z-f: #463c0c; --z-s: #f0cc3c; --loss-f: #4a1e1e; --loss-s: #ff7b6e;
+  --real: #3f6cc4; --pad: #2a2d33; --benign: #5cc282; --sybil: #ff7b6e;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--stage-bg); color: var(--text); overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+#viewport { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+#stage { width: 1280px; height: 720px; position: relative; flex: none; transform-origin: center center; }
+.slide { position: absolute; inset: 0; background: var(--bg); padding: 40px 56px 48px; display: none;
+  flex-direction: column; font-size: 24px; line-height: 1.38; border-radius: 4px; overflow: hidden; }
+.slide.active { display: flex; }
+h1 { font-size: 46px; line-height: 1.15; margin: 0 0 14px; letter-spacing: -0.5px; }
+h2 { font-size: 34px; margin: 0 0 18px; letter-spacing: -0.3px; }
+h2 .tag { font-size: 20px; font-weight: 500; color: var(--muted); margin-left: 12px; }
+p { margin: 0 0 12px; }
+ul { margin: 0; padding-left: 28px; }
+li { margin-bottom: 9px; }
+.muted { color: var(--muted); }
+.small { font-size: 22px; }
+.note { font-size: 22px; color: var(--muted); margin-top: auto; }
+.accent { color: var(--accent); }
+.bad { color: var(--bad); }
+.good { color: var(--good); }
+b { font-weight: 650; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.86em;
+  background: var(--surface); padding: 1px 6px; border-radius: 4px; }
+.cols { display: flex; gap: 40px; flex: 1; min-height: 0; }
+.cols > div { flex: 1; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; }
+.card h3 { font-size: 24px; margin: 0 0 8px; }
+.big { font-size: 40px; font-weight: 700; line-height: 1.1; }
+table { border-collapse: collapse; width: 100%; font-size: 22px; }
+th, td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+tr.sep td { border-top: 2px solid var(--border); }
+.title-slide { justify-content: center; }
+.title-slide .kicker { font-size: 22px; color: var(--accent); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+.title-slide .sub { font-size: 28px; color: var(--muted); margin-bottom: 36px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 18px; padding: 3px 9px;
+  border-radius: 6px; border: 1px solid var(--border); background: var(--surface); }
+.chip.c { border-color: var(--accent); }
+.callout { border-left: 5px solid var(--bad); background: var(--surface); padding: 12px 18px; border-radius: 6px; }
+.callout.ok { border-left-color: var(--accent); }
+svg text { fill: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+svg .mut { fill: var(--muted); }
+svg .ax { stroke: var(--muted); stroke-width: 1.2; fill: none; }
+svg .gl { stroke: var(--grid); stroke-width: 1; }
+svg .arrow { stroke: var(--muted); stroke-width: 2.2; fill: none; marker-end: url(#ah); }
+svg .arrowd { stroke: var(--muted); stroke-width: 2; fill: none; stroke-dasharray: 6 5; marker-end: url(#ah); }
+svg #ah path { fill: var(--muted); }
+.b-conv { fill: var(--conv-f); stroke: var(--conv-s); }
+.b-convt { fill: var(--convt-f); stroke: var(--convt-s); }
+.b-lin { fill: var(--lin-f); stroke: var(--lin-s); }
+.b-shape { fill: var(--shape-f); stroke: var(--shape-s); }
+.b-io { fill: var(--io-f); stroke: var(--io-s); }
+.b-z { fill: var(--z-f); stroke: var(--z-s); }
+.b-loss { fill: var(--loss-f); stroke: var(--loss-s); }
+.blk { stroke-width: 2; }
+.stack { fill: none; stroke: var(--border); stroke-width: 2; stroke-dasharray: 3 4; }
+#ui { position: fixed; top: 12px; right: 14px; z-index: 10; display: flex; gap: 8px; }
+#ui button { font: 600 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+#ui button:hover { border-color: var(--accent); }
+#counter { position: absolute; right: 22px; bottom: 14px; font-size: 18px; color: var(--muted); z-index: 3;
+  font-variant-numeric: tabular-nums; }
+#progress { position: absolute; left: 0; bottom: 0; height: 5px; background: var(--accent); z-index: 3;
+  transition: width 0.2s ease; }
+</style>
+</head>
+<body>
+<div id="ui">
+  <button id="prev" aria-label="Previous slide">&larr;</button>
+  <button id="next" aria-label="Next slide">&rarr;</button>
+  <button id="theme" aria-label="Toggle light or dark theme">Dark</button>
+</div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker></defs></svg>
+<div id="viewport"><div id="stage">
+
+<!-- 1 Title -->
+<section class="slide title-slide">
+  <div class="kicker">RoadFM-Lite · side study</div>
+  <h1>Unsupervised autoencoder baseline:<br>benign vs GridSybil (T = 48)</h1>
+  <div class="sub">Two runs of one small 1D-conv autoencoder: without and with overlapping windows</div>
+  <div class="cols" style="flex:none; gap:24px">
+    <div class="card"><h3>Study A · no overlap</h3><span class="small">data <code>T48</code> · val = 10% of train vehicles held out in code</span></div>
+    <div class="card"><h3>Study B · 50% overlap</h3><span class="small">data <code>T48_tvt_s24</code> · 80 / 10 / 10 vehicle split on disk</span></div>
+  </div>
+  <p class="note">One seed each (seed 0) · not the thesis TimesNet model · all numbers from the run folders and notebooks</p>
+</section>
+
+<!-- 2 Question -->
+<section class="slide">
+  <h2>Question and setup</h2>
+  <div class="callout ok" style="margin-bottom:22px"><b>Can a model trained without labels flag GridSybil windows because they are hard to rebuild?</b></div>
+  <div class="cols">
+    <div>
+      <ul>
+        <li>Train an autoencoder to compress a window into <b>16 numbers (z)</b> and rebuild it.</li>
+        <li>Every train window counts as <b>normal</b>: benign and GridSybil alike. No labels in training, model selection or thresholds.</li>
+        <li>Detect by <b>"hard to rebuild"</b> (reconstruction error) or <b>"far from the usual z"</b> (Mahalanobis, Study B).</li>
+        <li>Labels are read only after every test window has its score.</li>
+      </ul>
+    </div>
+    <div style="flex:0.8">
+      <div class="card" style="margin-bottom:14px"><h3>Positive class</h3>GridSybil (attack code 16). Negative: benign.</div>
+      <div class="card"><h3>Same model in both studies</h3>71,741 parameters, input 14 × 48, z = 16, masked MSE on real rows.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 Data -->
+<section class="slide">
+  <h2>Data: one window = 48 messages × 13 features + mask</h2>
+  <div style="display:flex; gap:28px; align-items:flex-start; margin-bottom:12px">
+    <div style="flex:none"><svg width="630" height="202" viewBox="0 0 630 202" role="img" aria-label="window of 48 messages by 13 features plus mask">
+<rect x="92" y="22" width="176" height="130" style="fill:var(--real)"/>
+<rect x="268" y="22" width="352" height="130" style="fill:var(--pad)"/>
+<rect x="92" y="156" width="176" height="10" style="fill:var(--accent)"/>
+<rect x="268" y="156" width="352" height="10" style="fill:var(--pad)"/>
+<line x1="92" y1="22" x2="92" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="92" y1="156" x2="92" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="103" y1="22" x2="103" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="103" y1="156" x2="103" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="114" y1="22" x2="114" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="114" y1="156" x2="114" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="125" y1="22" x2="125" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="125" y1="156" x2="125" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="136" y1="22" x2="136" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="136" y1="156" x2="136" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="147" y1="22" x2="147" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="147" y1="156" x2="147" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="158" y1="22" x2="158" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="158" y1="156" x2="158" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="169" y1="22" x2="169" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="169" y1="156" x2="169" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="180" y1="22" x2="180" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="180" y1="156" x2="180" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="191" y1="22" x2="191" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="191" y1="156" x2="191" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="202" y1="22" x2="202" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="202" y1="156" x2="202" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="213" y1="22" x2="213" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="213" y1="156" x2="213" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="224" y1="22" x2="224" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="224" y1="156" x2="224" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="235" y1="22" x2="235" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="235" y1="156" x2="235" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="246" y1="22" x2="246" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="246" y1="156" x2="246" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="257" y1="22" x2="257" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="257" y1="156" x2="257" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="268" y1="22" x2="268" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="268" y1="156" x2="268" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="279" y1="22" x2="279" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="279" y1="156" x2="279" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="290" y1="22" x2="290" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="290" y1="156" x2="290" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="301" y1="22" x2="301" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="301" y1="156" x2="301" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="312" y1="22" x2="312" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="312" y1="156" x2="312" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="323" y1="22" x2="323" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="323" y1="156" x2="323" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="334" y1="22" x2="334" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="334" y1="156" x2="334" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="345" y1="22" x2="345" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="345" y1="156" x2="345" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="356" y1="22" x2="356" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="356" y1="156" x2="356" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="367" y1="22" x2="367" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="367" y1="156" x2="367" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="378" y1="22" x2="378" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="378" y1="156" x2="378" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="389" y1="22" x2="389" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="389" y1="156" x2="389" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="400" y1="22" x2="400" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="400" y1="156" x2="400" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="411" y1="22" x2="411" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="411" y1="156" x2="411" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="422" y1="22" x2="422" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="422" y1="156" x2="422" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="433" y1="22" x2="433" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="433" y1="156" x2="433" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="444" y1="22" x2="444" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="444" y1="156" x2="444" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="455" y1="22" x2="455" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="455" y1="156" x2="455" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="466" y1="22" x2="466" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="466" y1="156" x2="466" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="477" y1="22" x2="477" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="477" y1="156" x2="477" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="488" y1="22" x2="488" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="488" y1="156" x2="488" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="499" y1="22" x2="499" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="499" y1="156" x2="499" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="510" y1="22" x2="510" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="510" y1="156" x2="510" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="521" y1="22" x2="521" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="521" y1="156" x2="521" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="532" y1="22" x2="532" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="532" y1="156" x2="532" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="543" y1="22" x2="543" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="543" y1="156" x2="543" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="554" y1="22" x2="554" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="554" y1="156" x2="554" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="565" y1="22" x2="565" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="565" y1="156" x2="565" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="576" y1="22" x2="576" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="576" y1="156" x2="576" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="587" y1="22" x2="587" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="587" y1="156" x2="587" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="598" y1="22" x2="598" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="598" y1="156" x2="598" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="609" y1="22" x2="609" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="609" y1="156" x2="609" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="620" y1="22" x2="620" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="620" y1="156" x2="620" y2="166" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="92" y1="22" x2="620" y2="22" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="92" y1="32" x2="620" y2="32" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="92" y1="42" x2="620" y2="42" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="92" y1="52" x2="620" y2="52" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="92" y1="62" x2="620" y2="62" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="92" y1="72" x2="620" y2="72" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="92" y1="82" x2="620" y2="82" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="92" y1="92" x2="620" y2="92" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="92" y1="102" x2="620" y2="102" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="92" y1="112" x2="620" y2="112" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="92" y1="122" x2="620" y2="122" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="92" y1="132" x2="620" y2="132" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="92" y1="142" x2="620" y2="142" style="stroke:var(--bg);stroke-width:1"/>
+<line x1="92" y1="152" x2="620" y2="152" style="stroke:var(--bg);stroke-width:1"/>
+<text x="84" y="93.0" text-anchor="end" font-size="17">13 features</text>
+<text x="84" y="165" text-anchor="end" font-size="17">mask</text>
+<text x="180.0" y="16" text-anchor="middle" font-size="16">real rows</text>
+<text x="444.0" y="16" text-anchor="middle" font-size="16" class="mut">padding (zeros, mask 0)</text>
+<text x="356.0" y="192" text-anchor="middle" font-size="17">48 messages (1 Hz) → model input 14 × 48</text>
+</svg></div>
+    <div class="small" style="flex:1">
+      <p style="margin-bottom:8px">Messages one receiver heard from one sender pseudonym (1 Hz), normalised. Short windows are padded; the mask marks real rows. Blue outline = claimed by the sender; rx = the receiver itself.</p>
+      <div class="chips">
+        <span class="chip c">claimed_pos_x</span><span class="chip c">claimed_pos_y</span><span class="chip">rx_pos_x</span><span class="chip">rx_pos_y</span>
+        <span class="chip c">claimed_vel_x</span><span class="chip c">claimed_vel_y</span><span class="chip">rx_vel_x</span><span class="chip">rx_vel_y</span>
+        <span class="chip c">claimed_acl_x</span><span class="chip c">claimed_acl_y</span><span class="chip">range</span><span class="chip">bearing</span><span class="chip">log_dtau</span>
+      </div>
+    </div>
+  </div>
+  <table>
+    <tr><th>Split by sender vehicle</th><th class="n">Study A windows</th><th class="n">vehicles</th><th class="n">Study B windows</th><th class="n">vehicles</th></tr>
+    <tr><td>train</td><td class="n">320,168</td><td class="n">4,660</td><td class="n">331,215</td><td class="n">4,603</td></tr>
+    <tr><td>val <span class="muted">(A: held out in code · B: on disk)</span></td><td class="n">35,214</td><td class="n">518</td><td class="n">41,440</td><td class="n">575</td></tr>
+    <tr><td>test <span class="muted">(same 574 vehicles)</span></td><td class="n">40,469</td><td class="n">574</td><td class="n">42,653</td><td class="n">574</td></tr>
+    <tr class="sep"><td>GridSybil share of train windows</td><td class="n" colspan="2"><b>64.4%</b> (228,908 / 355,382)</td><td class="n" colspan="2"><b>64.5%</b> (213,664 / 331,215)</td></tr>
+    <tr><td>test benign / GridSybil windows</td><td class="n" colspan="2">13,405 / 27,064</td><td class="n" colspan="2">13,964 / 28,689</td></tr>
+  </table>
+  <p class="note">No sender vehicle is in two splits. Study A's share is over train + val (its val is cut from train in code).</p>
+</section>
+
+<!-- 4 Overlap -->
+<section class="slide">
+  <h2>What overlap changes <span class="tag">Study B: stride 24 + one end-aligned window</span></h2>
+  <div style="margin-bottom:10px"><svg width="100%" viewBox="0 0 1168 294" role="img" aria-label="windows of a 100-message link without and with overlap">
+<text x="0" y="50" font-size="20" font-weight="600">Study A</text>
+<text x="0" y="74" font-size="18" class="mut">stride 48</text>
+<text x="0" y="168" font-size="20" font-weight="600">Study B</text>
+<text x="0" y="192" font-size="18" class="mut">stride 24 + end-aligned</text>
+<rect x="250.0" y="30" width="427.2" height="22" rx="4" style="fill:var(--real);stroke:var(--conv-s);stroke-width:1.5"/>
+<text x="256.0" y="47" font-size="15">[0, 48)</text>
+<rect x="677.2" y="58" width="427.2" height="22" rx="4" style="fill:var(--real);stroke:var(--conv-s);stroke-width:1.5"/>
+<text x="683.2" y="75" font-size="15">[48, 96)</text>
+<rect x="1104.4" y="86" width="35.6" height="22" rx="4" style="fill:var(--real);stroke:var(--conv-s);stroke-width:1.5"/>
+<text x="1096.4" y="103" font-size="16" text-anchor="end">[96, 100): a fragment of 4 real rows + 44 padding</text>
+<rect x="250.0" y="148" width="427.2" height="22" rx="4" style="fill:var(--real);stroke:var(--conv-s);stroke-width:1.5"/>
+<text x="256.0" y="165" font-size="15">[0, 48)</text>
+<rect x="463.6" y="176" width="427.2" height="22" rx="4" style="fill:var(--real);stroke:var(--conv-s);stroke-width:1.5"/>
+<text x="469.6" y="193" font-size="15">[24, 72)</text>
+<rect x="677.2" y="204" width="427.2" height="22" rx="4" style="fill:var(--real);stroke:var(--conv-s);stroke-width:1.5"/>
+<text x="683.2" y="221" font-size="15">[48, 96)</text>
+<rect x="712.8" y="232" width="427.2" height="22" rx="4" style="fill:var(--real);stroke:var(--conv-s);stroke-width:1.5"/>
+<text x="718.8" y="249" font-size="15">[52, 100)  end-aligned</text>
+<line x1="250" y1="272" x2="1140" y2="272" class="ax"/>
+<line x1="250.0" y1="272" x2="250.0" y2="277" class="ax"/>
+<text x="250.0" y="292" font-size="15" text-anchor="middle" class="mut">0</text>
+<line x1="463.6" y1="272" x2="463.6" y2="277" class="ax"/>
+<text x="463.6" y="292" font-size="15" text-anchor="middle" class="mut">24</text>
+<line x1="677.2" y1="272" x2="677.2" y2="277" class="ax"/>
+<text x="677.2" y="292" font-size="15" text-anchor="middle" class="mut">48</text>
+<line x1="890.8" y1="272" x2="890.8" y2="277" class="ax"/>
+<text x="890.8" y="292" font-size="15" text-anchor="middle" class="mut">72</text>
+<line x1="1104.4" y1="272" x2="1104.4" y2="277" class="ax"/>
+<text x="1104.4" y="292" font-size="15" text-anchor="middle" class="mut">96</text>
+<line x1="1140.0" y1="272" x2="1140.0" y2="277" class="ax"/>
+<text x="1140.0" y="292" font-size="15" text-anchor="middle" class="mut">100</text>
+<text x="240" y="277" font-size="16" text-anchor="end" class="mut">one link of 100 messages</text>
+</svg></div>
+  <div class="cols" style="gap:20px; flex:none">
+    <div class="card"><div class="big" style="font-size:34px">395,851 → 415,308</div>windows (+4.9%)</div>
+    <div class="card"><div class="big" style="font-size:34px">63.3% → 55.6%</div>padding rows</div>
+    <div class="card"><div class="big" style="font-size:34px">31,017</div>links &gt; 48 messages, cut into 92,128 windows (2.97 each)</div>
+  </div>
+  <ul class="small" style="margin-top:16px">
+    <li>Links of ≤ 48 messages keep their one window, unchanged. 90.7% of test tracks have one window.</li>
+    <li>6,980,356 unique messages become 8,845,352 message rows: overlapping windows share messages, so they are not independent samples.</li>
+  </ul>
+</section>
+
+<!-- 5 Architecture -->
+<section class="slide" style="padding-top:28px; padding-bottom:30px">
+  <h2 style="margin-bottom:6px">Architecture <span class="tag">ConvAutoencoder, 71,741 trainable parameters (checked against model.py)</span></h2>
+  <svg width="100%" viewBox="0 0 1200 600" role="img" aria-label="encoder and decoder stacks of the convolutional autoencoder">
+<rect x="162" y="142" width="318" height="316" rx="14" class="stack"/>
+<rect x="720" y="142" width="318" height="316" rx="14" class="stack"/>
+<text x="28" y="339.0" font-size="22" font-weight="700" text-anchor="middle" transform="rotate(-90 28 339.0)">ENCODER</text>
+<text x="1172" y="339.0" font-size="22" font-weight="700" text-anchor="middle" transform="rotate(90 1172 339.0)">DECODER</text>
+<rect x="176" y="470" width="290" height="50" rx="10" class="blk b-io"/><text x="321.0" y="492" font-size="17" font-weight="600" text-anchor="middle">Input: 13 features + mask</text><text x="321.0" y="512" font-size="15" text-anchor="middle" class="mut">padding rows set to 0</text>
+<text x="142" y="501" font-size="18" font-weight="600" text-anchor="end" class="mut">14 × 48</text>
+<line x1="321.0" y1="470" x2="321.0" y2="444" class="arrow"/>
+<rect x="176" y="392" width="290" height="50" rx="10" class="blk b-conv"/><text x="321.0" y="414" font-size="17" font-weight="600" text-anchor="middle">Conv1d 14→32, k3 s1</text><text x="321.0" y="434" font-size="15" text-anchor="middle" class="mut">+ BatchNorm + ReLU · 1,440 params</text>
+<text x="142" y="423" font-size="18" font-weight="600" text-anchor="end" class="mut">32 × 48</text>
+<line x1="321.0" y1="392" x2="321.0" y2="366" class="arrow"/>
+<rect x="176" y="314" width="290" height="50" rx="10" class="blk b-conv"/><text x="321.0" y="336" font-size="17" font-weight="600" text-anchor="middle">Conv1d 32→64, k3 s2</text><text x="321.0" y="356" font-size="15" text-anchor="middle" class="mut">+ BatchNorm + ReLU · 6,336 params</text>
+<text x="142" y="345" font-size="18" font-weight="600" text-anchor="end" class="mut">64 × 24</text>
+<line x1="321.0" y1="314" x2="321.0" y2="288" class="arrow"/>
+<rect x="176" y="236" width="290" height="50" rx="10" class="blk b-conv"/><text x="321.0" y="258" font-size="17" font-weight="600" text-anchor="middle">Conv1d 64→64, k3 s2</text><text x="321.0" y="278" font-size="15" text-anchor="middle" class="mut">+ BatchNorm + ReLU · 12,480 params</text>
+<text x="142" y="267" font-size="18" font-weight="600" text-anchor="end" class="mut">64 × 12</text>
+<line x1="321.0" y1="236" x2="321.0" y2="210" class="arrow"/>
+<rect x="176" y="158" width="290" height="50" rx="10" class="blk b-shape"/><text x="321.0" y="180" font-size="17" font-weight="600" text-anchor="middle">Flatten</text><text x="321.0" y="200" font-size="15" text-anchor="middle" class="mut">64 × 12 → 768</text>
+<text x="142" y="189" font-size="18" font-weight="600" text-anchor="end" class="mut">768</text>
+<line x1="321.0" y1="158" x2="321.0" y2="132" class="arrow"/>
+<rect x="176" y="80" width="290" height="50" rx="10" class="blk b-lin"/><text x="321.0" y="102" font-size="17" font-weight="600" text-anchor="middle">Linear 768→16</text><text x="321.0" y="122" font-size="15" text-anchor="middle" class="mut">12,304 params</text>
+<text x="142" y="111" font-size="18" font-weight="600" text-anchor="end" class="mut">16</text>
+<rect x="734" y="80" width="290" height="50" rx="10" class="blk b-lin"/><text x="879.0" y="102" font-size="17" font-weight="600" text-anchor="middle">Linear 16→768 + ReLU</text><text x="879.0" y="122" font-size="15" text-anchor="middle" class="mut">13,056 params</text>
+<text x="1058" y="111" font-size="18" font-weight="600" class="mut">768</text>
+<line x1="879.0" y1="130" x2="879.0" y2="156" class="arrow"/>
+<rect x="734" y="158" width="290" height="50" rx="10" class="blk b-shape"/><text x="879.0" y="180" font-size="17" font-weight="600" text-anchor="middle">Reshape</text><text x="879.0" y="200" font-size="15" text-anchor="middle" class="mut">768 → 64 × 12</text>
+<text x="1058" y="189" font-size="18" font-weight="600" class="mut">64 × 12</text>
+<line x1="879.0" y1="208" x2="879.0" y2="234" class="arrow"/>
+<rect x="734" y="236" width="290" height="50" rx="10" class="blk b-convt"/><text x="879.0" y="258" font-size="17" font-weight="600" text-anchor="middle">ConvTranspose1d 64→64, k4 s2</text><text x="879.0" y="278" font-size="15" text-anchor="middle" class="mut">+ BatchNorm + ReLU · 16,576 params</text>
+<text x="1058" y="267" font-size="18" font-weight="600" class="mut">64 × 24</text>
+<line x1="879.0" y1="286" x2="879.0" y2="312" class="arrow"/>
+<rect x="734" y="314" width="290" height="50" rx="10" class="blk b-convt"/><text x="879.0" y="336" font-size="17" font-weight="600" text-anchor="middle">ConvTranspose1d 64→32, k4 s2</text><text x="879.0" y="356" font-size="15" text-anchor="middle" class="mut">+ BatchNorm + ReLU · 8,288 params</text>
+<text x="1058" y="345" font-size="18" font-weight="600" class="mut">32 × 48</text>
+<line x1="879.0" y1="364" x2="879.0" y2="390" class="arrow"/>
+<rect x="734" y="392" width="290" height="50" rx="10" class="blk b-conv"/><text x="879.0" y="414" font-size="17" font-weight="600" text-anchor="middle">Conv1d 32→13, k3 s1</text><text x="879.0" y="434" font-size="15" text-anchor="middle" class="mut">1,261 params</text>
+<text x="1058" y="423" font-size="18" font-weight="600" class="mut">13 × 48</text>
+<line x1="879.0" y1="442" x2="879.0" y2="468" class="arrow"/>
+<rect x="734" y="470" width="290" height="50" rx="10" class="blk b-io"/><text x="879.0" y="492" font-size="17" font-weight="600" text-anchor="middle">Reconstruction</text><text x="879.0" y="512" font-size="15" text-anchor="middle" class="mut">13 features × 48 rows</text>
+<text x="1058" y="501" font-size="18" font-weight="600" class="mut">13 × 48</text>
+<rect x="525" y="4" width="150" height="56" rx="12" class="blk b-z"/>
+<text x="600.0" y="30" font-size="22" font-weight="700" text-anchor="middle">z</text>
+<text x="600.0" y="51" font-size="15" text-anchor="middle" class="mut">16 numbers</text>
+<path d="M321.0,80 L321.0,32.0 L523,32.0" class="arrow"/>
+<path d="M675,32.0 L879.0,32.0 L879.0,78" class="arrow"/>
+<line x1="600.0" y1="60" x2="600.0" y2="90" class="arrowd"/>
+<rect x="488" y="92" width="224" height="58" rx="10" class="blk b-z" style="stroke-dasharray:6 4"/>
+<text x="600.0" y="116" font-size="17" font-weight="600" text-anchor="middle">Score: Mahalanobis on z</text>
+<text x="600.0" y="137" font-size="15" text-anchor="middle" class="mut">Gaussian fitted on train z</text>
+<rect x="500" y="455" width="200" height="80" rx="12" class="blk b-loss"/>
+<text x="600.0" y="483" font-size="19" font-weight="700" text-anchor="middle">Masked MSE loss</text>
+<text x="600.0" y="505" font-size="15" text-anchor="middle" class="mut">only real rows count</text>
+<text x="600.0" y="524" font-size="15" text-anchor="middle" class="mut">mean over 13 features</text>
+<line x1="466" y1="495.0" x2="498" y2="495.0" class="arrow"/>
+<line x1="734" y1="495.0" x2="702" y2="495.0" class="arrow"/>
+<line x1="600.0" y1="535" x2="600.0" y2="550" class="arrowd"/>
+<rect x="480" y="552" width="240" height="44" rx="10" class="blk b-loss" style="stroke-dasharray:6 4"/>
+<text x="600.0" y="580" font-size="17" font-weight="600" text-anchor="middle">Score: reconstruction error</text>
+<rect x="8" y="556" width="18" height="18" rx="4" class="blk b-io"/>
+<text x="32" y="571" font-size="14">input / output</text>
+<rect x="140" y="556" width="18" height="18" rx="4" class="blk b-conv"/>
+<text x="164" y="571" font-size="14">Conv1d</text>
+<rect x="228" y="556" width="18" height="18" rx="4" class="blk b-convt"/>
+<text x="252" y="571" font-size="14">ConvTranspose1d</text>
+<rect x="376" y="556" width="18" height="18" rx="4" class="blk b-lin"/>
+<text x="400" y="571" font-size="14">Linear</text>
+<rect x="8" y="580" width="18" height="18" rx="4" class="blk b-shape"/>
+<text x="32" y="595" font-size="14">reshape</text>
+<rect x="140" y="580" width="18" height="18" rx="4" class="blk b-z"/>
+<text x="164" y="595" font-size="14">latent z</text>
+<rect x="228" y="580" width="18" height="18" rx="4" class="blk b-loss"/>
+<text x="252" y="595" font-size="14">loss</text>
+<text x="1194" y="571" font-size="16" text-anchor="end">encoder 32,560 + decoder 39,181</text>
+<text x="1194" y="594" font-size="16" font-weight="700" text-anchor="end">= 71,741 trainable parameters</text>
+</svg>
+</section>
+
+<!-- 6 Training -->
+<section class="slide">
+  <h2>Training: both runs converge and stop early</h2>
+  <div class="cols" style="gap:28px">
+    <div style="flex:0.85">
+      <table>
+        <tr><th>Setting</th><th>Value (both runs)</th></tr>
+        <tr><td>Optimiser</td><td>Adam, lr 1e-3, wd 1e-5</td></tr>
+        <tr><td>Batch</td><td>256</td></tr>
+        <tr><td>Max epochs</td><td>300</td></tr>
+        <tr><td>LR</td><td>halve on val plateau (patience 5)</td></tr>
+        <tr><td>Stop</td><td>patience 10 · min gain A: any, B: 1e-4 relative</td></tr>
+        <tr><td>Selection</td><td>lowest val loss, no labels</td></tr>
+        <tr><td>Best val</td><td>A 0.140 @ 170 · B 0.1427 @ 139</td></tr>
+        <tr><td>Time</td><td>A 15 min · B 14 min (MPS, seed 0)</td></tr>
+      </table>
+    </div>
+    <div><svg width="100%" viewBox="0 0 640 520" role="img" aria-label="train and validation masked MSE per epoch for both studies">
+<text x="58" y="20" font-size="19" font-weight="700">A (no overlap) · stopped at 180 · 9 LR halvings</text>
+<line x1="58" y1="181.0" x2="626" y2="181.0" class="gl"/>
+<text x="52" y="186.0" font-size="14" text-anchor="end" class="mut">0.15</text>
+<line x1="58" y1="146.0" x2="626" y2="146.0" class="gl"/>
+<text x="52" y="151.0" font-size="14" text-anchor="end" class="mut">0.20</text>
+<line x1="58" y1="111.0" x2="626" y2="111.0" class="gl"/>
+<text x="52" y="116.0" font-size="14" text-anchor="end" class="mut">0.25</text>
+<line x1="58" y1="76.0" x2="626" y2="76.0" class="gl"/>
+<text x="52" y="81.0" font-size="14" text-anchor="end" class="mut">0.30</text>
+<line x1="58" y1="41.0" x2="626" y2="41.0" class="gl"/>
+<text x="52" y="46.0" font-size="14" text-anchor="end" class="mut">0.35</text>
+<line x1="58" y1="202" x2="626" y2="202" class="ax"/>
+<text x="58.0" y="220" font-size="14" text-anchor="middle" class="mut">0</text>
+<text x="152.7" y="220" font-size="14" text-anchor="middle" class="mut">30</text>
+<text x="247.3" y="220" font-size="14" text-anchor="middle" class="mut">60</text>
+<text x="342.0" y="220" font-size="14" text-anchor="middle" class="mut">90</text>
+<text x="436.7" y="220" font-size="14" text-anchor="middle" class="mut">120</text>
+<text x="531.3" y="220" font-size="14" text-anchor="middle" class="mut">150</text>
+<text x="626.0" y="220" font-size="14" text-anchor="middle" class="mut">180</text>
+<path d="M345.2,201 l-5,-9 l10,0 z" style="fill:var(--muted)"/>
+<path d="M402.0,201 l-5,-9 l10,0 z" style="fill:var(--muted)"/>
+<path d="M430.4,201 l-5,-9 l10,0 z" style="fill:var(--muted)"/>
+<path d="M461.9,201 l-5,-9 l10,0 z" style="fill:var(--muted)"/>
+<path d="M502.9,201 l-5,-9 l10,0 z" style="fill:var(--muted)"/>
+<path d="M540.8,201 l-5,-9 l10,0 z" style="fill:var(--muted)"/>
+<path d="M569.2,201 l-5,-9 l10,0 z" style="fill:var(--muted)"/>
+<path d="M588.1,201 l-5,-9 l10,0 z" style="fill:var(--muted)"/>
+<path d="M613.4,201 l-5,-9 l10,0 z" style="fill:var(--muted)"/>
+<polyline points="61.2,44.7 64.3,128.1 67.5,143.9 70.6,152.2 73.8,157.1 76.9,160.7 80.1,164.4 83.2,166.1 86.4,167.6 89.6,168.5 92.7,171.1 95.9,171.9 99.0,172.7 102.2,172.4 105.3,174.1 108.5,174.7 111.6,176.1 114.8,175.9 118.0,176.5 121.1,177.1 124.3,177.9 127.4,178.1 130.6,178.1 133.7,179.1 136.9,178.7 140.0,179.6 143.2,179.9 146.4,180.0 149.5,180.5 152.7,180.7 155.8,180.8 159.0,180.8 162.1,181.5 165.3,181.5 168.4,181.3 171.6,181.9 174.8,182.2 177.9,182.5 181.1,182.5 184.2,182.1 187.4,183.4 190.5,182.9 193.7,183.2 196.8,183.2 200.0,183.2 203.2,183.9 206.3,183.8 209.5,184.0 212.6,184.2 215.8,183.6 218.9,184.6 222.1,184.7 225.2,184.0 228.4,184.9 231.6,185.0 234.7,184.5 237.9,185.6 241.0,185.1 244.2,185.2 247.3,185.2 250.5,184.9 253.6,185.8 256.8,185.1 260.0,186.1 263.1,185.7 266.3,185.9 269.4,186.3 272.6,186.2 275.7,185.8 278.9,186.5 282.0,186.2 285.2,186.5 288.4,186.8 291.5,186.2 294.7,186.8 297.8,186.8 301.0,187.0 304.1,186.5 307.3,186.5 310.4,186.9 313.6,186.9 316.8,187.1 319.9,186.7 323.1,187.7 326.2,187.5 329.4,187.5 332.5,187.0 335.7,187.8 338.8,187.2 342.0,187.8 345.2,188.1 348.3,190.6 351.5,190.7 354.6,190.7 357.8,190.8 360.9,190.9 364.1,190.8 367.2,191.0 370.4,191.0 373.6,191.0 376.7,191.0 379.9,191.2 383.0,191.1 386.2,191.4 389.3,191.0 392.5,191.1 395.6,191.4 398.8,191.1 402.0,191.4 405.1,192.9 408.3,192.9 411.4,193.0 414.6,193.0 417.7,193.0 420.9,193.0 424.0,193.1 427.2,193.1 430.4,193.1 433.5,193.9 436.7,194.0 439.8,194.0 443.0,194.0 446.1,194.0 449.3,194.0 452.4,194.1 455.6,194.1 458.8,194.0 461.9,194.1 465.1,194.5 468.2,194.5 471.4,194.5 474.5,194.6 477.7,194.6 480.8,194.6 484.0,194.6 487.2,194.6 490.3,194.6 493.5,194.6 496.6,194.6 499.8,194.7 502.9,194.7 506.1,194.9 509.2,194.9 512.4,194.9 515.6,194.9 518.7,194.9 521.9,194.9 525.0,194.9 528.2,194.9 531.3,194.9 534.5,194.9 537.6,194.9 540.8,194.9 544.0,195.0 547.1,195.0 550.3,195.0 553.4,195.1 556.6,195.0 559.7,195.1 562.9,195.0 566.0,195.1 569.2,195.0 572.4,195.1 575.5,195.1 578.7,195.2 581.8,195.1 585.0,195.2 588.1,195.1 591.3,195.2 594.4,195.2 597.6,195.2 600.8,195.2 603.9,195.2 607.1,195.2 610.2,195.2 613.4,195.2 616.5,195.2 619.7,195.2 622.8,195.2 626.0,195.2" style="fill:none;stroke:var(--train);stroke-width:2.2"/>
+<polyline points="61.2,106.8 64.3,133.7 67.5,144.0 70.6,153.8 73.8,154.7 76.9,156.2 80.1,152.1 83.2,165.5 86.4,167.4 89.6,168.6 92.7,168.6 95.9,168.7 99.0,170.7 102.2,168.3 105.3,171.7 108.5,172.5 111.6,171.1 114.8,169.7 118.0,174.2 121.1,174.2 124.3,173.8 127.4,173.5 130.6,174.6 133.7,174.9 136.9,173.9 140.0,174.7 143.2,176.7 146.4,176.4 149.5,176.7 152.7,177.2 155.8,177.5 159.0,177.0 162.1,176.7 165.3,177.5 168.4,176.6 171.6,175.8 174.8,176.9 177.9,178.2 181.1,175.0 184.2,176.2 187.4,177.6 190.5,178.1 193.7,179.2 196.8,173.9 200.0,178.2 203.2,177.4 206.3,178.8 209.5,179.4 212.6,178.0 215.8,176.7 218.9,180.0 222.1,179.2 225.2,178.9 228.4,180.7 231.6,179.0 234.7,180.3 237.9,179.8 241.0,180.8 244.2,180.9 247.3,180.8 250.5,181.3 253.6,180.1 256.8,181.2 260.0,181.1 263.1,180.9 266.3,181.5 269.4,181.1 272.6,181.5 275.7,182.2 278.9,180.5 282.0,180.6 285.2,182.6 288.4,179.9 291.5,181.5 294.7,181.9 297.8,182.7 301.0,181.0 304.1,182.5 307.3,181.3 310.4,183.0 313.6,183.1 316.8,180.4 319.9,179.9 323.1,182.2 326.2,183.3 329.4,182.6 332.5,181.5 335.7,182.6 338.8,183.2 342.0,182.8 345.2,181.8 348.3,185.3 351.5,185.6 354.6,185.5 357.8,185.4 360.9,185.3 364.1,185.3 367.2,185.7 370.4,185.8 373.6,185.3 376.7,185.2 379.9,185.7 383.0,185.9 386.2,185.5 389.3,185.7 392.5,182.6 395.6,185.8 398.8,185.8 402.0,185.7 405.1,186.8 408.3,186.8 411.4,187.0 414.6,186.8 417.7,186.8 420.9,186.9 424.0,186.6 427.2,186.9 430.4,186.9 433.5,187.4 436.7,187.3 439.8,187.5 443.0,187.6 446.1,187.5 449.3,187.4 452.4,187.4 455.6,187.6 458.8,187.6 461.9,187.5 465.1,187.8 468.2,187.8 471.4,187.9 474.5,187.8 477.7,187.9 480.8,187.8 484.0,187.9 487.2,187.8 490.3,187.9 493.5,187.9 496.6,187.9 499.8,187.9 502.9,187.9 506.1,188.0 509.2,187.9 512.4,188.0 515.6,188.0 518.7,188.0 521.9,188.1 525.0,188.0 528.2,188.1 531.3,188.0 534.5,188.0 537.6,188.0 540.8,187.9 544.0,188.0 547.1,188.0 550.3,188.1 553.4,188.1 556.6,188.1 559.7,188.0 562.9,188.1 566.0,188.1 569.2,188.0 572.4,188.1 575.5,188.1 578.7,188.0 581.8,188.1 585.0,188.1 588.1,188.1 591.3,188.1 594.4,188.2 597.6,188.1 600.8,188.1 603.9,188.0 607.1,188.1 610.2,188.1 613.4,188.1 616.5,188.1 619.7,188.1 622.8,188.0 626.0,188.1" style="fill:none;stroke:var(--val);stroke-width:2.2"/>
+<line x1="594.4" y1="34" x2="594.4" y2="202" style="stroke:var(--text);stroke-width:1.4;stroke-dasharray:5 4"/>
+<text x="588.4" y="38" font-size="15" text-anchor="end">best 0.140 @ 170</text>
+<circle cx="626.0" cy="188.1" r="4.5" style="fill:var(--val)"/>
+<text x="58" y="260" font-size="19" font-weight="700">B (overlap) · stopped at 149 · 8 LR halvings</text>
+<line x1="58" y1="421.0" x2="626" y2="421.0" class="gl"/>
+<text x="52" y="426.0" font-size="14" text-anchor="end" class="mut">0.15</text>
+<line x1="58" y1="386.0" x2="626" y2="386.0" class="gl"/>
+<text x="52" y="391.0" font-size="14" text-anchor="end" class="mut">0.20</text>
+<line x1="58" y1="351.0" x2="626" y2="351.0" class="gl"/>
+<text x="52" y="356.0" font-size="14" text-anchor="end" class="mut">0.25</text>
+<line x1="58" y1="316.0" x2="626" y2="316.0" class="gl"/>
+<text x="52" y="321.0" font-size="14" text-anchor="end" class="mut">0.30</text>
+<line x1="58" y1="281.0" x2="626" y2="281.0" class="gl"/>
+<text x="52" y="286.0" font-size="14" text-anchor="end" class="mut">0.35</text>
+<line x1="58" y1="442" x2="626" y2="442" class="ax"/>
+<text x="58.0" y="460" font-size="14" text-anchor="middle" class="mut">0</text>
+<text x="152.7" y="460" font-size="14" text-anchor="middle" class="mut">30</text>
+<text x="247.3" y="460" font-size="14" text-anchor="middle" class="mut">60</text>
+<text x="342.0" y="460" font-size="14" text-anchor="middle" class="mut">90</text>
+<text x="436.7" y="460" font-size="14" text-anchor="middle" class="mut">120</text>
+<text x="531.3" y="460" font-size="14" text-anchor="middle" class="mut">150</text>
+<text x="626.0" y="460" font-size="14" text-anchor="middle" class="mut">180</text>
+<path d="M181.1,441 l-5,-9 l10,0 z" style="fill:var(--muted)"/>
+<path d="M263.1,441 l-5,-9 l10,0 z" style="fill:var(--muted)"/>
+<path d="M310.4,441 l-5,-9 l10,0 z" style="fill:var(--muted)"/>
+<path d="M383.0,441 l-5,-9 l10,0 z" style="fill:var(--muted)"/>
+<path d="M420.9,441 l-5,-9 l10,0 z" style="fill:var(--muted)"/>
+<path d="M443.0,441 l-5,-9 l10,0 z" style="fill:var(--muted)"/>
+<path d="M487.2,441 l-5,-9 l10,0 z" style="fill:var(--muted)"/>
+<path d="M515.6,441 l-5,-9 l10,0 z" style="fill:var(--muted)"/>
+<polyline points="61.2,278.9 64.3,367.2 67.5,381.0 70.6,390.0 73.8,395.1 76.9,398.3 80.1,400.7 83.2,402.6 86.4,405.2 89.6,405.5 92.7,407.6 95.9,409.5 99.0,409.9 102.2,410.5 105.3,412.0 108.5,412.6 111.6,413.8 114.8,414.0 118.0,414.8 121.1,415.1 124.3,415.0 127.4,416.0 130.6,415.9 133.7,417.1 136.9,417.8 140.0,417.3 143.2,418.6 146.4,417.9 149.5,419.0 152.7,419.2 155.8,419.3 159.0,420.2 162.1,420.0 165.3,420.5 168.4,420.1 171.6,420.9 174.8,420.8 177.9,421.3 181.1,421.6 184.2,424.3 187.4,424.5 190.5,424.4 193.7,424.7 196.8,424.8 200.0,425.0 203.2,424.9 206.3,425.1 209.5,425.0 212.6,425.3 215.8,425.5 218.9,425.2 222.1,425.4 225.2,425.6 228.4,425.7 231.6,425.6 234.7,425.9 237.9,425.7 241.0,425.7 244.2,426.0 247.3,426.2 250.5,426.2 253.6,426.0 256.8,426.3 260.0,426.5 263.1,425.9 266.3,427.9 269.4,428.0 272.6,428.0 275.7,428.1 278.9,428.1 282.0,428.2 285.2,428.2 288.4,428.3 291.5,428.2 294.7,428.4 297.8,428.5 301.0,428.5 304.1,428.5 307.3,428.5 310.4,428.6 313.6,429.4 316.8,429.4 319.9,429.4 323.1,429.5 326.2,429.5 329.4,429.6 332.5,429.5 335.7,429.6 338.8,429.6 342.0,429.6 345.2,429.7 348.3,429.6 351.5,429.7 354.6,429.7 357.8,429.7 360.9,429.8 364.1,429.8 367.2,429.8 370.4,429.8 373.6,429.9 376.7,429.9 379.9,429.9 383.0,429.9 386.2,430.4 389.3,430.4 392.5,430.4 395.6,430.4 398.8,430.4 402.0,430.4 405.1,430.4 408.3,430.5 411.4,430.5 414.6,430.5 417.7,430.5 420.9,430.5 424.0,430.7 427.2,430.8 430.4,430.8 433.5,430.8 436.7,430.8 439.8,430.8 443.0,430.8 446.1,430.9 449.3,430.9 452.4,430.9 455.6,431.0 458.8,431.0 461.9,431.0 465.1,431.0 468.2,431.0 471.4,431.0 474.5,430.9 477.7,431.0 480.8,431.0 484.0,431.0 487.2,431.0 490.3,431.1 493.5,431.1 496.6,431.1 499.8,431.1 502.9,431.1 506.1,431.1 509.2,431.1 512.4,431.0 515.6,431.1 518.7,431.1 521.9,431.1 525.0,431.1 528.2,431.1" style="fill:none;stroke:var(--train);stroke-width:2.2"/>
+<polyline points="61.2,346.9 64.3,340.6 67.5,378.9 70.6,358.8 73.8,373.9 76.9,396.2 80.1,389.2 83.2,397.9 86.4,402.6 89.6,405.8 92.7,392.6 95.9,406.2 99.0,408.4 102.2,408.8 105.3,408.6 108.5,409.7 111.6,410.5 114.8,411.3 118.0,408.9 121.1,410.0 124.3,413.3 127.4,409.2 130.6,401.3 133.7,411.9 136.9,409.7 140.0,415.3 143.2,413.5 146.4,404.2 149.5,415.7 152.7,410.6 155.8,413.7 159.0,414.5 162.1,418.5 165.3,416.5 168.4,414.4 171.6,416.2 174.8,416.0 177.9,407.8 181.1,418.4 184.2,420.7 187.4,420.0 190.5,419.7 193.7,420.9 196.8,419.4 200.0,418.9 203.2,419.8 206.3,414.4 209.5,421.6 212.6,421.0 215.8,421.7 218.9,421.2 222.1,421.6 225.2,420.9 228.4,421.8 231.6,421.0 234.7,421.6 237.9,421.5 241.0,418.0 244.2,422.2 247.3,421.5 250.5,421.8 253.6,422.2 256.8,421.0 260.0,422.1 263.1,422.2 266.3,422.5 269.4,424.1 272.6,424.2 275.7,423.3 278.9,423.5 282.0,422.8 285.2,423.7 288.4,423.6 291.5,424.4 294.7,424.0 297.8,423.0 301.0,424.0 304.1,424.2 307.3,424.3 310.4,424.3 313.6,424.8 316.8,425.0 319.9,423.1 323.1,425.2 326.2,425.0 329.4,424.9 332.5,423.6 335.7,424.8 338.8,425.1 342.0,425.3 345.2,424.2 348.3,425.0 351.5,425.3 354.6,425.1 357.8,425.3 360.9,424.8 364.1,425.5 367.2,424.4 370.4,425.4 373.6,425.2 376.7,425.2 379.9,425.4 383.0,424.5 386.2,425.7 389.3,424.7 392.5,425.7 395.6,425.5 398.8,424.6 402.0,425.8 405.1,425.8 408.3,425.7 411.4,425.8 414.6,425.8 417.7,425.8 420.9,425.8 424.0,426.0 427.2,426.0 430.4,425.9 433.5,425.9 436.7,425.5 439.8,426.0 443.0,426.0 446.1,426.0 449.3,426.1 452.4,425.9 455.6,426.1 458.8,425.8 461.9,426.1 465.1,425.9 468.2,426.1 471.4,426.1 474.5,426.1 477.7,425.9 480.8,425.9 484.0,426.0 487.2,425.9 490.3,426.0 493.5,426.1 496.6,426.1 499.8,426.0 502.9,426.1 506.1,426.0 509.2,426.1 512.4,426.1 515.6,426.1 518.7,426.1 521.9,425.9 525.0,426.1 528.2,426.0" style="fill:none;stroke:var(--val);stroke-width:2.2"/>
+<line x1="496.6" y1="274" x2="496.6" y2="442" style="stroke:var(--text);stroke-width:1.4;stroke-dasharray:5 4"/>
+<text x="490.6" y="278" font-size="15" text-anchor="end">best 0.1427 @ 139</text>
+<circle cx="528.2" cy="426.0" r="4.5" style="fill:var(--val)"/>
+<line x1="60" y1="494" x2="90" y2="494" style="stroke:var(--train);stroke-width:3"/><text x="96" y="499" font-size="15">train</text>
+<line x1="160" y1="494" x2="190" y2="494" style="stroke:var(--val);stroke-width:3"/><text x="196" y="499" font-size="15">val</text>
+<path d="M250,499 l-5,-9 l10,0 z" style="fill:var(--muted)"/><text x="262" y="499" font-size="15">LR halved</text>
+<circle cx="370" cy="494" r="4.5" style="fill:var(--val)"/><text x="381" y="499" font-size="15">early stop</text>
+<text x="626" y="499" font-size="15" text-anchor="end" class="mut">masked MSE · epoch</text>
+<text x="626" y="518" font-size="13" text-anchor="end" class="mut">y axis clipped at 0.36</text>
+</svg></div>
+  </div>
+  <p class="note">Train and val end close (A 0.130 vs 0.140 · B 0.136 vs 0.143): little overfitting. Hardest to rebuild: acceleration, log_dtau.</p>
+</section>
+
+<!-- 7 Scoring -->
+<section class="slide">
+  <h2>Scoring: two scores, two levels, one threshold rule</h2>
+  <div class="cols" style="gap:24px; flex:none; margin-bottom:18px">
+    <div class="card"><h3>Reconstruction error</h3>Masked MSE of one window over its real rows. High = hard to rebuild.</div>
+    <div class="card"><h3>Mahalanobis on z <span class="muted small">(Study B)</span></h3>Distance of z from a Gaussian fitted on <b>train z</b> (16 × 16 covariance, condition number 38.6, no shrinkage).</div>
+  </div>
+  <div class="cols" style="gap:24px; flex:none">
+    <div class="card"><h3>Per window vs per track <span class="muted small">(Study B)</span></h3>A track = one link (receiver, pseudonym, sender). Track score = <b>max</b> or <b>mean</b> of its windows. Test: 42,653 windows in 35,957 tracks, no track with mixed labels.</div>
+    <div class="card"><h3>Threshold = val p95</h3>95th percentile of the <b>unlabeled val</b> scores; above it = alarm. Reconstruction, window level: θ = 0.372 (A), 0.401 (B). Expect ≈ 5% benign false alarms.</div>
+  </div>
+  <p class="note">Order of work: score every test window first, then read the labels.</p>
+</section>
+
+<!-- 8 Results -->
+<section class="slide">
+  <h2>Results on test: <span class="bad">at or below chance</span></h2>
+  <table>
+    <tr><th>Study</th><th>Score</th><th>Level</th><th class="n">AUROC</th><th class="n">PR-AUC</th><th class="n">chance</th><th class="n">recall @ p95</th><th class="n">benign FPR @ p95</th></tr>
+    <tr><td>A</td><td>reconstruction</td><td>window</td><td class="n"><b>0.484</b></td><td class="n">0.661</td><td class="n">0.669</td><td class="n">0.046</td><td class="n">0.049</td></tr>
+    <tr class="sep"><td>B</td><td>reconstruction</td><td>window</td><td class="n"><b>0.484</b></td><td class="n">0.664</td><td class="n">0.673</td><td class="n">0.043</td><td class="n">0.050</td></tr>
+    <tr><td>B</td><td>reconstruction</td><td>track max</td><td class="n">0.482</td><td class="n">0.655</td><td class="n">0.665</td><td class="n">0.044</td><td class="n">0.051</td></tr>
+    <tr><td>B</td><td>reconstruction</td><td>track mean</td><td class="n">0.481</td><td class="n">0.654</td><td class="n">0.665</td><td class="n">0.044</td><td class="n">0.053</td></tr>
+    <tr class="sep"><td>B</td><td>Mahalanobis</td><td>window</td><td class="n bad"><b>0.337</b></td><td class="n">0.595</td><td class="n">0.673</td><td class="n">0.044</td><td class="n">0.068</td></tr>
+    <tr><td>B</td><td>Mahalanobis</td><td>track max</td><td class="n bad">0.307</td><td class="n">0.565</td><td class="n">0.665</td><td class="n">0.039</td><td class="n">0.077</td></tr>
+    <tr><td>B</td><td>Mahalanobis</td><td>track mean</td><td class="n bad">0.302</td><td class="n">0.559</td><td class="n">0.665</td><td class="n">0.036</td><td class="n">0.083</td></tr>
+  </table>
+  <div class="cols" style="gap:20px; flex:none; margin-top:18px">
+    <div class="callout">AUROC 0.5 = random. Recall ≈ FPR ≈ 0.05: the alarms hit GridSybil no more often than benign.</div>
+    <div class="callout ok">Chance PR-AUC = GridSybil share of test. A length-only score gets AUROC 0.530 (A).</div>
+  </div>
+</section>
+
+<!-- 9 Why -->
+<section class="slide">
+  <h2>Why it fails</h2>
+  <div class="cols" style="gap:30px">
+    <div style="flex:1.05">
+      <ul>
+        <li><b>GridSybil is ~64% of train</b>, so the model learns it as normal.</li>
+        <li><b>Ghost windows are rebuilt as well as real cars</b>: better on claimed velocity, worse on range and claimed position. Overall the window error ends up about the same.</li>
+        <li><b>Mahalanobis is below chance</b>: GridSybil z sits at the centre of the fitted Gaussian, so benign windows look like the outliers.</li>
+        <li><b>Overlap changed nothing</b>: 0.484 in both (different cut and train / val vehicles, so context only).</li>
+      </ul>
+    </div>
+    <div style="flex:0.95"><svg width="100%" viewBox="0 0 540 455" role="img" aria-label="per-feature reconstruction error AUROC, Study A test">
+<text x="0" y="20" font-size="18" font-weight="700">Per-feature error AUROC (Study A test)</text>
+<rect x="330.0" y="44" width="113.6" height="18" rx="3" style="fill:var(--sybil)"/>
+<text x="318" y="58" font-size="15" text-anchor="end" style="font-family:ui-monospace,Menlo,monospace">range</text>
+<text x="448.6" y="58" font-size="14" text-anchor="start" class="mut">0.65</text>
+<rect x="330.0" y="71" width="93.2" height="18" rx="3" style="fill:var(--sybil)"/>
+<text x="318" y="85" font-size="15" text-anchor="end" style="font-family:ui-monospace,Menlo,monospace">claimed_pos_y</text>
+<text x="428.2" y="85" font-size="14" text-anchor="start" class="mut">0.62</text>
+<rect x="330.0" y="98" width="88.8" height="18" rx="3" style="fill:var(--sybil)"/>
+<text x="318" y="112" font-size="15" text-anchor="end" style="font-family:ui-monospace,Menlo,monospace">log_dtau</text>
+<text x="423.8" y="112" font-size="14" text-anchor="start" class="mut">0.62</text>
+<rect x="330.0" y="125" width="57.7" height="18" rx="3" style="fill:var(--sybil)"/>
+<text x="318" y="139" font-size="15" text-anchor="end" style="font-family:ui-monospace,Menlo,monospace">claimed_pos_x</text>
+<text x="392.7" y="139" font-size="14" text-anchor="start" class="mut">0.58</text>
+<rect x="330.0" y="152" width="34.6" height="18" rx="3" style="fill:var(--sybil)"/>
+<text x="318" y="166" font-size="15" text-anchor="end" style="font-family:ui-monospace,Menlo,monospace">bearing</text>
+<text x="369.6" y="166" font-size="14" text-anchor="start" class="mut">0.55</text>
+<rect x="330.0" y="179" width="12.3" height="18" rx="3" style="fill:var(--sybil)"/>
+<text x="318" y="193" font-size="15" text-anchor="end" style="font-family:ui-monospace,Menlo,monospace">rx_pos_y</text>
+<text x="347.3" y="193" font-size="14" text-anchor="start" class="mut">0.52</text>
+<rect x="328.7" y="206" width="1.3" height="18" rx="3" style="fill:var(--benign)"/>
+<text x="342" y="220" font-size="15" text-anchor="start" style="font-family:ui-monospace,Menlo,monospace">rx_pos_x</text>
+<text x="323.7" y="220" font-size="14" text-anchor="end" class="mut">0.50</text>
+<rect x="313.1" y="233" width="16.9" height="18" rx="3" style="fill:var(--benign)"/>
+<text x="342" y="247" font-size="15" text-anchor="start" style="font-family:ui-monospace,Menlo,monospace">rx_vel_y</text>
+<text x="308.1" y="247" font-size="14" text-anchor="end" class="mut">0.48</text>
+<rect x="308.0" y="260" width="22.0" height="18" rx="3" style="fill:var(--benign)"/>
+<text x="342" y="274" font-size="15" text-anchor="start" style="font-family:ui-monospace,Menlo,monospace">rx_vel_x</text>
+<text x="303.0" y="274" font-size="14" text-anchor="end" class="mut">0.47</text>
+<rect x="303.2" y="287" width="26.8" height="18" rx="3" style="fill:var(--benign)"/>
+<text x="342" y="301" font-size="15" text-anchor="start" style="font-family:ui-monospace,Menlo,monospace">claimed_acl_y</text>
+<text x="298.2" y="301" font-size="14" text-anchor="end" class="mut">0.46</text>
+<rect x="280.9" y="314" width="49.1" height="18" rx="3" style="fill:var(--benign)"/>
+<text x="342" y="328" font-size="15" text-anchor="start" style="font-family:ui-monospace,Menlo,monospace">claimed_acl_x</text>
+<text x="275.9" y="328" font-size="14" text-anchor="end" class="mut">0.44</text>
+<rect x="162.5" y="341" width="167.5" height="18" rx="3" style="fill:var(--benign)"/>
+<text x="342" y="355" font-size="15" text-anchor="start" style="font-family:ui-monospace,Menlo,monospace">claimed_vel_x</text>
+<text x="157.5" y="355" font-size="14" text-anchor="end" class="mut">0.28</text>
+<rect x="154.5" y="368" width="175.5" height="18" rx="3" style="fill:var(--benign)"/>
+<text x="342" y="382" font-size="15" text-anchor="start" style="font-family:ui-monospace,Menlo,monospace">claimed_vel_y</text>
+<text x="149.5" y="382" font-size="14" text-anchor="end" class="mut">0.27</text>
+<line x1="330" y1="36" x2="330" y2="393" style="stroke:var(--text);stroke-width:1.5"/>
+<text x="330" y="411" font-size="14" text-anchor="middle">0.5 = chance</text>
+<text x="540" y="411" font-size="14" text-anchor="end" style="fill:var(--sybil)">GridSybil rebuilt worse →</text>
+<text x="0" y="411" font-size="14" style="fill:var(--benign)">← GridSybil rebuilt better</text>
+<text x="0" y="435" font-size="14" class="mut">Study B shows the same pattern (0.27 to 0.66).</text>
+</svg></div>
+  </div>
+</section>
+
+<!-- 10 Lessons -->
+<section class="slide">
+  <h2>Lessons and next step</h2>
+  <div class="cols" style="gap:30px">
+    <div>
+      <h3 style="font-size:26px; margin:0 0 10px">What we learned</h3>
+      <ul>
+        <li><b>Good reconstruction ≠ detection.</b> Low error on everything means nothing stands out.</li>
+        <li>"Normal" must mean benign; mixing attacks into the normal set teaches the model to accept them.</li>
+        <li>The pipeline held: vehicle splits, labels read last, val thresholds (val p95 gave benign FPR 0.049 / 0.050, as intended).</li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="font-size:26px; margin:0 0 10px">Next</h3>
+      <ul>
+        <li><b>Train on benign only</b> (one-class), same data and splits.</li>
+        <li>Then scores on z and on <b>co-movement</b> between pseudonyms (ghosts of one attacker move together).</li>
+        <li>Keep val for thresholds; run <b>more seeds</b> and report spread.</li>
+      </ul>
+    </div>
+  </div>
+  <p class="note">Context only: an earlier benign-only run at T = 64 reached AUROC 0.655 (different T and training set, not a fair comparison).</p>
+</section>
+
+<div id="counter"></div>
+<div id="progress"></div>
+</div></div>
+<script>
+(function () {
+  var slides = Array.prototype.slice.call(document.querySelectorAll(".slide"));
+  var stage = document.getElementById("stage");
+  var counter = document.getElementById("counter");
+  var progress = document.getElementById("progress");
+  var themeBtn = document.getElementById("theme");
+  var i = 0;
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach(function (s, k) { s.classList.toggle("active", k === i); });
+    counter.textContent = (i + 1) + " / " + slides.length;
+    progress.style.width = ((i + 1) / slides.length * 100) + "%";
+    try { history.replaceState(null, "", "#" + (i + 1)); } catch (e) {}
+  }
+  function fit() {
+    var s = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+    stage.style.transform = "scale(" + s + ")";
+  }
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { e.preventDefault(); show(i + 1); }
+    else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); show(i - 1); }
+    else if (e.key === "Home") { show(0); } else if (e.key === "End") { show(slides.length - 1); }
+  });
+  document.getElementById("prev").addEventListener("click", function () { show(i - 1); });
+  document.getElementById("next").addEventListener("click", function () { show(i + 1); });
+  function isDark() {
+    var t = document.documentElement.getAttribute("data-theme");
+    if (t) return t === "dark";
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+  function label() { themeBtn.textContent = isDark() ? "Light" : "Dark"; }
+  var saved = null;
+  try { saved = localStorage.getItem("ae-deck-theme"); } catch (e) {}
+  if (saved === "light" || saved === "dark") document.documentElement.setAttribute("data-theme", saved);
+  themeBtn.addEventListener("click", function () {
+    var next = isDark() ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("ae-deck-theme", next); } catch (e) {}
+    label();
+  });
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    if (mq.addEventListener) mq.addEventListener("change", label);
+  }
+  window.addEventListener("resize", fit);
+  var start = parseInt((location.hash || "").slice(1), 10);
+  fit(); label(); show(isNaN(start) ? 0 : start - 1);
+})();
+</script>
+</body>
+</html>

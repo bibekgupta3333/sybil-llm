@@ -1057,7 +1057,7 @@
     <li class="rstep dec"><h3><span class="n">10</span>Labels</h3><span>Kept in separate <code>_info</code> files, never read in pretraining (<code>LabelFirewall</code>).</span><span class="stchips"><span class="stc dec">Decided</span></span></li>
   </ol>
   <div class="open-bar"><b>Open decisions:</b> features (3), overlap (6, Step 13), split (9); with T (5), they are on the last slide.</div>
-  <div class="note">Current pipeline: <code>docs/plan/stage1-preprocessing-feature-engineering.md</code>, <code>agent.md</code> D1, D1&prime;, D3, D8&prime;, D13. Built today: T = 64 set; a T = 48 set is not built yet. Status: <span class="stc dec">Decided</span> <span class="stc rec">Recommended</span> <span class="stc open">Open &mdash; to decide</span></div>
+  <div class="note">Current pipeline: <code>docs/plan/stage1-preprocessing-feature-engineering.md</code>, <code>agent.md</code> D1, D1&prime;, D3, D8&prime;, D13. Built: T = 64 and T = 48 sets (same messages, split, normalisation). Status: <span class="stc dec">Decided</span> <span class="stc rec">Recommended</span> <span class="stc open">Open &mdash; to decide</span></div>
   <aside class="notes">Ten steps from raw logs to windows. Most are decided; T and outlier handling are recommendations. Three are open: the feature set, overlap and the split; they come back on the last slide.</aside>
 </section>
 
@@ -1203,9 +1203,9 @@
     <li><span class="box" aria-hidden="true"></span><span><b>4 &middot; Split</b><span class="vs">90 / 10 by vehicle vs 0709 &rarr; 1416</span></span></li>
     <li><span class="box" aria-hidden="true"></span><span><b>5 &middot; Full release</b><span class="vs">download it for the Stage 2 attacks: ConstPos, ConstPosOffset, RandomPos, RandomPosOffset, EventualStop</span></span></li>
   </ol>
-  <div class="card good next-step"><b>Next step after decisions</b>Build the T = 48 (or bucketed) input and retrain Stage 1.</div>
+  <div class="card good next-step"><b>Next step after decisions</b>Retrain Stage 1 on the built T = 48 input (or build the bucketed one).</div>
   <div class="note">Options: step 14 (features, split), step 13 (overlap), steps 11&ndash;12 (T, buckets), step 7 (full release).</div>
-  <aside class="notes">These five decisions unblock the next build. With them settled, I build the T = 48 or bucketed input and retrain Stage 1.</aside>
+  <aside class="notes">These five decisions unblock the next build. With them settled, I retrain Stage 1 on the T = 48 input (already built) or build the bucketed one.</aside>
 </section>
 
   </div>

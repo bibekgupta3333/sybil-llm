@@ -17,6 +17,11 @@ src/
     input_representation.ipynb         all scenarios: raw logs -> prepared_data/
     benign_gridsybil/
       encoder_input_T64.ipynb          trial: links -> 64 x 13 windows + mask
+      encoder_input_T48.ipynb          same, T = 48 (crop stride 48, bucket 48)
+      encoder_input_T46.ipynb          same, T = 46 (crop stride 46, bucket 46)
+      encoder_input_T48_tvt.ipynb      T = 48 with train / val / test = 80 / 10 / 10 (test = T48's test)
+      encoder_input_T48_tvt_s24.ipynb  T48_tvt with 50% overlap (crop stride 24 + end-aligned last window), same split
+      encoder_input_T48_benign.ipynb   T48_tvt benign only (one-class training; test_gridsybil = test-vehicle attacks)
     all/
       encoder_input_T24.ipynb          all attacks, T = 24 (training set `--dataset all`; F14 open for its test split)
   model/
@@ -33,6 +38,11 @@ src/
   data/                                outputs (gitignored)
     prepared_data/                     2.9 GB, mirrors data/VeReMi-Dataset
     encoder_input/benign_gridsybil/T64/   1.8 GB, the encoder input
+    encoder_input/benign_gridsybil/T48/   1.5 GB, same messages + split at T = 48 (395,851 windows, 63.3% padding)
+    encoder_input/benign_gridsybil/T46/   1.5 GB, same messages + split at T = 46 (399,362 windows, 62.0% padding)
+    encoder_input/benign_gridsybil/T48_tvt/  1.5 GB, T = 48, train / val / test 80 / 10 / 10 by vehicle (316,050 / 39,332 / 40,469 windows; RULE 3)
+    encoder_input/benign_gridsybil/T48_tvt_s24/  1.7 GB, T48_tvt with 50% overlap (331,215 / 41,440 / 42,653 windows, 55.6% padding; same messages, split, normalisation)
+    encoder_input/benign_gridsybil/T48_benign/   0.66 GB, T48_tvt benign only (112,890 / 13,584 / 13,405 windows + test_gridsybil 27,064; normalisation from benign train; no RULE 3 change, subset of T48_tvt's split)
     encoder_input/all/T24/             0.6 GB, all-attack input (F14 open)
   runs/                                training runs (gitignored)
     pretraining/benign_gridsybil/T64/model-grid/ `--dataset grid`: config.json, env.json, metrics.jsonl, checkpoints
@@ -50,6 +60,11 @@ by themselves, so they can be opened from any folder. Run them in this order:
 |---|---|---|---|---|
 | 1 | `pipeline/input_representation.ipynb` (`npm run pipeline:prepare`) | `data/VeReMi-Dataset/` (repo root, read only) | `src/data/prepared_data/` | ~1 min |
 | 2 | `pipeline/benign_gridsybil/encoder_input_T64.ipynb` (`npm run pipeline:encoder-input`) | `src/data/prepared_data/` | `src/data/encoder_input/benign_gridsybil/T64/` | ~2.5 min |
+| 2t | `pipeline/benign_gridsybil/encoder_input_T48.ipynb` (`npm run pipeline:encoder-input:t48`) | `src/data/prepared_data/` | `src/data/encoder_input/benign_gridsybil/T48/` | ~2 min |
+| 2u | `pipeline/benign_gridsybil/encoder_input_T46.ipynb` (`npm run pipeline:encoder-input:t46`) | `src/data/prepared_data/` | `src/data/encoder_input/benign_gridsybil/T46/` | ~2 min |
+| 2v | `pipeline/benign_gridsybil/encoder_input_T48_tvt.ipynb` (`npm run pipeline:encoder-input:t48-tvt`) | `src/data/prepared_data/` | `src/data/encoder_input/benign_gridsybil/T48_tvt/` (train / val / test) | ~2 min |
+| 2w | `pipeline/benign_gridsybil/encoder_input_T48_tvt_s24.ipynb` (`npm run pipeline:encoder-input:t48-tvt-s24`) | `src/data/prepared_data/` | `src/data/encoder_input/benign_gridsybil/T48_tvt_s24/` (train / val / test, 50% overlap) | ~2 min |
+| 2x | `pipeline/benign_gridsybil/encoder_input_T48_benign.ipynb` (`npm run pipeline:encoder-input:t48-benign`) | `src/data/prepared_data/` (+ `T48_tvt/metadata.json`, normalisation comparison only) | `src/data/encoder_input/benign_gridsybil/T48_benign/` (train / val / test benign, test_gridsybil) | ~2 min |
 | 2b | `pipeline/all/encoder_input_T24.ipynb` (input of `--dataset all`) | `src/data/prepared_data/` | `src/data/encoder_input/all/T24/` | minutes |
 | 3 | `model/benign_gridsybil/encoder_T64.ipynb` (kernel `roadfm-train`) | one train shard | nothing | ~1 min |
 | 4 | `npm run train:check` → `train:smoke` → `train:full` (= `.venv-train/bin/python -m src.model.benign_gridsybil.timesnet.train …`) | train shards only (10% of train vehicles = check set) | `src/runs/pretraining/benign_gridsybil/T64/<run_id>/` | hours |

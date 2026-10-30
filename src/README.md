@@ -24,6 +24,8 @@ src/
       encoder_input_T48_benign.ipynb   T48_tvt benign only (one-class training; test_gridsybil = test-vehicle attacks)
     all/
       encoder_input_T24.ipynb          all attacks, T = 24 (training set `--dataset all`; F14 open for its test split)
+      encoder_input_T32_benign.ipynb   all 8 folders, benign only, T = 32, train / val / test 80 / 10 / 10 by vehicle (RULE 3)
+                                       + test_<attack> splits of the test vehicles (one-class training)
   model/
     benign_gridsybil/
       encoder_T64.ipynb                trial: the TimesNet encoder explained and checked (imports timesnet/encoder.py)
@@ -44,6 +46,8 @@ src/
     encoder_input/benign_gridsybil/T48_tvt_s24/  1.7 GB, T48_tvt with 50% overlap (331,215 / 41,440 / 42,653 windows, 55.6% padding; same messages, split, normalisation)
     encoder_input/benign_gridsybil/T48_benign/   0.66 GB, T48_tvt benign only (112,890 / 13,584 / 13,405 windows + test_gridsybil 27,064; normalisation from benign train; no RULE 3 change, subset of T48_tvt's split)
     encoder_input/all/T24/             0.6 GB, all-attack input (F14 open)
+    encoder_input/all/T32_benign/      3.3 GB JSON, benign only from all 8 folders (502,773 / 65,313 / 60,142 windows) + test_gridsybil /
+                                       test_datareplay / test_dosrandom / test_dosdisruptive (28,087 / 76,283 / 199,834 / 199,826; RULE 3, F14 limitation)
   runs/                                training runs (gitignored)
     pretraining/benign_gridsybil/T64/model-grid/ `--dataset grid`: config.json, env.json, metrics.jsonl, checkpoints
     pretraining/all/T24/model-all/               `--dataset all`, same files (other run ids sit next to them)
@@ -66,6 +70,7 @@ by themselves, so they can be opened from any folder. Run them in this order:
 | 2w | `pipeline/benign_gridsybil/encoder_input_T48_tvt_s24.ipynb` (`npm run pipeline:encoder-input:t48-tvt-s24`) | `src/data/prepared_data/` | `src/data/encoder_input/benign_gridsybil/T48_tvt_s24/` (train / val / test, 50% overlap) | ~2 min |
 | 2x | `pipeline/benign_gridsybil/encoder_input_T48_benign.ipynb` (`npm run pipeline:encoder-input:t48-benign`) | `src/data/prepared_data/` (+ `T48_tvt/metadata.json`, normalisation comparison only) | `src/data/encoder_input/benign_gridsybil/T48_benign/` (train / val / test benign, test_gridsybil) | ~2 min |
 | 2b | `pipeline/all/encoder_input_T24.ipynb` (input of `--dataset all`) | `src/data/prepared_data/` | `src/data/encoder_input/all/T24/` | minutes |
+| 2c | `pipeline/all/encoder_input_T32_benign.ipynb` (`npm run pipeline:encoder-input:all-t32-benign`) | `src/data/prepared_data/` | `src/data/encoder_input/all/T32_benign/` (train / val / test benign + 4 test_<attack> splits) | ~1 min |
 | 3 | `model/benign_gridsybil/encoder_T64.ipynb` (kernel `roadfm-train`) | one train shard | nothing | ~1 min |
 | 4 | `npm run train:check` → `train:smoke` → `train:full` (= `.venv-train/bin/python -m src.model.benign_gridsybil.timesnet.train …`) | train shards only (10% of train vehicles = check set) | `src/runs/pretraining/benign_gridsybil/T64/<run_id>/` | hours |
 | 4g | `npm run train:grid:check` → `train:grid:smoke` → `train:grid` (`--dataset grid`, 30 h cap) → `model:upload:grid` | `encoder_input/benign_gridsybil/T64/` train shards | `src/runs/pretraining/benign_gridsybil/T64/model-grid/` → HF `runs/model-grid` | hours |

@@ -42,3 +42,7 @@ simulation/.cache/
 
 # Supervised autoencoder T48 runs
 /task/autoencoder_st/runs/
+
+# One-class autoencoder T32 (all/T32_benign) runs and decoded-shard cache
+/task/autoencoder_benign_t32/runs/
+/task/autoencoder_benign_t32/cache/

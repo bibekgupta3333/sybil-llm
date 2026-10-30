@@ -204,7 +204,12 @@
 <body>
 
 <h1>RoadFM-Lite Research Tracker</h1>
-<p class="subtitle">Self-Supervised Trajectory Foundation Model for Sybil Attack Detection — VeReMi-Extension · Master's Thesis, Florida Polytechnic University · self-supervised pretraining in progress (TimesNet SSL; first trial on benign + GridSybil), few-shot fine-tuning deferred</p>
+<p class="subtitle">Self-Supervised Trajectory Foundation Model for Sybil Attack Detection — VeReMi-Extension · Master's Thesis, Florida Polytechnic University · self-supervised pretraining in progress (TimesNet SSL; first trial on benign + GridSybil), few-shot fine-tuning deferred · baseline autoencoder studies done (5 side experiments, one-class / unsupervised / supervised; not thesis results)</p>
+<p style="font-size:12px; color:var(--text-muted); margin:-4px 0 14px;">Last updated <strong>2026-10-29</strong> — new encoder inputs (T48, T46, T48_tvt, T48_tvt_s24, T48_benign, all/T32_benign), Phase 4 baseline studies 4.6–4.10 with results, baseline findings, next baseline steps. Professor-facing pages:
+  <a href="task/autoencoder-study-slides.html">task/autoencoder-study-slides.html</a> (baseline autoencoder study) ·
+  <a href="sybil-trajectory-slides.html">sybil-trajectory-slides.html</a> (Sybil trajectories) ·
+  <a href="model-all-report.html">model-all-report.html</a> (model-all pretraining report) ·
+  <a href="stage1-input-slides.html">stage1-input-slides.html</a> · <a href="pretraining-explained.html">pretraining-explained.html</a></p>
 
 <!-- Core Objective Banner -->
 <div style="max-width:1400px; width:100%; background:linear-gradient(135deg, #DBEAFE, #EDE9FE); border:1px solid #E2E8F0; border-left:4px solid #2563EB; border-radius:10px; padding:20px 28px; margin-bottom:28px;">
@@ -628,6 +633,21 @@
       <tr><td>Status</td><td style="text-align:left;"><span class="pill pill-partial">exists · leaky</span></td><td style="text-align:left;"><span class="pill pill-ready">built · benign + GridSybil encoder input</span></td></tr>
     </tbody>
   </table>
+
+  <h3>Encoder-input variants built since T64 (2026-10-27 → 2026-10-29) <span class="pill pill-ready">BUILT · VERIFIED</span></h3>
+  <div class="r3a-sub">All under <code>src/data/encoder_input/</code> (gitignored), built from <code>src/data/prepared_data/</code>, each verified read-only against T64 / T48_tvt. None has a TimesNet training run yet; the baseline autoencoders in Phase 4 (4.7–4.10) use them.</div>
+  <table class="metrics-table" style="font-size:11px;">
+    <thead><tr><th style="text-align:left;">Name</th><th style="text-align:left;">T</th><th style="text-align:left;">Split</th><th style="text-align:left;">Windows</th><th style="text-align:left;">Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>benign_gridsybil/T48</code></td><td style="text-align:left;">48</td><td style="text-align:left;">90 / 10 by sender vehicle (= T64)</td><td style="text-align:left;">395,851 (63.3% padding)</td><td style="text-align:left;">shorter T (the slides' "T = 48" choice); same messages, split, normalisation as T64</td></tr>
+      <tr><td><code>benign_gridsybil/T46</code></td><td style="text-align:left;">46</td><td style="text-align:left;">90 / 10 (= T64)</td><td style="text-align:left;">399,362 (62.0% padding)</td><td style="text-align:left;">T sensitivity; same messages, split, normalisation</td></tr>
+      <tr><td><code>benign_gridsybil/T48_tvt</code></td><td style="text-align:left;">48</td><td style="text-align:left;"><strong style="color:var(--warning-dark);">⚠ RULE 3:</strong> 80 / 10 / 10 train / val / test; test = T64 test, val = next 10%</td><td style="text-align:left;">316,050 / 39,332 / 40,469</td><td style="text-align:left;">fixed on-disk val split for model selection + thresholds</td></tr>
+      <tr><td><code>benign_gridsybil/T48_tvt_s24</code></td><td style="text-align:left;">48</td><td style="text-align:left;">= T48_tvt (no RULE 3 change)</td><td style="text-align:left;">331,215 / 41,440 / 42,653 (55.8 / 55.4 / 54.6% padding)</td><td style="text-align:left;">50% overlap (stride 24 + end-aligned last window); overlapping windows share messages</td></tr>
+      <tr><td><code>benign_gridsybil/T48_benign</code></td><td style="text-align:left;">48</td><td style="text-align:left;">subset of T48_tvt (no RULE 3 change)</td><td style="text-align:left;">benign 112,890 / 13,584 / 13,405 + test_gridsybil 27,064</td><td style="text-align:left;">one-class (genuine-only) training; normalisation from benign train</td></tr>
+      <tr><td><code>all/T32_benign</code></td><td style="text-align:left;">32</td><td style="text-align:left;"><strong style="color:var(--warning-dark);">⚠ RULE 3:</strong> new 80 / 10 / 10 by vehicle key over all 8 folders (seed 0)</td><td style="text-align:left;">benign 502,773 / 65,313 / 60,142 + test GridSybil 28,087 / DataReplay 76,283 / DoSRandom 199,834 / DoSDisruptive 199,826</td><td style="text-align:left;">one-class training over all families; attack test splits = test vehicles. DataReplay / DoS windows 94.9–99.7% 1–3 rows (F11)</td></tr>
+    </tbody>
+  </table>
+  <div class="callout callout-amber" style="margin-top:6px;"><strong style="color:#F59E0B;">F14 limitation (open):</strong> GridSybil_0709 is a separate re-simulation of the 0709 traffic, so in vehicle-key splits over all folders (all/T24, all/T32_benign) 2.5–5.9% of GridSybil_0709 test benign identities have a near-copy in train within 1 m. Stated, not fixed or re-measured for T32_benign. Benign traffic also repeats once per family (F1, ≈ 4×). The benign + GridSybil inputs are not affected (one family).</div>
 
   <!-- ===================== Current prep (v1) ===================== -->
   <h3>Current prep (v1) — ground-truth sender-side windows, 20 × 13</h3>
@@ -1416,10 +1436,10 @@
   </p>
 
   <div class="stats-grid" style="margin-top:16px; grid-template-columns: repeat(4, 1fr);">
-    <div class="stat-card"><div class="stat-val" style="color:#16A34A;">19</div><div class="stat-label">tasks done</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:#16A34A;">24</div><div class="stat-label">tasks done</div></div>
     <div class="stat-card"><div class="stat-val" style="color:#F59E0B;">12</div><div class="stat-label">partial</div></div>
     <div class="stat-card"><div class="stat-val" style="color:#475569;">34</div><div class="stat-label">todo / blocked</div></div>
-    <div class="stat-card"><div class="stat-val">38%</div><div class="stat-label">of 65 tasks (partial = 0.5; the 3 superseded rows 2.2, 3.1, 3.3 are excluded from the denominator; S1.x / S2.x tasks are counted in stage1-plan.html, not here) — counted 2026-10-06</div></div>
+    <div class="stat-card"><div class="stat-val">43%</div><div class="stat-label">of 70 tasks (partial = 0.5; the 3 superseded rows 2.2, 3.1, 3.3 are excluded from the denominator; S1.x / S2.x tasks are counted in stage1-plan.html, not here) — counted 2026-10-06; baseline studies 4.6–4.10 added as done 2026-10-29</div></div>
   </div>
 
   <!-- Phase 0 -->
@@ -1503,7 +1523,7 @@
   </table>
 
   <!-- Phase 4 -->
-  <h3 style="margin-top:24px;">Phase 4 — Baselines <span style="color:#DC2626; font-size:11px; font-weight:400;">— nothing here exists yet, and 4.4 gates every claim</span></h3>
+  <h3 style="margin-top:24px;">Phase 4 — Baselines <span style="color:#DC2626; font-size:11px; font-weight:400;">— 4.1–4.5 not started, and 4.4 gates every claim; baseline autoencoder side studies 4.6–4.10 done (by 2026-10-29) (small 1D-conv AEs, not the TimesNet model, not thesis results)</span></h3>
   <table class="pt-table">
     <thead><tr><th style="width:52px;">ID</th><th>Task</th><th style="width:90px;">Status</th><th style="width:340px;">Artifact / note</th></tr></thead>
     <tbody>
@@ -1512,8 +1532,27 @@
       <tr><td class="num">4.3</td><td>Sequence baselines: BiLSTM (committed), GRU, 1D-CNN</td><td><span class="pill pill-todo">TODO</span></td><td>—</td></tr>
       <tr><td class="num">4.4</td><td><strong>Same-architecture encoder from scratch</strong></td><td><span class="pill pill-todo">TODO</span></td><td><strong style="color:#F97316;">The critical control.</strong> Identical arch/config/splits/seeds, no pretraining. Every H1–H3 number is a Δ against this. <span class="r4-chg"><strong>Modified:</strong> the control is now TimesNet from scratch, plus the Transformer encoder under the same SSL.</span> <span class="r4-map">→ S1.4.5</span></td></tr>
       <tr><td class="num">4.5</td><td>Reproduce one published baseline end to end</td><td><span class="pill pill-todo">TODO</span></td><td>Calibrates our pipeline against the literature</td></tr>
+      <tr><td class="num">4.6</td><td>Baseline encoder, benign vs GridSybil, T = 64 (<code>task/encoder/</code>): one-class AE (benign only) + supervised head + length / stats shortcuts</td><td><span class="pill pill-ready">DONE</span> <span class="r4-map">2026-10</span></td><td class="src">AUROC (test, 3 seeds): AE reconstruction <strong>0.655 ± 0.002</strong> (FPR 0.052, recall 0.199 at val p95); AE latent Mahalanobis 0.319 (inverted); supervised head <strong>0.928 ± 0.002</strong> (F1 0.893); stats + LR 0.855; length only 0.535. <code>runs/evaluation/results.json</code></td></tr>
+      <tr><td class="num">4.7</td><td>Unsupervised AE, T = 48, benign + GridSybil both as "normal" (<code>task/autoencoder/</code>)</td><td><span class="pill pill-ready">DONE</span> <span class="r4-map">2026-10</span></td><td class="src">seed 0: AUROC <strong>0.484</strong>, PR-AUC 0.661 (chance 0.669); length only 0.530; at val p95 recall 0.046, FPR 0.049. Null result: GridSybil (64% of train) is rebuilt as well as real cars</td></tr>
+      <tr><td class="num">4.8</td><td>Unsupervised AE on 50% overlap windows (<code>task/autoencoder_overlap/</code>, T48_tvt_s24)</td><td><span class="pill pill-ready">DONE</span> <span class="r4-map">2026-10-28</span></td><td class="src">seed 0: reconstruction AUROC <strong>0.484</strong> per window (0.482 / 0.481 per track max / mean); Mahalanobis on z <strong>0.337</strong> (0.307 / 0.302 per track, below chance). Overlap changed nothing</td></tr>
+      <tr><td class="num">4.9</td><td>Supervised AE (AE + classifier head on z), T48_tvt (<code>task/autoencoder_st/</code>)</td><td><span class="pill pill-ready">DONE</span> <span class="r4-map">2026-10-28</span></td><td class="src">seed 0: test AUROC <strong>0.929</strong>, PR-AUC 0.971; at val max-F1 θ precision 0.971 / recall 0.839 / <strong>F1 0.900</strong> / FPR 0.051; per track 0.928 / 0.929; reconstruction error alone 0.478; length 0.530. GridSybil only</td></tr>
+      <tr><td class="num">4.10</td><td>One-class AE on benign windows of all 8 folders, T = 32 (<code>task/autoencoder_benign_t32/</code>, all/T32_benign)</td><td><span class="pill pill-ready">DONE</span> <span class="r4-map">2026-10-29</span></td><td class="src">seed 0, benign test FPR at val p95 0.048. Reconstruction AUROC GridSybil <strong>0.736</strong> / DataReplay <strong>0.391</strong> / DoSRandom <strong>0.973</strong> / DoSDisruptive <strong>0.611</strong>; length only 0.559 / 0.952 / 0.967 / 0.967; recall at val p95 0.298 / 0.046 / 0.880 / 0.292; Mahalanobis on z 0.510 / 0.336 / 0.837 / 0.556. Only GridSybil beats length (0.778 on ≥ 4-row windows). F14, F1 caveats</td></tr>
     </tbody>
   </table>
+
+  <div class="callout callout-blue" style="margin-top:14px;">
+    <strong style="color:var(--primary-dark);">Baseline findings (one seed unless stated; side experiments, not thesis results)</strong>
+    <ul style="margin:6px 0 0 18px; padding:0;">
+      <li><strong>The training set defines "normal".</strong> GridSybil trained as normal → AUROC 0.484 (4.7, 4.8); benign-only training → 0.655 (T64, 3 seeds) to 0.736 (all/T32_benign GridSybil).</li>
+      <li><strong>Good reconstruction ≠ detection.</strong> Every AE rebuilt its windows well (val masked MSE 0.105–0.143), yet ghosts are rebuilt about as well as real cars.</li>
+      <li><strong>Labels give a ~0.93 ceiling</strong> for benign vs GridSybil with the same small encoder (0.928 T64 3 seeds; 0.929 T48_tvt), while the reconstruction error of the supervised AE alone is 0.478 — the head reads the class from z.</li>
+      <li><strong>GridSybil is detectable one-class</strong>, mostly through range, claimed position and log-Δτ errors (T64 per-feature AUROC range 0.707, claimed_pos_y 0.695); stats + LR (0.855) still beats the one-class AE.</li>
+      <li><strong>DoS / DataReplay cannot be judged per window</strong>: 94.9–99.7% of their windows have 1–3 rows (F11). DoS ≈ the length shortcut (0.967; DoSRandom 0.973 is caught by out-of-range claimed values), DataReplay is below chance (0.391; it replays real trajectories) → needs a co-movement / group score across pseudonyms.</li>
+      <li><strong>Overlap, T and split tweaks changed little</strong> (0.484 with and without 50% overlap); <strong>Mahalanobis on z did not help</strong> (0.319 / 0.337 / 0.510; below chance when GridSybil dominates train).</li>
+      <li><strong>Per feature:</strong> positions and range are rebuilt well, acceleration is hardest (all/T32_benign benign val MSE claimed_acl_x / y 0.367 / 0.335 vs positions 0.011–0.015, range 0.040).</li>
+      <li><strong>Caveats:</strong> different T, data subsets and splits across studies (context, not fair comparisons); one seed except 4.6; F14 near-copies and F1 repeated benign traffic in all/T32_benign; track ids hold the true sender (F13).</li>
+    </ul>
+  </div>
 
   <!-- Phase 5 -->
   <h3 style="margin-top:24px;">Phase 5 — Experiments</h3>
@@ -1654,6 +1693,17 @@
         <td><span class="pill pill-blocked">BLOCKED on evaluation</span></td>
         <td class="src">Pretraining results feed the chapters; fine-tuning adds the label-efficiency curves</td>
       </tr>
+    </tbody>
+  </table>
+
+  <h3 style="margin-top:20px;">Next baseline steps (side track, 2026-10-29) — the TimesNet path above is unchanged</h3>
+  <table class="pt-table">
+    <thead><tr><th style="width:52px;">Step</th><th>What</th><th style="width:110px;">Status</th><th style="width:330px;">Why</th></tr></thead>
+    <tbody>
+      <tr><td class="num">B1</td><td><strong>3 seeds for the benign-only AE</strong> (all/T32_benign, 4.10)</td><td><span class="pill pill-todo">TODO</span></td><td class="src">Every 4.7–4.10 number is one seed; mean ± std is needed before any comparison</td></tr>
+      <tr><td class="num">B2</td><td><strong>Per-feature standardised anomaly score</strong> (each feature's error scaled by its benign-val spread, then combined)</td><td><span class="pill pill-todo">TODO</span></td><td class="src">Acceleration error (val MSE ≈ 0.35) swamps the informative range / position / log-Δτ errors in the plain mean</td></tr>
+      <tr><td class="num">B3</td><td><strong>Co-movement / group score across pseudonyms</strong> (per the professor's AE guide)</td><td><span class="pill pill-todo">TODO</span></td><td class="src">DataReplay / DoS windows are 1–3 rows (F11): per-window scores reduce to length or fall below chance</td></tr>
+      <tr><td class="num">B4</td><td>Deep SVDD on benign windows (optional)</td><td><span class="pill pill-todo">TODO</span></td><td class="src">A one-class objective on z, since Mahalanobis on the AE's z did not help</td></tr>
     </tbody>
   </table>
 

@@ -24,11 +24,16 @@ class AutoencoderConfig:
         max_epochs: upper bound on epochs.
         patience: early stopping on validation loss (epochs without improvement).
         plateau_factor, plateau_patience: ReduceLROnPlateau on validation loss.
-        min_delta: relative validation-loss decrease needed to count as an improvement (resets early stopping).
+        min_delta: relative validation-loss decrease needed to count as an improvement (resets early stopping);
+            0 = any decrease (the setting of the `seed0` run).
+        val_frac: share of train sender vehicles held out as validation (split seed = `seed`, as in the `seed0`
+            run); 0 reads the on-disk `val` split of `data_dir` instead.
         seed: weights and batch order (the train / val / test split is fixed on disk).
         device: "auto" (mps > cuda > cpu) or an explicit torch device.
         eval_batch: batch size for validation and scoring.
         workers: processes that decode the JSON shards.
+        log_feature_error: also write `feature_history.jsonl` (per-feature train / val masked MSE per epoch) into a
+            run folder of its own (`seed<k>_featlog`); off by default.
     """
 
     data_dir: str = DATA_DIR
@@ -43,16 +48,18 @@ class AutoencoderConfig:
     patience: int = 10
     plateau_factor: float = 0.5
     plateau_patience: int = 5
-    min_delta: float = 1e-4
+    min_delta: float = 0.0
     seed: int = 0
+    val_frac: float = 0.1
     device: str = "auto"
     eval_batch: int = 4096
     workers: int = 8
+    log_feature_error: bool = False
 
     @property
     def run_id(self) -> str:
-        """Run folder name, e.g. `seed0`."""
-        return f"seed{self.seed}"
+        """Run folder name, e.g. `seed0` (`seed0_featlog` with per-feature logging)."""
+        return f"seed{self.seed}" + ("_featlog" if self.log_feature_error else "")
 
     def to_dict(self) -> dict:
         """JSON-ready settings."""

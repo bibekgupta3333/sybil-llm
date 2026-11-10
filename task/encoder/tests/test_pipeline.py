@@ -11,6 +11,7 @@ import torch
 
 from task.encoder.config import N_FEATURES, SEQ_LEN, EncoderTaskConfig
 from task.encoder.data import ShardDecoder, VehicleSplit, WindowStore, vehicle_key
+from task.encoder.evaluate import discover_runs
 from task.encoder.model import ConvAutoencoder, SupervisedHead, count_params, masked_mse, window_errors
 from task.encoder.train import Experiment, Mahalanobis
 
@@ -170,3 +171,35 @@ def test_end_to_end_run_writes_contract(data_dir: Path, tmp_path: Path, mode: st
     assert summary["label_reads"][-1].startswith("test: evaluation labels")
     assert len(open(run / "history.jsonl").read().splitlines()) == summary["epochs_run"]
     assert json.loads((run / "config.json").read_text())["seed"] == 0
+
+
+def test_feature_error_log_is_opt_in(data_dir: Path, tmp_path: Path) -> None:
+    common = dict(
+        mode="ae",
+        data_dir=str(data_dir),
+        runs_dir=str(tmp_path / "runs"),
+        cache_dir=str(tmp_path / "cache"),
+        max_epochs=2,
+        batch_size=16,
+        eval_batch=32,
+        val_frac=0.2,
+        device="cpu",
+    )
+    Experiment(EncoderTaskConfig(**common)).run()
+    assert not (tmp_path / "runs" / "ae-seed0" / "feature_history.jsonl").exists()
+    with pytest.raises(ValueError):
+        EncoderTaskConfig(**{**common, "mode": "supervised"}, log_feature_error=True)
+
+    s = EncoderTaskConfig(**common, log_feature_error=True)
+    Experiment(s).run()
+    run = tmp_path / "runs" / s.run_id
+    assert s.run_id == "ae-seed0_featlog"
+    rows = [json.loads(line) for line in (run / "feature_history.jsonl").read_text().splitlines()]
+    history = [json.loads(line) for line in (run / "history.jsonl").read_text().splitlines()]
+    assert [r["epoch"] for r in rows] == [h["epoch"] for h in history] == [1, 2]
+    for row, h in zip(rows, history):
+        for key in ("train_window_mean", "train_row_pooled", "val_window_mean", "val_row_pooled"):
+            assert len(row[key]) == N_FEATURES and np.all(np.isfinite(row[key])), key
+        # The val pass runs in eval mode: its pooled error equals the epoch's (eval-mode) validation loss.
+        assert np.isclose(np.mean(row["val_row_pooled"]), h["val_loss"], rtol=1e-4)
+    assert discover_runs(tmp_path / "runs") == [tmp_path / "runs" / "ae-seed0"]

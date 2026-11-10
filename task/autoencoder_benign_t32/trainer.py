@@ -18,6 +18,7 @@ import numpy as np  # noqa: E402
 import torch  # noqa: E402
 
 from task.autoencoder_benign_t32.config import AutoencoderConfig  # noqa: E402
+from task.autoencoder_benign_t32.featlog import FeatureErrorLog  # noqa: E402
 from task.autoencoder_benign_t32.model import ConvAutoencoder, masked_mse, window_errors  # noqa: E402
 
 
@@ -191,6 +192,11 @@ class Trainer:
             history_path.write_text("".join(json.dumps(r) + "\n" for r in history))
             log(f"resumed from last.pt after epoch {state['epoch']} (best epoch {stopper.best_epoch})")
         stop_reason = "early_stopping" if stopper.stop else "max_epochs"
+        features = (
+            FeatureErrorLog(run_dir, s.n_features, self.device, resume_epoch=first_epoch - 1)
+            if s.log_feature_error
+            else None
+        )
         start = time.time() - elapsed
         log(
             f"fit: {len(xt):,} benign windows, val: {len(xv):,} benign windows, batch {s.batch_size}, "
@@ -212,6 +218,8 @@ class Trainer:
                 xb, mb = xt[idx], mt[idx]
                 recon, _ = self.model(xb, mb)
                 loss = masked_mse(recon, xb, mb)
+                if features is not None:
+                    features.train_batch(recon, xb, mb)
                 opt.zero_grad(set_to_none=True)
                 loss.backward()
                 norm = torch.nn.utils.clip_grad_norm_(params, s.grad_clip)  # pre-clip global norm
@@ -222,6 +230,8 @@ class Trainer:
                 n += 1
             train_loss = float(total) / n
             val_loss = self._val_loss(xv, mv)
+            if features is not None:
+                features.end_epoch(epoch, self.model, xv, mv, s.eval_batch)
             lr = opt.param_groups[0]["lr"]
             sched.step(val_loss)
             new_lr = opt.param_groups[0]["lr"]

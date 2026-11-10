@@ -46,3 +46,7 @@ simulation/.cache/
 # One-class autoencoder T32 (all/T32_benign) runs and decoded-shard cache
 /task/autoencoder_benign_t32/runs/
 /task/autoencoder_benign_t32/cache/
+
+# Supervised autoencoder T32 (all/T32_benign_grid) runs and decoded-shard cache
+/task/autoencoder_st_t32/runs/
+/task/autoencoder_st_t32/cache/

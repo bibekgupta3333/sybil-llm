@@ -241,3 +241,26 @@ def test_resume_matches_uninterrupted_run(data_dir: Path, tmp_path: Path) -> Non
         assert a["val_loss"] == pytest.approx(b["val_loss"], rel=1e-5)
         assert a["train_loss"] == pytest.approx(b["train_loss"], rel=1e-5)
     assert resumed["best_val_auroc"] == pytest.approx(full["best_val_auroc"])
+
+
+def test_feature_error_log_is_opt_in_and_survives_resume(data_dir: Path, tmp_path: Path) -> None:
+    Experiment(small_settings(data_dir, tmp_path / "runs", max_epochs=1)).run()
+    assert not (tmp_path / "runs" / "seed0" / "feature_history.jsonl").exists()
+
+    settings = small_settings(data_dir, tmp_path / "runs", max_epochs=2, log_feature_error=True)
+    Experiment(settings).run()
+    run = tmp_path / "runs" / settings.run_id
+    assert settings.run_id == "seed0_featlog"
+    (run / "summary.json").unlink()
+    config = json.loads((run / "config.json").read_text())
+    config["max_epochs"] = 3
+    (run / "config.json").write_text(json.dumps(config))
+    Experiment(small_settings(data_dir, tmp_path / "runs", max_epochs=3, log_feature_error=True), resume=True).run()
+    rows = [json.loads(line) for line in (run / "feature_history.jsonl").read_text().splitlines()]
+    history = [json.loads(line) for line in (run / "history.jsonl").read_text().splitlines()]
+    assert [r["epoch"] for r in rows] == [h["epoch"] for h in history] == [1, 2, 3]
+    for row, h in zip(rows, history):
+        for key in ("train_window_mean", "train_row_pooled", "val_window_mean", "val_row_pooled"):
+            assert len(row[key]) == N_FEATURES and np.all(np.isfinite(row[key])), key
+        # The val pass runs in eval mode: its pooled error equals the epoch's (eval-mode) val reconstruction loss.
+        assert np.isclose(np.mean(row["val_row_pooled"]), h["val_recon"], rtol=1e-4)

@@ -16,6 +16,7 @@ import numpy as np  # noqa: E402
 import torch  # noqa: E402
 
 from task.autoencoder_overlap.config import AutoencoderConfig  # noqa: E402
+from task.autoencoder_overlap.featlog import FeatureErrorLog  # noqa: E402
 from task.autoencoder_overlap.model import ConvAutoencoder, masked_mse, window_errors  # noqa: E402
 
 
@@ -136,6 +137,7 @@ class Trainer:
         gen = torch.Generator().manual_seed(s.seed)
         stopper = EarlyStopping(s.patience, s.min_delta)
         best_state = None
+        features = FeatureErrorLog(run_dir, s.n_features, self.device) if s.log_feature_error else None
         history, lr_changes, stop_reason = [], [], "max_epochs"
         start = time.time()
         log(
@@ -154,6 +156,8 @@ class Trainer:
                 xb, mb = xt[idx], mt[idx]
                 recon, _ = self.model(xb, mb)
                 loss = masked_mse(recon, xb, mb)
+                if features is not None:
+                    features.train_batch(recon, xb, mb)
                 opt.zero_grad(set_to_none=True)
                 loss.backward()
                 total_norm += grad_norm(self.model)
@@ -163,6 +167,8 @@ class Trainer:
             train_loss = float(total) / n
             mean_grad_norm = float(total_norm) / n
             val_loss = self._val_loss(xv, mv)
+            if features is not None:
+                features.end_epoch(epoch, self.model, xv, mv, s.eval_batch)
             lr = opt.param_groups[0]["lr"]
             sched.step(val_loss)
             new_lr = opt.param_groups[0]["lr"]

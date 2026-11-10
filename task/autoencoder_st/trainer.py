@@ -19,6 +19,7 @@ import torch  # noqa: E402
 import torch.nn.functional as F  # noqa: E402
 
 from task.autoencoder_st.config import SupervisedAEConfig  # noqa: E402
+from task.autoencoder_st.featlog import FeatureErrorLog  # noqa: E402
 from task.autoencoder_st.metrics import epoch_metrics  # noqa: E402
 from task.autoencoder_st.model import SupervisedAutoencoder, masked_mse, window_errors  # noqa: E402
 
@@ -221,6 +222,11 @@ class Trainer:
             history_path.write_text("".join(json.dumps(r) + "\n" for r in history))
             log(f"resumed from last.pt after epoch {state['epoch']} (best epoch {stopper.best_epoch})")
         stop_reason = "early_stopping" if stopper.stop else "max_epochs"
+        features = (
+            FeatureErrorLog(run_dir, s.n_features, self.device, resume_epoch=first_epoch - 1)
+            if s.log_feature_error
+            else None
+        )
         start = time.time() - elapsed
         log(
             f"fit: {len(xt):,} windows, val: {len(xv):,} windows, batch {s.batch_size}, device {self.device}, "
@@ -242,6 +248,8 @@ class Trainer:
                 xb, mb, yb = xt[idx], mt[idx], yt[idx]
                 recon, _, logit = self.model(xb, mb)
                 total, bce, mse = self.losses(recon, logit, xb, mb, yb)
+                if features is not None:
+                    features.train_batch(recon, xb, mb)
                 opt.zero_grad(set_to_none=True)
                 total.backward()
                 norm = torch.nn.utils.clip_grad_norm_(params, s.grad_clip)  # pre-clip global norm
@@ -257,6 +265,8 @@ class Trainer:
             loss, bce, mse = (sums / len(order)).tolist()
             tr = {"loss": loss, "bce": bce, "recon": mse, **epoch_metrics(yt[order].cpu().numpy(), prob)}
             va = self._evaluate(xv, mv, yv)
+            if features is not None:
+                features.end_epoch(epoch, self.model, xv, mv, s.eval_batch)
             lr = opt.param_groups[0]["lr"]
             sched.step(va["auroc"])
             new_lr = opt.param_groups[0]["lr"]

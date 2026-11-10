@@ -67,6 +67,7 @@ is described in `docs/plan/stage1-preprocessing-feature-engineering.md`.
 
 | File | Status | What it is |
 |---|---|---|
+| [`research-notes/veremi-plausibility-baseline-spec.md`](research-notes/veremi-plausibility-baseline-spec.md) | live | spec of the tracker 4.5 baseline: the VeReMi-Extension paper's Table III detector (F2MD plausibility / consistency checks + ThresholdApp θ 0.28125) — every check as a formula with parameters and F2MD source lines, labels, which messages count, UNKNOWN inputs, expected gaps; implemented in `src/baselines/plausibility/` (README: paper vs ours, 6 / 8 subsets within 0.05 F1) |
 | [`research-notes/related-papers.md`](research-notes/related-papers.md) | reference | related-work survey |
 | [`research-notes/gap-analysis.md`](research-notes/gap-analysis.md) | reference | research-gap analysis |
 | [`research-notes/novelty-analysis.md`](research-notes/novelty-analysis.md) | reference | novelty analysis |

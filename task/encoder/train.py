@@ -8,12 +8,14 @@ Modes:
 
 Outputs (the contract with `evaluate.py`): scores_test.npz (id, label, n_messages, recon_error, recon_error_feat,
 mahalanobis, supervised_prob, z), scores_val.npz (validation benign recon_error, mahalanobis), config.json,
-env.json, history.jsonl; plus summary.json, train.log and best.pt. Test labels are read only after every test
+env.json, history.jsonl; plus summary.json, train.log and best.pt (+ feature_history.jsonl with
+`--log-feature-error`, ae mode only). Test labels are read only after every test
 score exists.
 
 Usage (repo root):
     .venv-train/bin/python -m task.encoder.train --mode ae --seed 0
     .venv-train/bin/python -m task.encoder.train --mode supervised --seed 1 --epochs 50 --device mps
+    .venv-train/bin/python -m task.encoder.train --mode ae --seed 0 --epochs 300 --log-feature-error
 """
 
 from __future__ import annotations
@@ -33,8 +35,9 @@ import numpy as np
 import torch
 from torch import nn
 
-from task.encoder.config import EncoderTaskConfig
+from task.encoder.config import N_FEATURES, EncoderTaskConfig
 from task.encoder.data import VehicleSplit, WindowSet, WindowStore
+from task.encoder.featlog import FeatureErrorLog
 from task.encoder.model import ConvAutoencoder, SupervisedHead, count_params, masked_mse, window_errors
 
 
@@ -195,6 +198,7 @@ class Trainer:
         gen = torch.Generator().manual_seed(s.seed)
         x, m, y = train
         best, best_epoch, best_state, wait = float("inf"), 0, None, 0
+        features = FeatureErrorLog(history_path.parent, N_FEATURES, self.device) if s.log_feature_error else None
         stop_reason = "max_epochs"
         epoch = 0
         for epoch in range(1, s.max_epochs + 1):
@@ -206,7 +210,13 @@ class Trainer:
                 idx = perm[start : start + s.batch_size]
                 if len(idx) < 2:  # BatchNorm needs > 1 sample
                     continue
-                loss = self.loss(x[idx], m[idx], None if y is None else y[idx])
+                if features is None:
+                    loss = self.loss(x[idx], m[idx], None if y is None else y[idx])
+                else:
+                    xb, mb = x[idx], m[idx]
+                    recon, _ = self.model(xb, mb)
+                    loss = masked_mse(recon, xb, mb)  # = self.loss in ae mode, keeping recon for the log
+                    features.train_batch(recon, xb, mb)
                 opt.zero_grad(set_to_none=True)
                 loss.backward()
                 opt.step()
@@ -214,6 +224,8 @@ class Trainer:
                 steps += 1
             train_loss = running / max(steps, 1)
             val_loss = self.evaluate(*val)
+            if features is not None:
+                features.end_epoch(epoch, self.model, val[0], val[1], s.eval_batch)
             sched.step(val_loss)
             improved = val_loss < best
             if improved:
@@ -371,6 +383,9 @@ def parse_args(argv: list[str] | None = None) -> EncoderTaskConfig:
     p.add_argument("--data-dir", default=EncoderTaskConfig.data_dir)
     p.add_argument("--runs-dir", default=EncoderTaskConfig.runs_dir)
     p.add_argument("--cache-dir", default=EncoderTaskConfig.cache_dir)
+    p.add_argument(
+        "--log-feature-error", action="store_true", help="ae mode: write feature_history.jsonl (run id ..._featlog)"
+    )
     a = p.parse_args(argv)
     return EncoderTaskConfig(
         mode=a.mode,
@@ -381,6 +396,7 @@ def parse_args(argv: list[str] | None = None) -> EncoderTaskConfig:
         data_dir=a.data_dir,
         runs_dir=a.runs_dir,
         cache_dir=a.cache_dir,
+        log_feature_error=a.log_feature_error,
     )
 
 

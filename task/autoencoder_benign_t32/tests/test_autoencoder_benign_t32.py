@@ -243,3 +243,23 @@ def test_resume_matches_uninterrupted_run(data_dir: Path, tmp_path: Path) -> Non
     for k, v in straight["model"].items():
         assert torch.allclose(v.float(), resumed["model"][k].float(), atol=1e-6), k
     assert len((tmp_path / "split" / "history.jsonl").read_text().splitlines()) == 3
+
+
+def test_feature_error_log_is_opt_in_and_survives_resume(data_dir: Path, tmp_path: Path) -> None:
+    Experiment(settings_for(data_dir, tmp_path, max_epochs=1)).run()
+    assert not (tmp_path / "runs" / "seed0" / "feature_history.jsonl").exists()
+
+    settings = settings_for(data_dir, tmp_path, log_feature_error=True)
+    Experiment(settings).run()
+    run = tmp_path / "runs" / settings.run_id
+    assert settings.run_id == "seed0_featlog"
+    (run / "summary.json").unlink()
+    Experiment(settings_for(data_dir, tmp_path, max_epochs=3, log_feature_error=True), resume=True).run()
+    rows = [json.loads(line) for line in (run / "feature_history.jsonl").read_text().splitlines()]
+    history = [json.loads(line) for line in (run / "history.jsonl").read_text().splitlines()]
+    assert [r["epoch"] for r in rows] == [h["epoch"] for h in history] == [1, 2, 3]
+    for row, h in zip(rows, history):
+        for key in ("train_window_mean", "train_row_pooled", "val_window_mean", "val_row_pooled"):
+            assert len(row[key]) == N_FEATURES and np.all(np.isfinite(row[key])), key
+        # The val pass runs in eval mode: its pooled error equals the epoch's (eval-mode) validation loss.
+        assert np.isclose(np.mean(row["val_row_pooled"]), h["val_loss"], rtol=1e-4)

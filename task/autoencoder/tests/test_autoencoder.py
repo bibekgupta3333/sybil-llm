@@ -117,3 +117,22 @@ def test_experiment_writes_run_folder(data_dir: Path, tmp_path: Path) -> None:
     assert scores["error"].shape == (3,) and scores["z"].shape == (3, 16)
     with pytest.raises(FileExistsError):
         Experiment(settings).run()
+
+
+def test_feature_error_log_is_opt_in(data_dir: Path, tmp_path: Path) -> None:
+    common = dict(data_dir=str(data_dir), runs_dir=str(tmp_path / "runs"), max_epochs=2, batch_size=16, device="cpu")
+    Experiment(AutoencoderConfig(**common, workers=2)).run()
+    assert not (tmp_path / "runs" / "seed0" / "feature_history.jsonl").exists()
+
+    settings = AutoencoderConfig(**common, workers=2, log_feature_error=True)
+    Experiment(settings).run()
+    run = tmp_path / "runs" / settings.run_id
+    assert settings.run_id == "seed0_featlog"
+    rows = [json.loads(line) for line in (run / "feature_history.jsonl").read_text().splitlines()]
+    history = [json.loads(line) for line in (run / "history.jsonl").read_text().splitlines()]
+    assert [r["epoch"] for r in rows] == [h["epoch"] for h in history] == [1, 2]
+    for row, h in zip(rows, history):
+        for key in ("train_window_mean", "train_row_pooled", "val_window_mean", "val_row_pooled"):
+            assert len(row[key]) == N_FEATURES and np.all(np.isfinite(row[key])), key
+        # The val pass runs in eval mode: its pooled error equals the epoch's (eval-mode) validation loss.
+        assert np.isclose(np.mean(row["val_row_pooled"]), h["val_loss"], rtol=1e-4)

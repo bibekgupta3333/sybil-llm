@@ -16,6 +16,7 @@ import numpy as np  # noqa: E402
 import torch  # noqa: E402
 
 from task.autoencoder.config import AutoencoderConfig  # noqa: E402
+from task.autoencoder.featlog import FeatureErrorLog  # noqa: E402
 from task.autoencoder.model import ConvAutoencoder, masked_mse, window_errors  # noqa: E402
 
 
@@ -86,6 +87,8 @@ class Trainer:
     def fit(self, train: tuple[np.ndarray, np.ndarray], val: tuple[np.ndarray, np.ndarray], run_dir: Path) -> dict:
         """Trains until early stopping or `max_epochs`; writes history.jsonl, train.log, loss_curve.png, best.pt.
 
+        With `log_feature_error`, also feature_history.jsonl (see `featlog`).
+
         Returns:
             summary fields: best_epoch, best_val_loss, epochs_run, stop_reason, lr_changes, train_seconds.
         """
@@ -101,6 +104,7 @@ class Trainer:
         gen = torch.Generator().manual_seed(s.seed)
         best, best_epoch, best_state, waited = float("inf"), 0, None, 0
         history, lr_changes, stop_reason = [], [], "max_epochs"
+        features = FeatureErrorLog(run_dir, s.n_features, self.device) if s.log_feature_error else None
         start = time.time()
         log(f"fit: {len(xt):,} windows, val: {len(xv):,} windows, batch {s.batch_size}, device {self.device}")
         for epoch in range(1, s.max_epochs + 1):
@@ -113,6 +117,8 @@ class Trainer:
                 xb, mb = xt[idx], mt[idx]
                 recon, _ = self.model(xb, mb)
                 loss = masked_mse(recon, xb, mb)
+                if features is not None:
+                    features.train_batch(recon, xb, mb)
                 opt.zero_grad(set_to_none=True)
                 loss.backward()
                 opt.step()
@@ -120,6 +126,8 @@ class Trainer:
                 n += 1
             train_loss = float(total) / n
             val_loss = self._val_loss(xv, mv)
+            if features is not None:
+                features.end_epoch(epoch, self.model, xv, mv, s.eval_batch)
             lr = opt.param_groups[0]["lr"]
             sched.step(val_loss)
             new_lr = opt.param_groups[0]["lr"]

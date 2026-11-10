@@ -1,12 +1,13 @@
 """Trains the T48 autoencoder on all train windows (benign and GridSybil alike; labels are never read).
 
-The on-disk `val` split (about 10% of the sender vehicles, disjoint from train and test) drives early stopping and the
-LR schedule. Writes `task/autoencoder/runs/<run_id>/`: config.json, env.json, history.jsonl, train.log,
-loss_curve.png, best.pt, summary.json.
+10% of the train sender vehicles (split seed = run seed; `val_frac`) are held out as validation for early stopping and
+the LR schedule (`val_frac = 0` reads an on-disk `val` split instead). Writes `task/autoencoder/runs/<run_id>/`: config.json, env.json, history.jsonl, train.log,
+loss_curve.png, best.pt, summary.json (+ feature_history.jsonl with `--log-feature-error`, run id `seed<k>_featlog`).
 
 Usage (repo root):
     .venv-train/bin/python -m task.autoencoder.train --seed 0
     .venv-train/bin/python -m task.autoencoder.train --seed 1 --epochs 20 --device cpu
+    .venv-train/bin/python -m task.autoencoder.train --seed 0 --log-feature-error
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ import numpy as np
 import torch
 
 from task.autoencoder.config import AutoencoderConfig
-from task.autoencoder.data import WindowDataset
+from task.autoencoder.data import WindowDataset, vehicle_split
 from task.autoencoder.model import ConvAutoencoder, count_params
 from task.autoencoder.trainer import RunLog, Trainer, pick_device
 
@@ -73,14 +74,22 @@ class Experiment:
         (self.run_dir / "env.json").write_text(json.dumps(environment(device), indent=2))
 
         t0 = time.time()
-        train = WindowDataset.load(s.data_dir, "train", workers=s.workers, max_shards=self.max_shards)
-        val = WindowDataset.load(s.data_dir, "val", workers=s.workers, max_shards=self.max_shards)
+        loaded = WindowDataset.load(s.data_dir, "train", workers=s.workers, max_shards=self.max_shards)
+        if s.val_frac > 0:
+            fit_rows, val_rows = vehicle_split(loaded.vehicles, s.val_frac, s.seed)
+            train, val = loaded.take(fit_rows), loaded.take(val_rows)
+            source = f"val = {s.val_frac:g} of the train vehicles (seed {s.seed})"
+        else:
+            train = loaded
+            val = WindowDataset.load(s.data_dir, "val", workers=s.workers, max_shards=self.max_shards)
+            source = "val = on-disk val split"
         shared = set(train.vehicles) & set(val.vehicles)
         if shared:
             raise ValueError(f"{len(shared)} sender vehicles are in both train and val")
         log(
-            f"train {len(train):,} / val {len(val):,} windows ({time.time() - t0:.0f}s to load), "
-            f"shape {train.x.shape[1:]} + mask; vehicles {len(set(train.vehicles)):,} / {len(set(val.vehicles)):,}"
+            f"train windows {len(loaded):,} ({time.time() - t0:.0f}s to load), shape {train.x.shape[1:]} + mask; "
+            f"fit {len(train):,} / val {len(val):,} windows; vehicles {len(set(train.vehicles)):,} / "
+            f"{len(set(val.vehicles)):,}; {source}"
         )
         log(
             f"padding share train {1 - train.mask.mean():.3f} / val {1 - val.mask.mean():.3f}, "
@@ -95,7 +104,8 @@ class Experiment:
             "run_id": s.run_id,
             "params": params,
             **result,
-            "train_windows": len(train),
+            "train_windows": len(loaded),
+            "fit_windows": len(train),
             "val_windows": len(val),
             "wall_seconds": round(time.time() - t0, 1),
             "device": str(device),
@@ -113,8 +123,11 @@ def parse_args(argv: list[str] | None = None) -> tuple[AutoencoderConfig, int]:
     p.add_argument("--data-dir", default=None)
     p.add_argument("--runs-dir", default=None)
     p.add_argument("--max-shards", type=int, default=0, help="read only the first N shards (quick checks)")
+    p.add_argument(
+        "--log-feature-error", action="store_true", help="write feature_history.jsonl (run id seed<k>_featlog)"
+    )
     a = p.parse_args(argv)
-    changes = {"seed": a.seed, "device": a.device}
+    changes = {"seed": a.seed, "device": a.device, "log_feature_error": a.log_feature_error}
     if a.epochs is not None:
         changes["max_epochs"] = a.epochs
     if a.data_dir:

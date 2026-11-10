@@ -1,4 +1,4 @@
-"""Reader for the T48 encoder input (train / val / test splits by sender vehicle, fixed on disk).
+"""Reader for the T48 encoder input (splits by sender vehicle: train / test on disk, val held out from train).
 
 Each shard `<split>/b48/part-XXXXX.json` holds {windows: [{id, x (48 x 13), mask (48)}]}; its `part-XXXXX_info.json`
 lists the same windows in the same order with their bookkeeping (scenario, sender, n_messages, label, ...).
@@ -36,6 +36,15 @@ def read_shard(path: str) -> tuple[np.ndarray, np.ndarray, list[str], dict[str, 
     x[~mask] = 0.0
     columns = {k: [w.get(k) for w in info] for k in INFO_FIELDS}
     return x, mask, ids, columns
+
+
+def vehicle_split(vehicles: np.ndarray, frac: float, seed: int) -> tuple[np.ndarray, np.ndarray]:
+    """Row indices (fit, val): a seeded `frac` of the unique sender vehicles goes to val, each vehicle on one side."""
+    unique = np.unique(vehicles)
+    n_val = max(1, int(round(frac * len(unique))))
+    chosen = np.random.default_rng(seed).choice(unique, size=n_val, replace=False)
+    is_val = np.isin(vehicles, chosen)
+    return np.flatnonzero(~is_val), np.flatnonzero(is_val)
 
 
 class WindowDataset:
@@ -82,4 +91,3 @@ class WindowDataset:
         return WindowDataset(
             self.split, self.x[rows], self.mask[rows], self.ids[rows], {k: v[rows] for k, v in self.info.items()}
         )
-

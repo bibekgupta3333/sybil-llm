@@ -485,10 +485,17 @@ class FigureWriter:
 
 
 def discover_runs(runs_root: Path) -> list[Path]:
-    """Run folders under ``runs_root`` with a ``scores_test.npz``; quick-check runs (``*-check``) are skipped."""
+    """Run folders under ``runs_root`` with a ``scores_test.npz``.
+
+    Skipped: quick-check runs (``*-check``) and per-feature logging re-runs (``*_featlog``, a repeat of a seed).
+    """
     found = [p.parent for p in sorted(runs_root.glob("*/scores_test.npz"))]
     skip = ("baselines", "evaluation")
-    return [p for p in found if p.name not in skip and not p.name.endswith("-check") and not p.name.startswith("_")]
+    return [
+        p
+        for p in found
+        if p.name not in skip and not p.name.endswith(("-check", "_featlog")) and not p.name.startswith("_")
+    ]
 
 
 def parse_args(argv: list[str] | None = None) -> EvalConfig:

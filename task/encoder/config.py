@@ -36,6 +36,8 @@ class EncoderTaskConfig:
         device: "auto" (mps > cuda > cpu), or an explicit torch device.
         eval_batch: batch size for scoring.
         max_windows: cap per split for quick checks (0 = all).
+        log_feature_error: ae mode only: also write `feature_history.jsonl` (per-feature fit / val masked MSE per
+            epoch) into a run folder of its own (`ae-seed<k>_featlog`); off by default.
     """
 
     mode: str = "ae"
@@ -60,15 +62,18 @@ class EncoderTaskConfig:
     device: str = "auto"
     eval_batch: int = 4096
     max_windows: int = 0
+    log_feature_error: bool = False
 
     def __post_init__(self) -> None:
         if self.mode not in MODES:
             raise ValueError(f"mode must be one of {MODES}, got {self.mode!r}")
+        if self.log_feature_error and self.mode != "ae":
+            raise ValueError("log_feature_error is for mode 'ae' (the benign-only autoencoder) only")
 
     @property
     def run_id(self) -> str:
-        """Run folder name, e.g. `ae-seed0`, `supervised-seed2` (`-check` suffix when windows are capped)."""
-        suffix = "-check" if self.max_windows else ""
+        """Run folder name, e.g. `ae-seed0`, `supervised-seed2` (`-check` when windows are capped, `_featlog` with logging)."""
+        suffix = ("-check" if self.max_windows else "") + ("_featlog" if self.log_feature_error else "")
         return f"{self.mode}-seed{self.seed}{suffix}"
 
     def to_dict(self) -> dict:

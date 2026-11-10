@@ -10,6 +10,7 @@ last.pt, summary.json.
 
 Usage (repo root):
     .venv-train/bin/python -m task.autoencoder_st.train --seed 0
+    .venv-train/bin/python -m task.autoencoder_st.train --seed 0 --log-feature-error
     .venv-train/bin/python -m task.autoencoder_st.train --seed 0 --resume
     .venv-train/bin/python -m task.autoencoder_st.train --seed 1 --epochs 2 --max-shards 1 --device cpu
 """
@@ -167,8 +168,11 @@ def parse_args(argv: list[str] | None = None) -> tuple[SupervisedAEConfig, int, 
     p.add_argument("--data-dir", default=None)
     p.add_argument("--runs-dir", default=None)
     p.add_argument("--max-shards", type=int, default=0, help="read only the first N shards per split (quick checks)")
+    p.add_argument(
+        "--log-feature-error", action="store_true", help="write feature_history.jsonl (run id seed<k>_featlog)"
+    )
     a = p.parse_args(argv)
-    changes = {"seed": a.seed, "device": a.device}
+    changes = {"seed": a.seed, "device": a.device, "log_feature_error": a.log_feature_error}
     for key, value in (
         ("max_epochs", a.epochs),
         ("recon_weight", a.recon_weight),

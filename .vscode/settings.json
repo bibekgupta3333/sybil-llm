@@ -4,5 +4,9 @@
     "editor.formatOnSave": true
   },
   "notebook.formatOnSave.enabled": true,
-  "black-formatter.args": ["--config", "pyproject.toml"]
+  "black-formatter.args": [
+    "--config",
+    "pyproject.toml"
+  ],
+  "liveServer.settings.port": 5501
 }

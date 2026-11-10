@@ -37,6 +37,8 @@ class AutoencoderConfig:
         device: "auto" (mps > cuda > cpu) or an explicit torch device.
         eval_batch: batch size for validation and scoring.
         workers: processes that decode the JSON shards.
+        log_feature_error: also write `feature_history.jsonl` (per-feature train / val masked MSE per epoch) into a
+            run folder of its own (`seed<k>_featlog`); off by default.
     """
 
     data_dir: str = DATA_DIR
@@ -61,11 +63,12 @@ class AutoencoderConfig:
     device: str = "auto"
     eval_batch: int = 4096
     workers: int = 8
+    log_feature_error: bool = False
 
     @property
     def run_id(self) -> str:
-        """Run folder name, e.g. `seed0`."""
-        return f"seed{self.seed}"
+        """Run folder name, e.g. `seed0` (`seed0_featlog` with per-feature logging)."""
+        return f"seed{self.seed}" + ("_featlog" if self.log_feature_error else "")
 
     def to_dict(self) -> dict:
         """JSON-ready settings."""

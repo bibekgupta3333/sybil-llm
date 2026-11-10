@@ -1,0 +1,1325 @@
+{
+  "meta": {
+    "title": "Three multi-agent ideas (proposals)",
+    "date": "2026-11-04",
+    "status": "Proposal only. Nothing implemented, nothing trained, no result of these systems exists. Outside the adopted thesis plan (RULE 7) until the user approves.",
+    "score_scale": "Scores 1-5 as in novel-ideas.md: N novelty, F feasibility in 7 days, T fit with the thesis, P publishability.",
+    "numbers_rule": "Every number quoted is a measured one from our repo with its source; pilot numbers are marked 'not a result'.",
+    "paper_ids": "Paper ids refer to comparison/papers.json."
+  },
+  "ideas": [
+    {
+      "id": "MA1",
+      "title": "Cooperative receiver agents with lying Sybil reporters",
+      "short": "Cooperative receivers",
+      "kind": "Cooperative multi-agent detection with adversarial agents (report fusion, trust)",
+      "from_ideas": [
+        "I1"
+      ],
+      "pitch": "Many receivers hear the same broadcast; let them vote on it, and make the vote survive attackers who lie.",
+      "scores": {
+        "N": 3,
+        "F": 5,
+        "T": 3,
+        "P": 3,
+        "sum": 14
+      },
+      "effort": {
+        "days_min": 6,
+        "days_max": 7,
+        "note": "No training, no new data; reuses the verified plausibility baseline. Plan: novel-ideas.md, 7-day plan."
+      },
+      "intro": {
+        "problem": "In VeReMi-Extension every receiver judges each BSM alone, with local plausibility checks. But one broadcast is heard by several receivers, and one pseudonym by many over time. If receivers share their verdicts, a ghost that fools one receiver may still be caught by another. The catch: attacker vehicles are receivers too, and they can lie in their reports.",
+        "why_veremi": "The raw receiver-view logs already hold the multi-agent picture: every received copy at every receiver, keyed by messageID and pseudonym (3.7 to 5.4 receivers per broadcast in our pilot). Our local `catch` detector trails the paper most on DoSRandomSybil (F1 0.887 / 0.885 vs 0.989 / 0.988), the family where the pilot shows the largest sharing gain.",
+        "pitch": "Fuse local verdicts across receivers with k-of-n and agreement-learned trust, and test it against Sybil reporters who lie."
+      },
+      "novelty": {
+        "closest": [
+          {
+            "id": "A14",
+            "what": "Global misbehaviour detection: OBUs / RSUs send reports, a Misbehavior Authority analyses them (F2MD group).",
+            "misses": "No Sybil-specific evaluation; the abstract gives no result; report-level, so it depends on the local detectors' outputs."
+          },
+          {
+            "id": "A36",
+            "what": "ADVENT: vehicles report malicious nodes to neighbours, FL across vehicles, on VeReMi-Extension.",
+            "misses": "DoS family only; benign reporters; identities reported per pseudonym."
+          },
+          {
+            "id": "A04",
+            "what": "RSUs share knowledge; some RSUs are compromised; transfer only from trusted RSUs.",
+            "misses": "Trust only between RSUs; no per-message verdict fusion; no Sybil linking."
+          },
+          {
+            "id": "A18",
+            "what": "Agents share event reports, fused with subjective logic and reputation.",
+            "misses": "No real V2X data; event reports, not BSM kinematics."
+          },
+          {
+            "id": "B09",
+            "what": "MISO-V: cross-check several independent sources for collective perception.",
+            "misses": "Assumes independent sources; Sybil identities can fake independence."
+          },
+          {
+            "id": "B07",
+            "what": "MADE: per-agent tests with FPR control in collaborative perception.",
+            "misses": "Each identity tested independently, so Sybil identities can each pass."
+          },
+          {
+            "id": "C31",
+            "what": "RCTD: reputation-constrained truth discovery under Sybil workers.",
+            "misses": "Labelling tasks in crowdsourcing, not vehicular motion data."
+          }
+        ],
+        "gap": "No paper measures multi-receiver verdict fusion on the receiver-view VeReMi-Extension Sybil subsets, lets the Sybil attackers poison the fusion, or asks how much of the paper-vs-local gap (the missing map check) cooperation recovers.",
+        "caveat": "Report fusion and reputation are old ideas (A18, A22, C22). The novelty is the measured, leakage-safe evaluation on a public dataset with an adaptive lying reporter, not the mechanism. Say so in any write-up."
+      },
+      "agents": [
+        {
+          "id": "S",
+          "name": "Sender (benign or Sybil ghost)",
+          "runs_on": "vehicle OBU",
+          "inputs": "own GNSS state",
+          "outputs": "BSM (messageID, pseudonym, claimed position / speed / heading, sendTime)",
+          "state": "pseudonym",
+          "role": "either",
+          "note": "An attacker radio sends ghost BSMs under many pseudonyms."
+        },
+        {
+          "id": "R1",
+          "name": "Receiver agent 1",
+          "runs_on": "vehicle OBU",
+          "inputs": "received BSM + own GNSS state + per-pseudonym history",
+          "outputs": "local verdict: check scores, flag (ThresholdApp, theta 0.28125)",
+          "state": "node table of recent pseudonyms (Kalman filters, last message)",
+          "role": "honest",
+          "note": "Runs `src/baselines/plausibility/` (catch checks) unchanged."
+        },
+        {
+          "id": "R2",
+          "name": "Receiver agent 2",
+          "runs_on": "vehicle OBU",
+          "inputs": "same as R1",
+          "outputs": "local verdict",
+          "state": "node table",
+          "role": "honest",
+          "note": ""
+        },
+        {
+          "id": "RSU",
+          "name": "Receiver agent 3 (roadside)",
+          "runs_on": "RSU",
+          "inputs": "same as R1",
+          "outputs": "local verdict",
+          "state": "node table",
+          "role": "honest",
+          "note": "Same checks; fixed position."
+        },
+        {
+          "id": "RA",
+          "name": "Lying attacker receiver",
+          "runs_on": "attacker vehicle OBU",
+          "inputs": "received BSMs + knowledge of its own ghost pseudonyms",
+          "outputs": "false reports: vouch for own ghosts, accuse benign senders",
+          "state": "list of own ghosts, target benign pseudonyms",
+          "role": "adversarial",
+          "note": "Attacker vehicles in VeReMi-Extension also have receive logs, so they can be modelled as reporters."
+        },
+        {
+          "id": "F",
+          "name": "Fusion agent (misbehaviour authority)",
+          "runs_on": "RSU or cloud misbehaviour authority",
+          "inputs": "reports (messageID, pseudonym, reporter id, score, flag, time)",
+          "outputs": "fused verdict per copy and per pseudonym; flag list broadcast back",
+          "state": "reporter trust table; per-pseudonym report counts; flag timers tau",
+          "role": "honest",
+          "note": "k-of-n distinct reporters, mean score, trust-weighted vote."
+        }
+      ],
+      "protocol": [
+        {
+          "step": 1,
+          "from": "S",
+          "to": [
+            "R1",
+            "R2",
+            "RSU",
+            "RA"
+          ],
+          "content": "BSM broadcast: messageID m, pseudonym p, claimed state",
+          "when": "every beacon (1 Hz)"
+        },
+        {
+          "step": 2,
+          "from": "R1",
+          "to": [
+            "R1"
+          ],
+          "content": "Local plausibility checks on m: scores + flag (each honest receiver does this)",
+          "when": "on receipt"
+        },
+        {
+          "step": 3,
+          "from": "R1",
+          "to": [
+            "F"
+          ],
+          "content": "Report (m, p, reporter, min score, flag, rcvTime)",
+          "when": "each report period"
+        },
+        {
+          "step": 4,
+          "from": "R2",
+          "to": [
+            "F"
+          ],
+          "content": "Report from receiver 2",
+          "when": "each report period"
+        },
+        {
+          "step": 5,
+          "from": "RSU",
+          "to": [
+            "F"
+          ],
+          "content": "Report from the RSU",
+          "when": "each report period"
+        },
+        {
+          "step": 6,
+          "from": "RA",
+          "to": [
+            "F"
+          ],
+          "content": "Lying report: 'p is genuine' for its own ghost, or 'benign q is fake'",
+          "when": "each report period"
+        },
+        {
+          "step": 7,
+          "from": "F",
+          "to": [
+            "F"
+          ],
+          "content": "Group by messageID; k-of-n distinct reporters, weighted by reporter trust -> fused verdict",
+          "when": "end of report period"
+        },
+        {
+          "step": 8,
+          "from": "F",
+          "to": [
+            "F"
+          ],
+          "content": "Update reporter trust by agreement with the fused verdict (the liar loses trust)",
+          "when": "after each fused verdict"
+        },
+        {
+          "step": 9,
+          "from": "F",
+          "to": [
+            "R1",
+            "R2",
+            "RSU",
+            "RA"
+          ],
+          "content": "Flag pseudonym p for tau seconds (receivers drop or down-weight its BSMs)",
+          "when": "after k reports"
+        }
+      ],
+      "method": [
+        {
+          "stage": 1,
+          "name": "Per-copy export",
+          "input": "raw data/VeReMi-Dataset/ (read only), 8 subsets",
+          "operation": "Add an export option to the plausibility baseline: every check score and flag per received copy, with run, receiver, messageID, pseudonym, sender code",
+          "output": "per-copy tables under gitignored src/runs/",
+          "reuse": "src/baselines/plausibility/ (parser.py, catch_checks.py, detector.py, run.py)"
+        },
+        {
+          "stage": 2,
+          "name": "Sanity check",
+          "input": "per-copy tables",
+          "operation": "Recompute Table III from the export; must equal summary.json exactly",
+          "output": "Delta 0 against summary.json",
+          "reuse": "src/baselines/plausibility/metrics.py"
+        },
+        {
+          "stage": 3,
+          "name": "Index",
+          "input": "per-copy tables",
+          "operation": "Index copies by messageID (who heard it) and by pseudonym (all its copies over time)",
+          "output": "messageID -> copies, pseudonym -> copies",
+          "reuse": "this index is also MA2's input"
+        },
+        {
+          "stage": 4,
+          "name": "Honest fusion",
+          "input": "index + local verdicts",
+          "operation": "Rules: OR, k-of-n distinct receivers, mean score; pseudonym propagation (flag after k reports, keep tau s); choose k, tau on 0709",
+          "output": "fused verdict per copy and per pseudonym",
+          "reuse": ""
+        },
+        {
+          "stage": 5,
+          "name": "Lying reporters",
+          "input": "fused pipeline + attacker receivers (code != 0)",
+          "operation": "Attacker receivers flip verdicts: vouch for own ghosts, accuse benign senders; 0 / 10 / 30% of reporters lie; robust variants: distinct-reporter k-of-n, agreement-learned trust",
+          "output": "metrics vs fraction of liars",
+          "reuse": ""
+        },
+        {
+          "stage": 6,
+          "name": "Ablations and cost",
+          "input": "all of the above",
+          "operation": "Share range check only vs all checks; reports per second; time to first flag per pseudonym",
+          "output": "ablation table",
+          "reuse": ""
+        },
+        {
+          "stage": 7,
+          "name": "Metric and uncertainty",
+          "input": "fused verdicts + labels (sender file code)",
+          "operation": "Per-copy accuracy / precision / recall / F1 per subset (Table II definitions), per-pseudonym recall, benign FPR; bootstrap by run and receiver",
+          "output": "final table with CIs, Delta F1 vs `catch`",
+          "reuse": "src/baselines/plausibility/metrics.py"
+        }
+      ],
+      "algorithm": "# fusion agent, one report period\nfor m in messages_in_period:\n    R = distinct_reporters(m)                # receivers that heard m\n    w = {r: trust[r] for r in R}             # trust starts at 1.0\n    yes = sum(w[r] for r in R if flag[r, m])\n    tot = sum(w.values())\n    fused[m] = len(R) >= n_min and count_flags(m) >= k and yes / tot >= rho\n    for r in R:                              # agreement-learned trust\n        agree = (flag[r, m] == fused[m])\n        trust[r] = clip(trust[r] + eta * (1 if agree else -1), t_min, 1.0)\n    if fused[m]:\n        reports[pseudo(m)] += 1\n        if reports[pseudo(m)] >= k_p:\n            flagged_until[pseudo(m)] = now + tau\ncopy_flag(c) = local_flag(c) or fused[msg(c)] or now < flagged_until[pseudo(c)]\n# k, k_p, rho, tau, eta chosen on 0709 only; reported on 1416 (and the reverse)",
+      "threats": {
+        "controls": [
+          "Content of its own BSMs under many pseudonyms (positions, speeds, replayed traces).",
+          "Its own reports as a receiver: what it flags or vouches for, how often it reports.",
+          "Which benign pseudonyms it accuses; it hears roughly what its neighbours hear."
+        ],
+        "does_not_control": "Honest receivers' local checks, the fusion rule, or which receivers hear a broadcast.",
+        "adaptive_attacks": [
+          "Vouching: all attacker receivers report 'genuine' for their own ghosts.",
+          "Framing: accuse benign senders near the attacker to burn their reputation.",
+          "Trust farming: report honestly for a while to earn trust, then lie.",
+          "Report flooding: many reports per period (one radio, many reporter pseudonyms) - links to MA2.",
+          "Plausible ghosts: positions kept inside the range check so local flags stay low."
+        ]
+      },
+      "experiments": {
+        "baselines": [
+          {
+            "name": "Local `catch` detector (ours), per-copy F1",
+            "values": {
+              "source": "src/baselines/plausibility/README.md (summary.json), agent.md changelog 2026-10-29",
+              "what": "per received copy F1 of the local `catch` plausibility detector (ours) vs the paper's Table III",
+              "rows": [
+                {
+                  "subset": "GridSybil_0709",
+                  "ours": 0.727,
+                  "paper": 0.742
+                },
+                {
+                  "subset": "GridSybil_1416",
+                  "ours": 0.692,
+                  "paper": 0.737
+                },
+                {
+                  "subset": "DataReplaySybil_0709",
+                  "ours": 0.51,
+                  "paper": 0.51
+                },
+                {
+                  "subset": "DataReplaySybil_1416",
+                  "ours": 0.537,
+                  "paper": 0.524
+                },
+                {
+                  "subset": "DoSRandomSybil_0709",
+                  "ours": 0.887,
+                  "paper": 0.989
+                },
+                {
+                  "subset": "DoSRandomSybil_1416",
+                  "ours": 0.885,
+                  "paper": 0.988
+                },
+                {
+                  "subset": "DoSDisruptiveSybil_0709",
+                  "ours": 0.66,
+                  "paper": 0.664
+                },
+                {
+                  "subset": "DoSDisruptiveSybil_1416",
+                  "ours": 0.697,
+                  "paper": 0.691
+                }
+              ]
+            }
+          },
+          {
+            "name": "Pilot sharing signal (not a result)",
+            "values": {
+              "source": "comparison/novel-ideas.md, pilot table (read-only scratchpad run, one run per family, 1416, range check only, honest reporters; not a result)",
+              "rows": [
+                {
+                  "run": "DoSRandomSybil 1416",
+                  "extra_attack_copies_flagged_pp": 6.8,
+                  "extra_benign_copies_flagged_pp": 0.18,
+                  "mean_receivers": 3.8
+                },
+                {
+                  "run": "GridSybil 1416",
+                  "extra_attack_copies_flagged_pp": 3.9,
+                  "extra_benign_copies_flagged_pp": 0.22,
+                  "mean_receivers": 5.4
+                },
+                {
+                  "run": "DataReplaySybil 1416",
+                  "extra_attack_copies_flagged_pp": 4.8,
+                  "extra_benign_copies_flagged_pp": 0.33,
+                  "mean_receivers": 5.4
+                }
+              ]
+            }
+          }
+        ],
+        "splits": [
+          "Fit every free parameter on group 0709, report on 1416; then the reverse. Never tune on the reported group.",
+          "Anything learned per vehicle (trust, clusters, thresholds) is split by vehicle: no physical vehicle in both the fit and the report set.",
+          "Label = the sender's trace-file attack code != 0 (as in our Table III reproduction); the true `sender` field is ground truth only, never an input (F13).",
+          "F14 caveat: GridSybil_0709 is a 2025 re-simulation (different vehicle ids, 62-65% attack messages vs about 46% implied by the paper); report GridSybil 0709 and 1416 separately and do not pool them.",
+          "F1 caveat: the four families reuse the same benign traffic; never fit on one family and report on another family of the same group as if it were new traffic."
+        ],
+        "metrics": [
+          "Per-copy accuracy / precision / recall / F1 per subset (paper Table II definitions)",
+          "Benign per-copy FPR",
+          "Per-pseudonym recall and time to first flag",
+          "Reports per second (communication cost)"
+        ],
+        "ablations": [
+          "Fusion rule: OR vs k-of-n vs mean score vs trust-weighted",
+          "Shared checks: range only vs all",
+          "Liars: 0 / 10 / 30% of reporters",
+          "Pseudonym propagation on / off, tau",
+          "Report period length"
+        ],
+        "figures": [
+          "Delta F1 vs `catch` per subset (bar, 0709 -> 1416 and reverse)",
+          "F1 vs fraction of lying reporters, one line per fusion rule",
+          "Attack recall vs benign FPR as k varies",
+          "Reporter trust over time, honest vs attacker reporters",
+          "Time-to-first-flag CDF per family"
+        ]
+      },
+      "solution": {
+        "system": "Every receiver runs the local checks and sends short reports; a fusion agent at the RSU / misbehaviour authority combines them per messageID with k-of-n and learned reporter trust, and sends back a flag list that receivers apply for tau seconds.",
+        "contribution": "First measured, leakage-safe evaluation of cooperative verdict fusion on the receiver-view VeReMi-Extension Sybil subsets, including Sybil attackers who poison the fusion.",
+        "success": [
+          "Hypothesis H-MA1a: with k, tau chosen on 0709, fusion raises per-copy F1 over `catch` by >= 0.05 on at least 2 of the 4 families on 1416 (and the reverse), with benign FPR up by <= 0.5 pp.",
+          "Hypothesis H-MA1b: with 30% lying reporters, the robust variant stays at or above local `catch` F1 on every family."
+        ],
+        "failure": [
+          "Gain < 0.05 F1 on all families, or FPR cost > 0.5 pp: report the null result (RULE 1).",
+          "Robust fusion falls below `catch` under 30% liars: cooperation is unsafe without identity linking (motivates MA2)."
+        ]
+      },
+      "risks": [
+        "Small gains where local checks already work (GridSybil precision 0.997; recall limited by plausible ghosts).",
+        "DataReplay copies look plausible everywhere, so sharing may add little.",
+        "'Any receiver flagged' inflates FPR with many receivers; k-of-n must control it.",
+        "Labels are the sender's file code: unmodified attacker messages count as attacks (as in Table III).",
+        "F14: GridSybil_0709 class balance differs; do not pool groups.",
+        "Lying-reporter behaviour is simulated on real logs; the attacker model is ours, not VeReMi's."
+      ]
+    },
+    {
+      "id": "MA2",
+      "title": "Sybil-aware consensus over linked identities",
+      "short": "Linked-identity consensus",
+      "kind": "Consensus / voting multi-agent system made Sybil-resistant by identity linking",
+      "from_ideas": [
+        "I2",
+        "I3"
+      ],
+      "pitch": "One radio, one vote: link ghost pseudonyms to their radio from who heard them, then count votes per radio.",
+      "scores": {
+        "N": 4,
+        "F": 2,
+        "T": 4,
+        "P": 4,
+        "sum": 14
+      },
+      "effort": {
+        "days_min": 10,
+        "days_max": 12,
+        "note": "Linking (I2) 6-8 days + voting study (I3) about 4 days; reuses MA1's per-copy index if MA1 is done first."
+      },
+      "intro": {
+        "problem": "Votes, reputations and consensus checks assume attackers are a minority of identities. A Sybil attacker breaks that: one radio speaks under many pseudonyms and can outvote honest vehicles. But all ghosts of one radio are physically sent from one place, so they are heard by the same receivers at almost the same instants, whatever position they claim. If agents can link pseudonyms into estimated physical senders, they can vote per sender instead of per pseudonym.",
+        "why_veremi": "VeReMi-Extension logs who heard each message and when, so hearer sets per pseudonym are available from existing logs with no new protocol. GridSybil ghosts fake a traffic jam by count, which is a natural per-identity vote. The true `sender` field lets us score the linking, but it must stay ground truth only (F13: GridSybil ghosts share pseudonym 1).",
+        "pitch": "Passive co-reception linking turns many outvoting ghosts back into one attacker vote."
+      },
+      "novelty": {
+        "closest": [
+          {
+            "id": "A19",
+            "what": "Pairwise Fréchet distance on reported trajectories + DBSCAN to find Sybils.",
+            "misses": "Uses claimed trajectories, which the attacker controls; not on VeReMi."
+          },
+          {
+            "id": "A09",
+            "what": "Sybil trajectories found as cliques of overlapping RSU location proofs.",
+            "misses": "Needs RSU-signed proofs and a protocol change; not usable on passive logs."
+          },
+          {
+            "id": "A33",
+            "what": "Sybil-TraceGuard: semi-supervised GNN links fragmented pseudonyms to the attacker.",
+            "misses": "Needs labels; dataset unclear; no consensus study."
+          },
+          {
+            "id": "A34",
+            "what": "Time-space-communication features as a graph for Sybil traceability under pseudonym change.",
+            "misses": "Authors and dataset not verified; no voting or consensus study."
+          },
+          {
+            "id": "B35",
+            "what": "Ghost Riders: Sybil devices on Waze; defence by authenticated co-location graphs.",
+            "misses": "Needs device-to-device attestations; not raw BSM logs."
+          },
+          {
+            "id": "C01",
+            "what": "Sybil-resistant truth discovery by grouping similar accounts.",
+            "misses": "Groups by similarity of submitted data, not physical reception; non-vehicular."
+          },
+          {
+            "id": "B01",
+            "what": "ROBOSAC: consensus over random teammate subsets in collaborative perception.",
+            "misses": "States that attackers are a minority; Sybils break this."
+          },
+          {
+            "id": "B08",
+            "what": "CP-Guard: sample consensus against malicious collaborators.",
+            "misses": "Consensus fails if Sybils make attackers the majority."
+          },
+          {
+            "id": "B03",
+            "what": "Benign vehicles jointly check fabricated perception data.",
+            "misses": "Assumes non-colluding identities; Sybil voting not addressed."
+          }
+        ],
+        "gap": "No paper links pseudonyms passively from co-reception (who heard it, when) in existing V2X logs, and none measures how much identity linking restores a vote or consensus against Sybil ghosts on a public dataset.",
+        "caveat": "The voting task on VeReMi is partly artificial: there is no perception data, so the reputation vote uses simulated reporter behaviour on real identities and reception sets. The congestion vote uses real claimed data only. Linking quality bounds everything."
+      },
+      "agents": [
+        {
+          "id": "A",
+          "name": "Attacker radio with ghost pseudonyms g1..gk",
+          "runs_on": "attacker vehicle OBU",
+          "inputs": "own position",
+          "outputs": "ghost BSMs under many pseudonyms, all sent from one place",
+          "state": "ghost list",
+          "role": "adversarial",
+          "note": "Claimed positions differ; the physical send point does not."
+        },
+        {
+          "id": "B",
+          "name": "Benign senders",
+          "runs_on": "vehicle OBU",
+          "inputs": "own GNSS state",
+          "outputs": "BSMs under one pseudonym each (rotating over time)",
+          "state": "pseudonym",
+          "role": "honest",
+          "note": "Platoons can share hearer sets too (false-link risk)."
+        },
+        {
+          "id": "H",
+          "name": "Hearer agents (receivers)",
+          "runs_on": "vehicle OBU / RSU",
+          "inputs": "received BSMs",
+          "outputs": "reception records (pseudonym, messageID, sendTime, rcvTime, receiver id)",
+          "state": "none beyond the log",
+          "role": "honest",
+          "note": "Attacker receivers also report (they may omit or fake records: threat model)."
+        },
+        {
+          "id": "L",
+          "name": "Linker agent",
+          "runs_on": "RSU / edge",
+          "inputs": "reception records over a sliding window",
+          "outputs": "pseudonym -> estimated physical sender cluster, with confidence",
+          "state": "hearer-set time series per pseudonym; similarity graph",
+          "role": "honest",
+          "note": "Never reads the true `sender` field (F13)."
+        },
+        {
+          "id": "V",
+          "name": "Voting agents",
+          "runs_on": "vehicle OBU (one vote per pseudonym)",
+          "inputs": "a question: 'jam in cell c?' (from claimed speed / presence) or 'is pseudonym x genuine?'",
+          "outputs": "vote",
+          "state": "",
+          "role": "either",
+          "note": "Ghosts vote too, all in the attacker's favour."
+        },
+        {
+          "id": "T",
+          "name": "Tally agent",
+          "runs_on": "RSU / cloud",
+          "inputs": "votes + linker clusters",
+          "outputs": "decision counted per pseudonym and per linked sender; flagged clusters",
+          "state": "",
+          "role": "honest",
+          "note": "Weight of a cluster = 1, split equally among its pseudonyms."
+        }
+      ],
+      "protocol": [
+        {
+          "step": 1,
+          "from": "A",
+          "to": [
+            "H"
+          ],
+          "content": "Ghost BSMs g1, g2, g3 sent from one radio at nearly the same instants",
+          "when": "every beacon"
+        },
+        {
+          "step": 2,
+          "from": "B",
+          "to": [
+            "H"
+          ],
+          "content": "Benign BSMs, each heard by its own neighbours",
+          "when": "every beacon"
+        },
+        {
+          "step": 3,
+          "from": "H",
+          "to": [
+            "L"
+          ],
+          "content": "Reception records: who heard which pseudonym, and when (hearer sets light up together for g1..g3)",
+          "when": "each window"
+        },
+        {
+          "step": 4,
+          "from": "L",
+          "to": [
+            "L"
+          ],
+          "content": "Similarity of hearer-set time series (Jaccard + send-time alignment) -> clusters = estimated radios",
+          "when": "each window"
+        },
+        {
+          "step": 5,
+          "from": "L",
+          "to": [
+            "T"
+          ],
+          "content": "Pseudonym -> cluster map with confidence",
+          "when": "each window"
+        },
+        {
+          "step": 6,
+          "from": "V",
+          "to": [
+            "T"
+          ],
+          "content": "Votes on the question (ghosts all vote for the attacker's answer)",
+          "when": "per question"
+        },
+        {
+          "step": 7,
+          "from": "T",
+          "to": [
+            "T"
+          ],
+          "content": "Tally per pseudonym (ghosts win) vs per linked sender (attacker counts once and loses)",
+          "when": "per question"
+        },
+        {
+          "step": 8,
+          "from": "T",
+          "to": [
+            "H"
+          ],
+          "content": "Decision + flag clusters with many pseudonyms whose claimed positions disagree with their shared hearer set",
+          "when": "per question"
+        }
+      ],
+      "method": [
+        {
+          "stage": 1,
+          "name": "Reception records",
+          "input": "raw data/VeReMi-Dataset/ (read only) or MA1's per-copy index",
+          "operation": "Per received copy: run, receiver, messageID, senderPseudo, sendTime, rcvTime (true `sender` kept in a separate ground-truth column)",
+          "output": "reception table per run",
+          "reuse": "src/baselines/plausibility/parser.py"
+        },
+        {
+          "stage": 2,
+          "name": "Fingerprints",
+          "input": "reception table",
+          "operation": "Per pseudonym: hearer set per time bin (1 s), send-time phase within the beacon period",
+          "output": "hearer-set time series per pseudonym",
+          "reuse": ""
+        },
+        {
+          "stage": 3,
+          "name": "Pairwise similarity",
+          "input": "fingerprints of pseudonyms alive in the same window",
+          "operation": "Mean Jaccard of hearer sets over shared bins + send-time alignment; only pairs that co-exist in time",
+          "output": "similarity graph",
+          "reuse": ""
+        },
+        {
+          "stage": 4,
+          "name": "Linking",
+          "input": "similarity graph",
+          "operation": "Threshold + connected components or agglomerative clustering; threshold chosen on 0709",
+          "output": "pseudonym -> estimated sender",
+          "reuse": ""
+        },
+        {
+          "stage": 5,
+          "name": "Linking evaluation",
+          "input": "clusters + true `sender` (ground truth only)",
+          "operation": "ARI, pairwise precision / recall, per family; compare with claimed-trajectory Fréchet + DBSCAN (A19-style) and with no linking",
+          "output": "linking table",
+          "reuse": ""
+        },
+        {
+          "stage": 6,
+          "name": "Votes",
+          "input": "real claimed data + clusters",
+          "operation": "V1 congestion vote: per road cell and time, count identities claiming slow presence (GridSybil fakes this); V2 reputation vote: each identity in range votes on a target's genuineness, ghosts vouch for each other (simulated behaviour)",
+          "output": "vote outcomes per pseudonym and per cluster",
+          "reuse": "MA1 local verdicts as honest votes"
+        },
+        {
+          "stage": 7,
+          "name": "Detection and metric",
+          "input": "cluster features (size, hearer-set agreement, claimed-position spread)",
+          "operation": "Flag clusters; per-copy F1 vs `catch`; vote flip rate vs number of ghosts",
+          "output": "final tables and figures",
+          "reuse": "src/baselines/plausibility/metrics.py"
+        }
+      ],
+      "algorithm": "# linker agent, one window W\nfor p in pseudonyms_alive(W):\n    F[p] = {b: hearers(p, b) for b in bins(W)}       # who heard p in each 1 s bin\nfor p, q in pairs_alive_together(W):\n    shared = bins(F[p]) & bins(F[q])\n    if len(shared) < b_min: continue\n    s = mean(jaccard(F[p][b], F[q][b]) for b in shared)\n    s *= phase_align(send_times(p), send_times(q))   # same radio, same beacon slot\n    if s >= s_link: G.add_edge(p, q)\ncluster = connected_components(G)                    # estimated radios\n# tally agent, one question\nfor v in votes:\n    per_pseudo[v.answer] += 1\n    per_sender[v.answer] += 1 / size(cluster[v.pseudo])\ndecision_naive  = argmax(per_pseudo)                  # ghosts can win\ndecision_linked = argmax(per_sender)                  # one radio = one vote\n# b_min, s_link chosen on 0709; true sender used only to score clusters",
+      "threats": {
+        "controls": [
+          "Number of ghosts and their claimed positions / speeds.",
+          "Send timing of each ghost (it can jitter send times to break phase alignment).",
+          "Its own reception records if it acts as a hearer (omit or fake).",
+          "Transmit power, if modelled (changes who hears it; VeReMi does not vary it)."
+        ],
+        "does_not_control": "Which honest receivers physically hear its radio.",
+        "adaptive_attacks": [
+          "Send-time jitter between ghosts to break alignment.",
+          "Ghost rotation: short-lived ghosts so fingerprints are tiny (as DoS families already do, F11).",
+          "Hide in a platoon: drive with benign vehicles so benign pseudonyms share its hearer set (forced false links, framing benign cars).",
+          "Two colluding radios splitting ghosts (cluster count no longer = attacker count)."
+        ]
+      },
+      "experiments": {
+        "baselines": [
+          {
+            "name": "Local `catch` detector (ours), per-copy F1",
+            "values": {
+              "source": "src/baselines/plausibility/README.md (summary.json), agent.md changelog 2026-10-29",
+              "what": "per received copy F1 of the local `catch` plausibility detector (ours) vs the paper's Table III",
+              "rows": [
+                {
+                  "subset": "GridSybil_0709",
+                  "ours": 0.727,
+                  "paper": 0.742
+                },
+                {
+                  "subset": "GridSybil_1416",
+                  "ours": 0.692,
+                  "paper": 0.737
+                },
+                {
+                  "subset": "DataReplaySybil_0709",
+                  "ours": 0.51,
+                  "paper": 0.51
+                },
+                {
+                  "subset": "DataReplaySybil_1416",
+                  "ours": 0.537,
+                  "paper": 0.524
+                },
+                {
+                  "subset": "DoSRandomSybil_0709",
+                  "ours": 0.887,
+                  "paper": 0.989
+                },
+                {
+                  "subset": "DoSRandomSybil_1416",
+                  "ours": 0.885,
+                  "paper": 0.988
+                },
+                {
+                  "subset": "DoSDisruptiveSybil_0709",
+                  "ours": 0.66,
+                  "paper": 0.664
+                },
+                {
+                  "subset": "DoSDisruptiveSybil_1416",
+                  "ours": 0.697,
+                  "paper": 0.691
+                }
+              ]
+            }
+          },
+          {
+            "name": "No linking (one pseudonym = one vote)",
+            "values": null
+          },
+          {
+            "name": "Claimed-trajectory Fréchet + DBSCAN linking (A19-style, re-implemented)",
+            "values": null
+          }
+        ],
+        "splits": [
+          "Fit every free parameter on group 0709, report on 1416; then the reverse. Never tune on the reported group.",
+          "Anything learned per vehicle (trust, clusters, thresholds) is split by vehicle: no physical vehicle in both the fit and the report set.",
+          "Label = the sender's trace-file attack code != 0 (as in our Table III reproduction); the true `sender` field is ground truth only, never an input (F13).",
+          "F14 caveat: GridSybil_0709 is a 2025 re-simulation (different vehicle ids, 62-65% attack messages vs about 46% implied by the paper); report GridSybil 0709 and 1416 separately and do not pool them.",
+          "F1 caveat: the four families reuse the same benign traffic; never fit on one family and report on another family of the same group as if it were new traffic.",
+          "Linking thresholds use no labels except on the fit group; the true `sender` scores clusters only."
+        ],
+        "metrics": [
+          "Linking: ARI, pairwise precision / recall per family",
+          "Vote flip rate vs number of ghosts, per pseudonym vs per linked sender",
+          "Congestion-vote error per cell vs benign ground truth (benign vehicles' own GNSS rows)",
+          "Detection: per-copy F1 and benign FPR vs `catch`"
+        ],
+        "ablations": [
+          "Hearer-set only vs + send-time alignment",
+          "Window length and bin size",
+          "Clustering rule",
+          "Benign platoon density (false links)",
+          "Adaptive jitter strength"
+        ],
+        "figures": [
+          "Hearer-set heat strip: ghosts of one radio light up together",
+          "ARI per family, co-reception vs trajectory linking",
+          "Vote outcome vs number of ghosts, two tallies side by side",
+          "False-link rate vs traffic density"
+        ]
+      },
+      "solution": {
+        "system": "Receivers stream reception records to an RSU linker; the linker keeps clusters of pseudonyms that are heard together; every vote, reputation or consensus at the RSU counts one vote per cluster, and clusters with many disagreeing ghosts are flagged.",
+        "contribution": "A passive, protocol-free Sybil linking signal from co-reception in existing V2X logs, and the first measurement of how identity linking restores voting under Sybil attack on VeReMi-Extension.",
+        "success": [
+          "Hypothesis H-MA2a: co-reception linking gives higher ARI than claimed-trajectory linking on GridSybil (both groups, thresholds from the other group).",
+          "Hypothesis H-MA2b: on the congestion vote, the attacker flips the per-pseudonym outcome but not the per-linked-sender outcome in most attacked cells.",
+          "Hypothesis H-MA2c: cluster features add per-copy F1 over `catch` at <= 0.5 pp extra benign FPR."
+        ],
+        "failure": [
+          "Benign platoons give as many false links as true ones: report it; linking then needs trajectory consistency too.",
+          "DoS / DataReplay fingerprints too short to link: restrict the claim to GridSybil and say so."
+        ]
+      },
+      "risks": [
+        "False links in dense benign traffic and platoons (they share hearer sets).",
+        "DoS and DataReplay pseudonyms live 1-2 messages (F11): fingerprints are tiny.",
+        "F13: GridSybil ghosts share pseudonym 1; grouping by true sender is privileged and must stay ground truth.",
+        "The reputation vote is simulated behaviour on real logs; the congestion vote is the only fully data-driven one.",
+        "F14 on GridSybil_0709 (re-simulation).",
+        "Effort beyond a week: depends on MA1's index or an equivalent export."
+      ]
+    },
+    {
+      "id": "MA3",
+      "title": "Agentic detection pipeline: tool-using LLM orchestrator with specialist agents",
+      "short": "Agentic orchestrator",
+      "kind": "Hierarchical tool-using agent system (LLM planner + specialist tool agents + critic)",
+      "from_ideas": [
+        "I7"
+      ],
+      "pitch": "Measured tools decide; an LLM only routes evidence and writes an auditable explanation.",
+      "scores": {
+        "N": 3,
+        "F": 2,
+        "T": 2,
+        "P": 2,
+        "sum": 9
+      },
+      "effort": {
+        "days_min": 8,
+        "days_max": 10,
+        "note": "Needs the tool agents to exist (plausibility baseline and AE exist; linker and history from MA1 / MA2). LLM serving cost and latency are unmeasured."
+      },
+      "intro": {
+        "problem": "Our detectors each see one side of a track: physics checks, reconstruction error, identity links, report history. An analyst or misbehaviour authority needs one verdict and a reason it can audit. Letting an LLM decide from text (as in A06) is costly, hard to trust and leakage-prone. Here the LLM only plans which tools to call and explains; a fixed, fitted rule makes the decision.",
+        "why_veremi": "On VeReMi-Extension no single detector covers all families: `catch` is strong on DoSRandom but weak on DataReplay (F1 0.510 / 0.537), and the one-class AE is below chance on DataReplay (AUROC 0.391) while only GridSybil beats the length shortcut. Routing between complementary tools is a real need.",
+        "pitch": "An auditable agent pipeline whose every sentence is checked against a measured tool output."
+      },
+      "novelty": {
+        "closest": [
+          {
+            "id": "A06",
+            "what": "MistralBSM: fine-tuned Mistral-7B on BSM sequences as text; edge LLM + cloud LLM verification.",
+            "misses": "The LLM decides; selected VeReMi attacks; split by vehicle not discussed; 7B latency."
+          },
+          {
+            "id": "B30",
+            "what": "TrafficGPT: an LLM orchestrating traffic foundation models as tools.",
+            "misses": "No security or misbehaviour task."
+          },
+          {
+            "id": "B31",
+            "what": "AgentsCoDriver: LLM driving agents with memory, reflection and communication.",
+            "misses": "Agents trust each other's messages; no misbehaviour handling."
+          },
+          {
+            "id": "B32",
+            "what": "V2V-LLM: an MLLM fusing several CAVs' perception.",
+            "misses": "Fused inputs assumed honest."
+          },
+          {
+            "id": "B27",
+            "what": "LLMLight: LLM agents for signal control.",
+            "misses": "Reads reported traffic state verbatim; no adversarial reasoning."
+          }
+        ],
+        "gap": "No paper builds a tool-using agent pipeline for V2X misbehaviour where the LLM does not decide, checks its explanations against tool outputs, and is evaluated leakage-safe on VeReMi-Extension.",
+        "caveat": "Tool-using LLM agents are a generic pattern; the novelty is the application and the faithfulness evaluation. Thesis fit is weak (the thesis is a self-supervised trajectory encoder), cost and latency are unmeasured, and detection quality cannot exceed the tools'. Lowest priority of the three."
+      },
+      "agents": [
+        {
+          "id": "Q",
+          "name": "Trigger queue",
+          "runs_on": "RSU / cloud",
+          "inputs": "local `catch` flags, AE score above val p95, MA1 fused flags",
+          "outputs": "flagged track (run, receiver, pseudonym, time span)",
+          "state": "queue",
+          "role": "honest",
+          "note": "Only flagged tracks reach the LLM (bounds cost)."
+        },
+        {
+          "id": "O",
+          "name": "Orchestrator (LLM planner)",
+          "runs_on": "cloud",
+          "inputs": "track id + tool descriptions",
+          "outputs": "tool calls (parallel), then hand-off to scorer, critic, reporter",
+          "state": "scratchpad for this track only",
+          "role": "honest",
+          "note": "Never sees labels, the true sender, or raw test metrics."
+        },
+        {
+          "id": "P",
+          "name": "Physics plausibility agent",
+          "runs_on": "cloud tool",
+          "inputs": "track messages",
+          "outputs": "per-check scores and which checks fired",
+          "state": "",
+          "role": "honest",
+          "note": "= src/baselines/plausibility/ (F2MD catch checks)."
+        },
+        {
+          "id": "AE",
+          "name": "Reconstruction agent",
+          "runs_on": "cloud tool",
+          "inputs": "track windows (T = 32)",
+          "outputs": "masked reconstruction error + percentile vs benign val",
+          "state": "",
+          "role": "honest",
+          "note": "= task/autoencoder_benign_t32 best.pt; scores only its test vehicles."
+        },
+        {
+          "id": "LK",
+          "name": "Linking agent",
+          "runs_on": "cloud tool",
+          "inputs": "pseudonym + window",
+          "outputs": "linked cluster id, size, hearer-set agreement",
+          "state": "",
+          "role": "honest",
+          "note": "= MA2's co-reception linker."
+        },
+        {
+          "id": "HI",
+          "name": "History agent",
+          "runs_on": "cloud tool",
+          "inputs": "pseudonym / cluster",
+          "outputs": "past reports, fused flags, report trust (MA1)",
+          "state": "evidence store",
+          "role": "honest",
+          "note": ""
+        },
+        {
+          "id": "SC",
+          "name": "Scorer (fixed rule, not an LLM)",
+          "runs_on": "cloud tool",
+          "inputs": "evidence vector",
+          "outputs": "score + verdict",
+          "state": "weights fitted on 0709",
+          "role": "honest",
+          "note": "Logistic regression or MA1 fusion over tool outputs; the decision lives here."
+        },
+        {
+          "id": "CR",
+          "name": "Critic agent",
+          "runs_on": "cloud (LLM or rules)",
+          "inputs": "draft verdict + evidence",
+          "outputs": "accept / ask for one more tool / reject explanation",
+          "state": "",
+          "role": "honest",
+          "note": "Checks consistency and that no claim lacks a tool output."
+        },
+        {
+          "id": "RP",
+          "name": "Reporter agent",
+          "runs_on": "cloud (LLM)",
+          "inputs": "final evidence + verdict",
+          "outputs": "short auditable report with evidence citations",
+          "state": "",
+          "role": "honest",
+          "note": "Every sentence maps to a tool output (checked automatically)."
+        },
+        {
+          "id": "ADV",
+          "name": "Adversarial content in the track",
+          "runs_on": "attacker vehicle",
+          "inputs": "",
+          "outputs": "crafted BSM fields (e.g. odd values aimed at the LLM's text input)",
+          "state": "",
+          "role": "adversarial",
+          "note": "The attacker cannot talk to the agents but controls the data they read."
+        }
+      ],
+      "protocol": [
+        {
+          "step": 1,
+          "from": "Q",
+          "to": [
+            "O"
+          ],
+          "content": "Flagged track: pseudonym p, receiver, time span, trigger reason",
+          "when": "on flag"
+        },
+        {
+          "step": 2,
+          "from": "O",
+          "to": [
+            "P",
+            "AE",
+            "LK",
+            "HI"
+          ],
+          "content": "Tool calls in parallel: physics checks, reconstruction score, linked cluster, report history",
+          "when": "immediately"
+        },
+        {
+          "step": 3,
+          "from": "P",
+          "to": [
+            "O"
+          ],
+          "content": "Evidence: which checks fired, scores",
+          "when": "tool returns"
+        },
+        {
+          "step": 4,
+          "from": "AE",
+          "to": [
+            "O"
+          ],
+          "content": "Evidence: reconstruction error percentile vs benign val",
+          "when": "tool returns"
+        },
+        {
+          "step": 5,
+          "from": "LK",
+          "to": [
+            "O"
+          ],
+          "content": "Evidence: cluster size, hearer-set agreement",
+          "when": "tool returns"
+        },
+        {
+          "step": 6,
+          "from": "HI",
+          "to": [
+            "O"
+          ],
+          "content": "Evidence: past reports and fused flags",
+          "when": "tool returns"
+        },
+        {
+          "step": 7,
+          "from": "O",
+          "to": [
+            "SC"
+          ],
+          "content": "Evidence vector -> fixed scoring rule -> verdict",
+          "when": "all evidence in"
+        },
+        {
+          "step": 8,
+          "from": "O",
+          "to": [
+            "CR"
+          ],
+          "content": "Draft verdict + evidence for a consistency check",
+          "when": "after scoring"
+        },
+        {
+          "step": 9,
+          "from": "CR",
+          "to": [
+            "O"
+          ],
+          "content": "Accept, or ask for one more tool call (at most once)",
+          "when": "after check"
+        },
+        {
+          "step": 10,
+          "from": "O",
+          "to": [
+            "RP"
+          ],
+          "content": "Final evidence + verdict",
+          "when": "accepted"
+        },
+        {
+          "step": 11,
+          "from": "RP",
+          "to": [
+            "Q"
+          ],
+          "content": "Auditable report card to the analyst / misbehaviour authority",
+          "when": "end"
+        }
+      ],
+      "illustrative_report": {
+        "label": "Illustrative example, not a result",
+        "text": "Verdict: likely Sybil ghost (from the fixed scorer). Evidence: the range check fired on most of this pseudonym's messages [physics agent]; reconstruction error is high relative to benign validation windows [reconstruction agent]; this pseudonym is linked with several others that were heard by the same receivers at the same instants [linking agent]; two other receivers reported it earlier [history agent]. Not used: true sender, labels."
+      },
+      "method": [
+        {
+          "stage": 1,
+          "name": "Tools as functions",
+          "input": "existing code",
+          "operation": "Wrap each detector as a deterministic tool with a JSON schema: physics (src/baselines/plausibility/), reconstruction (task/autoencoder_benign_t32 best.pt, scoring.py), linking (MA2), history (MA1)",
+          "output": "tool registry",
+          "reuse": "src/baselines/plausibility/, task/autoencoder_benign_t32/"
+        },
+        {
+          "stage": 2,
+          "name": "Track set",
+          "input": "flags from `catch` / AE / MA1",
+          "operation": "Build flagged tracks on the AE's test vehicles only (all/T32_benign split) so no tool scores data it was fitted on",
+          "output": "evaluation track list",
+          "reuse": "src/data/encoder_input/all/T32_benign/ (test vehicles)"
+        },
+        {
+          "stage": 3,
+          "name": "Fixed scorer",
+          "input": "tool outputs on 0709 tracks",
+          "operation": "Fit a small logistic regression (or MA1 fusion) over tool outputs; freeze",
+          "output": "scorer weights",
+          "reuse": ""
+        },
+        {
+          "stage": 4,
+          "name": "Orchestration",
+          "input": "track + tool registry",
+          "operation": "LLM plans tool calls; variants: call all tools (no LLM), LLM routing, LLM-only verdict (A06-style ablation)",
+          "output": "evidence + verdict per track",
+          "reuse": ""
+        },
+        {
+          "stage": 5,
+          "name": "Critic and report",
+          "input": "evidence + verdict",
+          "operation": "Critic checks every claim has a tool output; reporter writes the card",
+          "output": "report cards",
+          "reuse": ""
+        },
+        {
+          "stage": 6,
+          "name": "Faithfulness check",
+          "input": "report cards + tool logs",
+          "operation": "Automatic: each sentence's cited tool and value must match the log; count unsupported claims",
+          "output": "faithfulness rate",
+          "reuse": ""
+        },
+        {
+          "stage": 7,
+          "name": "Metrics and cost",
+          "input": "verdicts + labels (after scoring)",
+          "operation": "Per-track F1 / AUROC vs best single tool and vs call-all; tool calls, tokens and latency per track",
+          "output": "final table",
+          "reuse": ""
+        }
+      ],
+      "algorithm": "# orchestrator, one flagged track\nplan = llm.plan(track.summary, tools=[physics, recon, linker, history])\nevidence = parallel_call(plan.tools, track)            # deterministic tools\nscore, verdict = scorer(evidence)                       # fixed rule fitted on 0709\nreview = critic(verdict, evidence)\nif review.needs_more and not track.retried:\n    evidence |= call(review.tool, track); track.retried = True\n    score, verdict = scorer(evidence)\nreport = llm.explain(verdict, evidence)\nfor claim in report.claims:                             # faithfulness gate\n    assert claim.tool in evidence and matches(claim.value, evidence[claim.tool])\nreturn verdict, score, report        # the LLM never changes verdict or score\n# forbidden inputs for every agent: labels, true sender, test metrics",
+      "threats": {
+        "controls": [
+          "Every BSM field of its own messages (the text the LLM reads).",
+          "Timing and number of ghosts (which tools fire).",
+          "Its own reports, if MA1 history is used."
+        ],
+        "does_not_control": "The tools, the fixed scorer, or the prompts.",
+        "adaptive_attacks": [
+          "Prompt injection through crafted field values (the LLM must only see tool outputs, not raw text it can be steered by).",
+          "Evade the trigger: stay below every tool's threshold so no track is flagged.",
+          "Tool disagreement: make physics pass and AE fire (or the reverse) to test the scorer and critic.",
+          "Cost attack: trigger many flags to exhaust the LLM budget."
+        ]
+      },
+      "experiments": {
+        "baselines": [
+          {
+            "name": "Local `catch` detector (ours), per-copy F1",
+            "values": {
+              "source": "src/baselines/plausibility/README.md (summary.json), agent.md changelog 2026-10-29",
+              "what": "per received copy F1 of the local `catch` plausibility detector (ours) vs the paper's Table III",
+              "rows": [
+                {
+                  "subset": "GridSybil_0709",
+                  "ours": 0.727,
+                  "paper": 0.742
+                },
+                {
+                  "subset": "GridSybil_1416",
+                  "ours": 0.692,
+                  "paper": 0.737
+                },
+                {
+                  "subset": "DataReplaySybil_0709",
+                  "ours": 0.51,
+                  "paper": 0.51
+                },
+                {
+                  "subset": "DataReplaySybil_1416",
+                  "ours": 0.537,
+                  "paper": 0.524
+                },
+                {
+                  "subset": "DoSRandomSybil_0709",
+                  "ours": 0.887,
+                  "paper": 0.989
+                },
+                {
+                  "subset": "DoSRandomSybil_1416",
+                  "ours": 0.885,
+                  "paper": 0.988
+                },
+                {
+                  "subset": "DoSDisruptiveSybil_0709",
+                  "ours": 0.66,
+                  "paper": 0.664
+                },
+                {
+                  "subset": "DoSDisruptiveSybil_1416",
+                  "ours": 0.697,
+                  "paper": 0.691
+                }
+              ]
+            }
+          },
+          {
+            "name": "One-class AE (ours), window AUROC",
+            "values": {
+              "source": "agent.md changelog 2026-10-29 (task/autoencoder_benign_t32, run seed0, one seed)",
+              "what": "window AUROC of each attack test split vs benign test, all/T32_benign: reconstruction error / length alone",
+              "rows": [
+                {
+                  "attack": "GridSybil",
+                  "reconstruction": 0.736,
+                  "length_alone": 0.559
+                },
+                {
+                  "attack": "DataReplay",
+                  "reconstruction": 0.391,
+                  "length_alone": 0.952
+                },
+                {
+                  "attack": "DoSRandom",
+                  "reconstruction": 0.973,
+                  "length_alone": 0.967
+                },
+                {
+                  "attack": "DoSDisruptive",
+                  "reconstruction": 0.611,
+                  "length_alone": 0.967
+                }
+              ]
+            }
+          },
+          {
+            "name": "Supervised AE T = 32 (ours), window AUROC, GridSybil only",
+            "values": {
+                "source": "agent.md changelog 2026-11-03 (task/autoencoder_st_t32, run seed0, one seed)",
+                "what": "test window AUROC GridSybil vs benign, all/T32_benign_grid (labels used in training; says nothing about unseen attacks)",
+                "rows": [
+                    {
+                        "attack": "GridSybil",
+                        "auroc": 0.926
+                    }
+                ]
+            }
+          },
+          {
+            "name": "Call-all-tools + fixed scorer, no LLM",
+            "values": null
+          },
+          {
+            "name": "LLM-only verdict (A06-style ablation)",
+            "values": null
+          }
+        ],
+        "splits": [
+          "Fit every free parameter on group 0709, report on 1416; then the reverse. Never tune on the reported group.",
+          "Anything learned per vehicle (trust, clusters, thresholds) is split by vehicle: no physical vehicle in both the fit and the report set.",
+          "Label = the sender's trace-file attack code != 0 (as in our Table III reproduction); the true `sender` field is ground truth only, never an input (F13).",
+          "F14 caveat: GridSybil_0709 is a 2025 re-simulation (different vehicle ids, 62-65% attack messages vs about 46% implied by the paper); report GridSybil 0709 and 1416 separately and do not pool them.",
+          "F1 caveat: the four families reuse the same benign traffic; never fit on one family and report on another family of the same group as if it were new traffic.",
+          "Only the AE's test vehicles (all/T32_benign split by vehicle key) are evaluated, so the AE never scores its own training data."
+        ],
+        "metrics": [
+          "Per-track F1 / AUROC per family",
+          "Faithfulness: share of report claims matching tool logs",
+          "Tool calls, tokens and latency per track",
+          "Agreement with call-all (does routing lose detections?)"
+        ],
+        "ablations": [
+          "Routing by LLM vs call all tools",
+          "Critic on / off",
+          "LLM-only verdict vs fixed scorer",
+          "Model size of the orchestrator",
+          "Prompt injection on / off"
+        ],
+        "figures": [
+          "Detection vs cost (tool calls per track) for the variants",
+          "Faithfulness rate per variant",
+          "Which tools the planner calls per family",
+          "Latency distribution"
+        ]
+      },
+      "solution": {
+        "system": "A queue of flagged tracks feeds an LLM planner that calls deterministic detector tools in parallel; a fixed scorer decides; a critic checks; a reporter writes a short card in which every claim cites a tool output.",
+        "contribution": "A faithfulness-checked agentic pipeline for V2X misbehaviour on VeReMi-Extension, with an honest comparison against plain tool fusion and an LLM-only verdict.",
+        "success": [
+          "Hypothesis H-MA3a: LLM routing keeps per-track F1 within 0.01 of call-all while making fewer tool calls.",
+          "Hypothesis H-MA3b: >= 95% of report claims match tool logs; the LLM-only verdict is worse than the fixed scorer."
+        ],
+        "failure": [
+          "Routing loses detections or saves no calls: the LLM adds only explanation; say so.",
+          "Unsupported claims > 5%: explanations are not auditable; the pipeline should not be used."
+        ]
+      },
+      "risks": [
+        "Weak thesis fit: the thesis is a self-supervised trajectory encoder.",
+        "Cost and latency of LLM calls are unmeasured and may be impractical on vehicles.",
+        "Detection cannot exceed the tools'; the AE is weak outside GridSybil and DoSRandom.",
+        "Leakage: tools must only score held-out vehicles; LLMs may have seen VeReMi descriptions in pretraining.",
+        "Prompt injection through BSM fields.",
+        "Depends on MA1 and MA2 for two of its four tools."
+      ]
+    }
+  ],
+  "comparison": "The three ideas are three kinds of multi-agent system. MA1 is cooperative detection: many honest receivers and some lying ones share verdicts, and a fusion agent weighs them by learned trust. MA2 is Sybil-resistant consensus: linker agents turn pseudonyms back into radios so that any vote counts one radio once. MA3 is a hierarchical tool-using pipeline: an LLM planner routes evidence between specialist detectors and explains, while a fixed rule decides. MA1 is the cheapest and fits a week (scores 14, 6-7 days); MA2 is the most novel and closest to the thesis (14, 10-12 days) but its linking may fail in dense benign traffic; MA3 has the weakest fit and unmeasured cost (9, 8-10 days) and depends on the other two for half its tools.",
+  "first": {
+    "id": "MA1",
+    "why": "Do MA1 first: no training or new data, it reuses the verified plausibility baseline, the pilot shows a signal on the family where we trail the paper most (DoSRandomSybil, not a result), and its per-copy index is exactly MA2's input. Then MA2. MA3 only if both exist and the user wants an explanation layer."
+  }
+}

@@ -1,0 +1,107 @@
+% 04-detectors.tex -- Sources: 05-protocol/protocol.md section 4, hyperparameters-neural.md,
+% hyperparameters-classical.md. Parameter counts and settings are real and frozen (2026-11-10).
+\section{Detectors}\label{sec:detectors}
+
+\todo{Open decision: the LSTM autoencoder has an epoch cap of 100, the convolutional autoencoder 300. The cap was
+set for wall-clock reasons before any test score (hyperparameters-neural.md, Section 5). Either keep 100 and report
+how many LSTM runs stopped at the cap, or raise it to 300 (up to about 11.7\,h for this detector alone) before the
+sweep starts. It must not be changed after the first LSTM test score.}
+\todo{citation-keys.md has no key for Isolation Forest, the one-class SVM, PCA reconstruction, kNN distance or
+Adam. Add keys or leave these methods uncited.}
+
+All detectors read the same windows and masks and output one or more scores per window, higher meaning more
+anomalous (Table~\ref{tab:detectors}). The scoring function receives features and mask only: no split name, no
+vehicle key and no label. \textbf{Every detector can see the window length.} The mask is an input channel of the
+autoencoders, and for a one-row window every window statistic has zero spread. Length is therefore controlled in
+the evaluation (Section~\ref{sec:evaluation}), not by the features.
+
+\begin{table*}[t]
+\caption{Detectors and their frozen settings. ``Unsup.'' denotes the four regimes without labels in training
+(benign-only, benign-gridfolders, mix-all, mix-gridfolders). Stochastic detectors use seeds 0--4.}
+\label{tab:detectors}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{2.5cm}p{1.1cm}p{7.4cm}rp{2.9cm}l@{}}
+\toprule
+Detector & Regimes & Model and frozen settings & Params. & Score & Seeds \\
+\midrule
+Convolutional autoencoder (Conv-AE) & unsup. &
+Conv1d $14{\to}32{\to}64{\to}64$ (kernel 3, strides 1, 2, 2), batch normalization, ReLU; latent 16; mirrored
+transposed-convolution decoder to 13 features. Masked MSE on real rows; at most 300 epochs &
+63{,}293 & reconstruction error; Mahalanobis distance of the latent & 0--4 \\
+LSTM autoencoder (LSTM-AE) & unsup. &
+LSTM $14{\to}80$, state at the last real row, linear to latent 16; latent repeated over 32 rows, LSTM
+$16{\to}80$, linear to 13. Loss and training as Conv-AE; at most 100 epochs &
+64{,}429 & reconstruction error & 0--4 \\
+PCA & unsup. &
+Window statistics; smallest number of components explaining $\ge 95\%$ of training variance &
+-- & reconstruction error & single \\
+Isolation Forest & unsup. &
+Window statistics; 100 trees, 256 windows per tree, all training windows &
+-- & negated decision function & 0--4 \\
+One-class SVM & unsup. &
+Window statistics; RBF kernel, $\gamma=$ ``scale'', $\nu=0.5$; 20{,}000-window subsample &
+-- & negated decision function & 0--4 \\
+kNN distance & unsup. &
+Window statistics; Euclidean, $k=5$, exact search; reference set = 20{,}000-window subsample &
+-- & mean distance to the $k$ nearest & 0--4 \\
+\midrule
+Conv-AE + classifier head (Sup-AE) & superv. &
+Conv-AE plus head on the latent (linear $16{\to}32$, ReLU, dropout 0.2, linear $32{\to}1$); binary cross-entropy
+with positive weight $502{,}773/229{,}080=2.195$ plus $1.0\times$ masked MSE; at most 100 epochs &
+63{,}870 & $P(\text{attack})$ & 0--4 \\
+Window statistics + logistic regression & superv. &
+$L_2$ penalty, $C=1.0$, L-BFGS, at most 1{,}000 iterations, no class weights &
+-- & $P(\text{attack})$ & single \\
+\midrule
+Length only (control) & none & Not trained & 0 & $-n$ (number of real rows) & single \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Neural Detectors}
+
+The convolutional autoencoder and its supervised variant were developed in our earlier single-seed studies and are
+used unchanged. The 14 input channels are the 13 features and the mask; the loss is the mean squared error over
+real rows. The reconstruction score of a window is the mean over features of the per-feature squared error over
+its real rows. The second score is the Mahalanobis distance of the latent vector to the latent vectors of all
+training windows of the regime~\cite{denouden2018improving}.
+
+The LSTM autoencoder is a recurrent reference \emph{of matched size on our input}: same latent size (16) and a
+parameter count within 1.8\% of the convolutional model (64{,}429 against 63{,}293). It is not a replication of a
+published model; published LSTM autoencoders for this task use other sequence units and
+features~\cite{alladi2021deep,vishwanath2026federated}. One architecture was fixed; nothing was tuned.
+
+The three neural detectors share one training setup: Adam with learning rate $10^{-3}$ and weight decay
+$10^{-5}$, batch size 256, gradient clipping at norm 1.0, learning-rate halving after 5 epochs without
+improvement, and early stopping after 10 such epochs with the best-epoch weights restored.
+
+\subsection{Detectors on Window Statistics}
+
+The four classical one-class detectors and the logistic regression read 65 window statistics: for each of the 13
+features, the mean, standard deviation, minimum, maximum and last-minus-first value over the real rows. The
+number of rows is not among them, but a one-row window has zero standard deviation and zero last-minus-first in
+every feature. The statistics are scaled with the mean and standard deviation of the regime's whole training
+pool. The one-class SVM and the kNN reference set use one fixed subsample of 20{,}000 training windows, drawn with
+the run's seed; the other detectors are fitted on every training window. Parameters are the defaults of
+scikit-learn 1.9.1 where one exists.
+
+\subsection{Model Selection}
+
+Nothing is tuned on the test set, and no hyperparameter search was run. Model selection uses the validation pool
+of the regime only: the lowest validation reconstruction loss for the autoencoders, and the highest validation
+AUROC (benign against GridSybil) for the supervised autoencoder. In the mix regimes the validation pool contains
+unlabeled GridSybil windows, like the training pool, so no benign-only validation signal enters these runs. The
+classical detectors use no validation data. All hyperparameters in Table~\ref{tab:detectors} were written down
+before any of these detectors scored a test split.
+
+\subsection{Disclosure of Prior Test Exposure}\label{sec:exposure}
+
+The protocol is not blind for two detectors. The convolutional autoencoder and the supervised model were developed
+earlier, and seed-0 results of the benign-only autoencoder \emph{on this same test set} were known when the
+protocol was written: window AUROC \prelim{0.736\,/\,0.391\,/\,0.973\,/\,0.611} for GridSybil\,/\,DataReplay\,/\,%
+DoSRandom\,/\,DoSDisruptive. The supervised model had been evaluated on a different split. The architecture and
+training settings of both are frozen as they were. The reference detectors (LSTM autoencoder, PCA, Isolation
+Forest, one-class SVM, kNN, logistic regression) had no exposure to any test result. Any advantage from this
+exposure therefore favors the convolutional autoencoder in comparison C5.

@@ -1,0 +1,72 @@
+\section{Introduction}
+\label{sec:intro}
+
+Vehicles in a V2X network broadcast their position, speed, and acceleration in periodic safety messages, and
+neighboring vehicles act on that content. Cryptographic credentials show that a sender is enrolled; they do not show
+that the content is true. Misbehavior detection addresses this second problem by checking the plausibility of what
+a vehicle receives~\cite{heijden2018veremi,kamel2020veremi}. A Sybil attacker is a hard case: one vehicle sends
+under several pseudonyms, so that a receiver sees several apparent vehicles, for example a traffic jam that does
+not exist~\cite{kamel2019misbehavior}.
+
+Most learning-based detectors for this problem are developed on VeReMi~\cite{heijden2018veremi} and
+VeReMi-Extension~\cite{kamel2020veremi}, and most are supervised~\cite{boualouache2023survey}. The reported
+numbers are high. Supervised sequence classifiers report accuracy or F1 between 0.95 and
+0.998~\cite{alladi2023deep,hamhoum2024mistralbsm,youness2025vemisnet}. Reconstruction-based detectors trained on
+benign data only, which need no attack labels and are therefore attractive for attacks not seen in training, report
+0.93 to 0.99~\cite{alladi2021deepadv,alladi2021deep,kalogiannis2026pampos,zhong2023sybil}, with the four Sybil
+attacks of VeReMi-Extension among the best-detected
+classes~\cite{alladi2021deep,kalogiannis2026pampos}.
+
+The protocols behind these numbers vary, and several of their elements are often not stated. Neither dataset paper
+defines a train/test split~\cite{heijden2018veremi,kamel2020veremi}. Where a split is described, it is usually
+drawn over windows or sequences~\cite{franceschini2025line,youness2025vemisnet}; among the papers we read, only one
+states a split by sender~\cite{kalogiannis2026pampos}. Sequences are formed per sender identifier in some
+studies~\cite{hamhoum2024mistralbsm} and require a minimum number of messages in
+others~\cite{kalogiannis2026pampos}. Decision thresholds are taken from benign validation data in some
+studies~\cite{kalogiannis2026pampos} and selected on labeled test data in others~\cite{alladi2021deep}. The term
+``unsupervised'' almost always means training on benign data selected with the ground-truth labels. To our
+knowledge, no study compares several detectors and several training-data assumptions on the VeReMi-Extension Sybil
+attacks under one protocol, and none reports how much of a detector's score a trivial property of the input, such
+as the number of messages in a window, already explains. The machine-learning and security literature gives reasons
+to ask both questions~\cite{arp2022dos,geirhos2020shortcut,kapoor2023leakage,wu2021current}.
+
+The second question matters for Sybil attacks in particular. In three of the four attacks (DataReplaySybil,
+DoSRandomSybil, DoSDisruptiveSybil) the attacker changes pseudonym every one or two messages. A receiver that
+groups messages by pseudonym, the only identifier it can observe, therefore sees these attacks as very short
+sequences: in the data used here, 95\% to 99.7\% of their windows contain one to three messages, against about
+14\% of benign windows. Sequence length alone then separates the classes (AUROC \prelim{0.95--0.97} in our earlier
+single-seed runs), whatever a model learns about motion.
+
+This paper asks: \emph{with vehicles held out, how well can each Sybil attack of VeReMi-Extension be separated from
+benign traffic, as a function of what the training data is assumed to be?} We compare three assumptions (benign
+traffic only, an unlabeled mix of benign and attack traffic, and labeled data) across six unsupervised detector
+families and two supervised models, on one input representation, one split by physical vehicle, and one test set.
+The protocol, including the rules for reading the results, was fixed before the runs (Section~\ref{sec:protocol}).
+The claim under test is that the training-data assumption changes detection more than the choice of detector does,
+and that for the three pseudonym-rotating attacks window length explains most of any detector's score.
+\pending{Whether the results support this claim is reported in Section~\ref{sec:results}; this paragraph is
+completed when the runs are finished.}
+
+The contributions are as follows.
+\begin{itemize}
+  \item A vehicle-disjoint evaluation protocol for the four Sybil attacks of VeReMi-Extension, with receiver-side
+  pseudonym windows, thresholds from validation data only, five seeds, and confidence intervals from a bootstrap
+  over vehicles (Section~\ref{sec:protocol}).
+  \item A comparison, under this protocol, of convolutional and LSTM autoencoders, PCA reconstruction, Isolation
+  Forest, one-class SVM, and $k$-nearest-neighbor distance under benign-only and unlabeled-mix training, and of two
+  supervised models (Sections~\ref{sec:detectors} and~\ref{sec:results}). To our knowledge, no such comparison has
+  been reported for these attacks.
+  \item A length-only reference score and a length-matched AUROC for every detector, which separate what a detector
+  adds from what the number of messages in a window already gives for the pseudonym-rotating attacks.
+  \item A measurement, on Sybil attacks, of failure modes that are known in general anomaly detection: training on
+  data in which the attack is frequent, and reconstruction of replayed genuine trajectories
+  (Section~\ref{sec:discussion}). \pending{Wording to be adjusted to the outcome.}
+\end{itemize}
+
+We do not attribute the difference between our numbers and published ones to a single cause: the published values
+are accuracy, F1, or recall at a chosen threshold on other sequence units, and the protocol here varies neither the
+split nor the sequence unit.
+
+Section~\ref{sec:background} describes the dataset, the attacks, and related work. Section~\ref{sec:protocol}
+gives the protocol and Section~\ref{sec:detectors} the detectors. Section~\ref{sec:results} reports the results,
+and Section~\ref{sec:discussion} discusses them and their limitations.

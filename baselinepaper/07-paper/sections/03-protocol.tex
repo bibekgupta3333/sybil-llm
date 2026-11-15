@@ -1,0 +1,191 @@
+% 03-protocol.tex -- Evaluation protocol. Source of every statement: 05-protocol/protocol.md (fixed 2026-11-10,
+% before any run) and experiments/README.md (counts, verification). Numbers in this file are measured, not pending.
+\section{Evaluation Protocol}\label{sec:protocol}
+
+The protocol was written, reviewed and frozen before any detector was scored on a test split; later changes are
+logged with their reason. Its question is: under one leak-controlled protocol, how well do detectors separate
+each Sybil attack from benign traffic, as a function of what the training data is assumed to be (benign only,
+an unlabeled mix, or labeled)?
+
+\subsection{Data and Unit of Analysis}\label{sec:data}
+
+We use the four Sybil attacks of VeReMi-Extension~\cite{kamel2020veremi} (GridSybil, DataReplaySybil,
+DoSRandomSybil, DoSDisruptiveSybil), each simulated for two periods (0709 and 1416), i.e., eight scenario
+folders. Beacons are sent at 1\,Hz. Every vehicle logs the messages it receives together with its own position
+and velocity at reception.
+
+\textbf{Link.} The unit is receiver-side: a \emph{link} is the time-ordered sequence of messages that one
+receiving vehicle heard from one sender pseudonym. Every received copy is kept, so one broadcast heard by five
+vehicles contributes to five links. This is what a detector deployed on a single vehicle observes; it needs no
+identity beyond the pseudonym.
+
+\textbf{Window.} Each link is cut into consecutive, non-overlapping pieces of at most $T=32$ messages, so every
+message is in exactly one window. A window is a $32\times13$ matrix, zero-padded at the end, with a prefix mask
+that marks its $n\in\{1,\dots,32\}$ real rows. The 13 features per message are the position, velocity and
+acceleration claimed by the sender ($x$, $y$ each), the receiver's own position and velocity ($x$, $y$ each), the
+range and the bearing from the receiver to the claimed position, and the logarithm of the time since the previous
+message on the link (missing for the first message). Time of day, the true sender identifier and all ground-truth
+fields are never inputs. Features are standardized with the mean and standard deviation of the real rows of the
+benign training windows; padding rows and the missing inter-arrival value are zero after standardization.
+
+\textbf{Labels.} A window inherits the attack code of its sender vehicle's trace file. Benign windows come from
+senders that are never attackers in their folder. Labels select the training pool of a regime
+(Section~\ref{sec:regimes}) and are otherwise read only by the evaluation module, after all scores are written.
+
+\subsection{Sender-Held-Out Split}\label{sec:split}
+
+The four attack families reuse the same underlying traffic: the benign vehicles of one family reappear, with the
+same trajectories, in the others. A split made inside one scenario folder, or a random split over windows,
+therefore places near-copies of test trajectories in the training set, which is a train--test dependence in the
+sense of~\cite{kapoor2023leakage,arp2022dos}. \todo{Optional supporting number from our earlier audit of a
+within-scenario vehicle split: 89.7\% of benign test identities had a near-copy in train
+(docs/research-notes/data\_understanding/cross-scenario-leak.md). Decide whether it goes here or in the
+background section.}
+
+We therefore split by \emph{vehicle key} (period, physical vehicle) across all eight folders: 80\,/\,10\,/\,10
+for train\,/\,validation\,/\,test, stratified by period and class of the key, with one fixed seed. All windows
+sent by a vehicle, in every folder and at every receiver, fall in one part. The split has 5{,}588\,/\,696\,/\,750
+keys with windows, and no key occurs in two parts. The benign test keys and the attack test keys are disjoint in
+each of the four tasks. The split is \emph{sender-held-out, not receiver-held-out}: the four receiver features
+come from vehicles that also hear training senders. One split, one normalization and one test set are used for
+every detector (Table~\ref{tab:data}).
+
+\begin{table}[t]
+\caption{Windows of $32\times13$ per split and class. ``1--3 rows'' is the share of windows with at most three
+real rows. GridSybil train and validation windows are used only by the regimes that include attacks.}
+\label{tab:data}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}llrrr@{}}
+\toprule
+Part & Class & Windows & Vehicles & 1--3 rows \\
+\midrule
+Train & Benign        & 502{,}773 & 4{,}206 & 13.7\% \\
+      & GridSybil     & 229{,}080 & 1{,}382 & 18.5\% \\
+\midrule
+Val.  & Benign        &  65{,}313 &   524 & 13.9\% \\
+      & GridSybil     &  28{,}374 &   172 & 19.1\% \\
+\midrule
+Test  & Benign        &  60{,}142 &   525 & 13.9\% \\
+      & GridSybil     &  28{,}087 &   172 & 20.4\% \\
+      & DataReplay    &  76{,}283 &   173 & 94.9\% \\
+      & DoSRandom     & 199{,}834 &   173 & 99.7\% \\
+      & DoSDisruptive & 199{,}826 &   173 & 99.7\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The GridSybil training and validation windows were prepared with a different normalization; they are assigned
+to the parts by vehicle key and re-standardized with the benign training statistics. As a check, the GridSybil
+windows of the test vehicles derived this way equal the test split built directly: 28{,}087 windows, identical
+identifiers and masks, maximum absolute difference $1.9\times10^{-4}$ in normalized units (rounding). All
+285{,}541 GridSybil windows are assigned to exactly one part.
+
+Table~\ref{tab:data} shows the property that shapes the evaluation. DataReplay and both DoS attacks change
+pseudonym after one or two messages, so 94.9--99.7\% of their windows have at most three rows, against
+13.9\% of benign test windows.
+
+\subsection{Training Regimes}\label{sec:regimes}
+
+A regime states what the training data is assumed to be (Table~\ref{tab:regimes}).
+\emph{Benign-only} is the usual one-class assumption; selecting benign windows uses labels.
+\emph{Mix-all} and \emph{mix-gridfolders} pool benign and GridSybil windows without labels.
+\emph{Benign-gridfolders} is the control for mix-gridfolders: the same benign windows without the attack.
+\emph{Supervised} uses the mix-all pool with labels; GridSybil is the only attack ever seen in training.
+
+\begin{table}[t]
+\caption{Training regimes. The validation pool of a regime has the same composition, from the validation
+vehicles. ``Grid folders'' are the two GridSybil scenario folders.}
+\label{tab:regimes}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{1.9cm}p{2.55cm}rrr@{}}
+\toprule
+Regime & Training pool & Windows & \shortstack[r]{Grid-\\Sybil} & \shortstack[r]{Val.\\windows} \\
+\midrule
+Benign-only        & benign, 8 folders          & 502{,}773 & 0      & 65{,}313 \\
+Benign-gridfolders & benign, grid folders       & 125{,}749 & 0      & 15{,}893 \\
+Mix-all            & benign (8) + GridSybil     & 731{,}853 & 31.3\% & 93{,}687 \\
+Mix-gridfolders    & benign + GridSybil, grid folders & 354{,}829 & 64.6\% & 44{,}267 \\
+Supervised         & as mix-all, labeled        & 731{,}853 & 31.3\% & 93{,}687 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The mix regimes are label-free end to end. Their inputs are re-standardized with the statistics of their own
+training pool, model selection uses a validation pool of the same composition (30.3\% and 64.1\% GridSybil), and
+their primary operating point is a percentile of that mixed validation pool. Pooled sets are stored in one fixed
+random order, and detectors of these regimes receive features and mask only.
+
+Mix-all and mix-gridfolders contain the same GridSybil windows and differ in the amount of benign traffic, which
+itself repeats across families. They are two confounded points, not a dose--response curve. In the two GridSybil
+folders the attack is the majority class (64.6\% of training windows), which is outside the small-contamination
+setting usually studied~\cite{zhou2017anomaly,qiu2022latent}.
+
+DataReplay and the DoS attacks are never in any training or validation pool. The supervised result on them is
+\emph{transfer from GridSybil}, read within length strata; it supports no general claim about unseen attacks.
+
+\subsection{Evaluation}\label{sec:evaluation}
+
+\textbf{Tasks and metrics.} There are four binary tasks: the benign test windows against the test windows of
+each attack. The attack shares are 0.318 (GridSybil), 0.559 (DataReplay) and 0.769 (each DoS attack). Every
+detector outputs a score per window, higher meaning more anomalous. We report the area under the ROC curve
+(AUROC), the average precision with the attack share stated, and the attack recall and benign false-positive rate
+at fixed operating points.
+
+\textbf{Operating points.} Thresholds come from validation scores only; an alarm is raised when the score exceeds
+the threshold. The primary threshold is the 95th percentile of the benign validation scores for the benign and
+supervised regimes, and the 95th percentile of the regime's own mixed validation pool for the mix regimes. For
+the mix regimes the benign-validation threshold needs labels and is reported as an ``oracle calibration'' column
+only. The 99th percentile of the benign validation scores is reported as a low false-positive point.
+
+\textbf{Length control.} Every detector can see the window length (Section~\ref{sec:detectors}), and length alone
+separates three of the four attacks (Table~\ref{tab:data}). Length is therefore controlled in the evaluation, in
+three ways. First, a \emph{length-only} score $s(w)=-n(w)$, shorter meaning more anomalous, is evaluated like any
+detector; its direction was fixed in the protocol and never chosen on labels. Second, the AUROC is reported
+inside strata of the exact number of real rows, $n=1$, $n=2$, $n=3$, then $4\le n\le16$ and $n\ge17$ (and the
+coarse strata $n\le3$, $n\ge4$). Third, we report a \emph{length-matched AUROC}. Let $B_n$ and $A_n$ be the
+numbers of benign and attack test windows with exactly $n$ real rows and $\mathrm{AUROC}_n(s)$ the AUROC of score
+$s$ on those windows. Then
+\begin{equation}\label{eq:lm}
+\mathrm{AUROC}_{\mathrm{LM}}(s)=
+\frac{\sum_{n=1}^{32} B_n A_n\,\mathrm{AUROC}_n(s)}{\sum_{n=1}^{32} B_n A_n},
+\end{equation}
+where lengths with $B_nA_n=0$ contribute nothing. It is the probability that an attack window scores higher than
+a benign window \emph{of the same length} (ties count one half), over all same-length pairs. It is 0.5 for the
+length-only score by construction. A stratum with fewer than 200 attack windows or fewer than 20 attack vehicles
+is not reported.
+
+\textbf{Headline per attack.} For GridSybil the headline is the pooled AUROC, with the length-matched AUROC next
+to it. For DataReplay and the DoS attacks a short pseudonym life is itself the observable signature of the
+attack, and a pooled AUROC mostly measures length. Their headline is the length-matched AUROC and the paired
+difference to length-only; the pooled AUROC is secondary.
+
+\textbf{Seeds and uncertainty.} Stochastic detectors are run with seeds 0--4; we report the mean and the sample
+standard deviation over seeds, which with five seeds is a rough estimate only. Deterministic detectors are run
+once and marked. A 95\% percentile interval is obtained from a cluster bootstrap over test vehicle keys: benign
+keys and attack keys are resampled separately, with 1{,}000 resamples shared by all detectors; in each resample
+the metric is computed per seed and averaged. Resampling vehicle keys keeps all windows of a vehicle together,
+including the copies of its traffic in the other families. The interval covers test sampling only: there is one
+split, and thresholds are held fixed.
+
+\textbf{Paired comparisons.} Because the resamples are shared, differences are paired. Five primary comparisons
+were fixed in advance: (C1)~each detector minus length-only, per attack; (C2)~benign-only minus mix-all, same
+detector, GridSybil; (C3)~benign-gridfolders minus mix-gridfolders, same detector, GridSybil; (C4)~the supervised
+autoencoder with classifier head minus the best benign-only detector, GridSybil; (C5)~the convolutional
+autoencoder minus each reference detector, benign-only, GridSybil.
+
+\textbf{Sensitivity rows.} Three subsets are re-evaluated from the same score files, without retraining: the
+1416 period only; the benign test windows of the GridSybil 0709 folder excluded; and the benign test set
+restricted to the attack's own family folders. The second addresses a known limitation of the split
+(Section~\ref{sec:limitations}).
+
+\subsection{Records per Run}\label{sec:records}
+
+Each run (regime, detector, seed) writes its configuration and hyperparameters, its environment (package
+versions, device, git commit and dirty flag, a fingerprint of the data cache, the SHA-256 of every source file
+used), the training history, one score file per validation and test split aligned with the window identifiers,
+and a summary without any metric. All tables are rebuilt from the score files by one evaluation module, the only
+code that knows which split is which class.

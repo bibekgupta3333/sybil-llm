@@ -1,0 +1,276 @@
+% 05-results.tex -- SKELETON. The sweep under the protocol has NOT been run. The only real results are the
+% length-only control (experiments/results/main_table.md, results.json, run of 2026-11-10). Every other cell is
+% \tbd, every other number in the text is \pending{}. The \todo{} notes name the pre-committed rule (R1--R7,
+% protocol.md section 8a) that decides the wording of each paragraph.
+\section{Results}\label{sec:results}
+
+\todo{Status 2026-11-10: only the length-only control has been run. Apply the Kill rule first when the table is
+frozen: if every detector and regime is within 0.05 of length-only, there is no paper. Record the rules that fired
+in protocol.md, Section 9.}
+
+\subsection{Window Length Alone}\label{sec:res-length}
+
+\todo{This paragraph uses measured values only; no rule applies.}
+The length-only control separates benign from GridSybil windows weakly (AUROC 0.559, 95\% interval
+[0.538, 0.579]) and the three pseudonym-rotating attacks strongly: 0.952 [0.948, 0.955] for DataReplay and 0.967
+[0.965, 0.970] for each DoS attack (Table~\ref{tab:main}, last row). The same holds for the 1416 period alone
+(0.580, 0.954, 0.971, 0.971). Coarse strata do not remove the effect: among windows of one to three rows,
+length still reaches 0.711 for DataReplay and 0.769 for the DoS attacks, because the attack windows concentrate
+at one row. This is why the protocol stratifies by the exact number of rows. For the two DoS attacks the stratum
+of four or more rows holds 523 and 524 attack windows from 13 and 14 vehicles and is not reported under the
+20-vehicle rule; for DataReplay it is reportable (length-only 0.927). The percentile operating points of the
+control are degenerate (more than 5\% of benign validation windows have one row, so no window exceeds the
+threshold); the control is read through its AUROC.
+
+\begin{table*}[t]
+\caption{Window AUROC (mean $\pm$ standard deviation over five seeds) and length-matched AUROC (LM,
+Eq.~\eqref{eq:lm}) per training regime, detector and attack; benign test windows against each attack's test
+windows. Deterministic detectors have no standard deviation. Brackets: 95\% cluster-bootstrap interval over test
+vehicles. Only GridSybil is ever in training. Red dashes: not yet computed.}
+\label{tab:main}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{2.2pt}
+\begin{tabular}{@{}llcccccccc@{}}
+\toprule
+ & & \multicolumn{2}{c}{GridSybil} & \multicolumn{2}{c}{DataReplay} & \multicolumn{2}{c}{DoSRandom} &
+ \multicolumn{2}{c}{DoSDisruptive} \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}\cmidrule(lr){7-8}\cmidrule(l){9-10}
+Regime & Detector (score) & AUROC & LM & AUROC & LM & AUROC & LM & AUROC & LM \\
+\midrule
+\multirow{7}{*}{Benign-only}
+ & Conv-AE (reconstruction) & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & Conv-AE (Mahalanobis)    & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & LSTM-AE                  & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & PCA                      & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & Isolation Forest         & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & One-class SVM            & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & kNN distance             & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+\midrule
+\multirow{7}{*}{Benign-gridfolders}
+ & Conv-AE (reconstruction) & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & Conv-AE (Mahalanobis)    & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & LSTM-AE                  & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & PCA                      & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & Isolation Forest         & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & One-class SVM            & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & kNN distance             & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+\midrule
+\multirow{7}{*}{\shortstack[l]{Mix-all\\(31.3\% GridSybil)}}
+ & Conv-AE (reconstruction) & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & Conv-AE (Mahalanobis)    & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & LSTM-AE                  & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & PCA                      & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & Isolation Forest         & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & One-class SVM            & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & kNN distance             & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+\midrule
+\multirow{7}{*}{\shortstack[l]{Mix-gridfolders\\(64.6\% GridSybil)}}
+ & Conv-AE (reconstruction) & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & Conv-AE (Mahalanobis)    & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & LSTM-AE                  & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & PCA                      & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & Isolation Forest         & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & One-class SVM            & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+ & kNN distance             & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd & \tbd \\
+\midrule
+\multirow{2}{*}{\shortstack[l]{Supervised\\(GridSybil labels)}}
+ & Sup-AE ($P(\text{attack})$)          & \tbd & \tbd & \tbd$^{\dagger}$ & \tbd$^{\dagger}$ & \tbd$^{\dagger}$ &
+   \tbd$^{\dagger}$ & \tbd$^{\dagger}$ & \tbd$^{\dagger}$ \\
+ & Statistics + logistic regr.          & \tbd & \tbd & \tbd$^{\dagger}$ & \tbd$^{\dagger}$ & \tbd$^{\dagger}$ &
+   \tbd$^{\dagger}$ & \tbd$^{\dagger}$ & \tbd$^{\dagger}$ \\
+\midrule
+\multirow{2}{*}{Control}
+ & Length only ($-n$), not trained & 0.559 & 0.500 & 0.952 & 0.500 & 0.967 & 0.500 & 0.967 & 0.500 \\
+ & & [0.538, 0.579] & by constr. & [0.948, 0.955] & by constr. & [0.965, 0.970] & by constr. & [0.965, 0.970] &
+   by constr. \\
+\bottomrule
+\multicolumn{10}{@{}l}{$^{\dagger}$Transfer from GridSybil: the attack was never in training. Read within length
+strata only.}
+\end{tabular}
+\end{table*}
+
+\todo{Page fit: the framing review (recommendation 2) proposes a smaller main table (benign-only regime
+$\times$ four attacks; the other regimes for GridSybil only). Table~\ref{tab:main} is the full grid the task
+asked for; decide after the sweep. Intervals of the trained detectors go to the released results file if they do
+not fit.}
+
+\subsection{GridSybil Under the Benign-Only Assumption}\label{sec:res-benign}
+
+\todo{Wording decided by R1/R2/R3 on the benign-only rows of Table~\ref{tab:main}: R1 (any benign-only detector
+$\ge 0.90$, lower bound $\ge 0.85$) -- ``reconstruction fails'' is dropped and the paper becomes a benchmark;
+R2 (all in 0.60--0.80, spread $\le 0.10$) -- lead message as planned; R3 (best in 0.80--0.90) -- ``partial and
+model-dependent''. R7 forbids ranking two detectors whose difference is not larger than the seed spread.}
+Trained on benign windows only, the convolutional autoencoder reaches a GridSybil AUROC of \pending{0.xxx $\pm$
+0.xxx} (length-matched \pending{0.xxx}). The reference detectors lie between \pending{0.xxx} and
+\pending{0.xxx}; the best is \pending{[detector]} at \pending{0.xxx [0.xxx, 0.xxx]}. All of them exceed the
+length-only control by \pending{0.xx--0.xx} (comparison C1, Table~\ref{tab:paired}). \pending{[One sentence
+chosen by R1/R2/R3.]} The Mahalanobis score of the latent is \pending{0.xxx}. At the 95th percentile of the benign
+validation scores the convolutional autoencoder flags \pending{xx.x\%} of GridSybil windows at a benign
+false-positive rate of \pending{x.x\%}; at the 99th percentile, \pending{xx.x\%} at \pending{x.x\%}.
+
+\subsection{Effect of the Training Regime}\label{sec:res-regime}
+
+\todo{R6: if the mix-gridfolders autoencoder reaches $\ge 0.65$ on GridSybil, the attack-majority finding did not
+replicate; it leaves the abstract and title and only the number is reported. Comparisons C2, C3 decide the
+sentences; R7 applies. The two mix regimes are two confounded points: no dose--response wording (E6 is not run).}
+Fig.~\ref{fig:regime} shows GridSybil detection as a function of the training regime. With unlabeled GridSybil
+windows making up 31.3\% of the training pool (mix-all), the convolutional autoencoder's AUROC changes by
+\pending{$-$0.xxx [$-$0.xxx, $-$0.xxx]} relative to benign-only (C2). In the two GridSybil folders, where the
+attack is 64.6\% of the training windows, it changes by \pending{$-$0.xxx [$-$0.xxx, $-$0.xxx]} relative to the
+benign windows of the same folders (C3), to \pending{0.xxx}. \pending{[One sentence per reference detector family:
+same direction or not.]} At the label-free operating point (95th percentile of the mixed validation pool) the
+recall is \pending{xx.x\%} at a benign false-positive rate of \pending{x.x\%}; the oracle calibration on benign
+validation data gives \pending{xx.x\%} at \pending{x.x\%}.
+
+\begin{figure}[t]
+\centering
+\fbox{\parbox[c][1.55in][c]{0.92\columnwidth}{\centering\footnotesize
+\textbf{Figure placeholder.}\\[2pt]
+GridSybil window AUROC (y) per training regime (x: benign-only, benign-gridfolders, mix-all, mix-gridfolders,
+supervised), one marker per detector, seed mean with 95\% vehicle-bootstrap interval; horizontal line: length
+only (0.559).}}
+\caption{GridSybil detection against the training regime. \pending{To be drawn from the score files.}}
+\label{fig:regime}
+\end{figure}
+
+\subsection{Labels}\label{sec:res-supervised}
+
+\todo{C4 and R7 decide the wording. The supervised model saw GridSybil labels; say ``with GridSybil labels'', never
+``detects Sybil attacks''. The ``best benign-only detector'' of C4 is picked on test AUROC: state this.}
+With GridSybil labels, the autoencoder with a classifier head reaches \pending{0.xxx $\pm$ 0.xxx} on GridSybil
+and the logistic regression on window statistics \pending{0.xxx}. The paired difference to the best benign-only
+detector is \pending{+0.xxx [0.xxx, 0.xxx]} (C4).
+
+\subsection{DataReplay and DoS: Reading Past Window Length}\label{sec:res-short}
+
+\todo{R4: if, for an attack, every detector is $\le$ length-only $+ 0.02$ (or the interval of the $\ge 4$-row
+stratum is wider than 0.15), that attack is ``not evaluable at this unit'' and no detection claim is made either
+way. R5: if any benign-only detector exceeds 0.60 on DataReplay windows of $\ge 4$ rows, the ``in-distribution by
+construction'' argument of Section~\ref{sec:disc-replay} is dropped. Headline = length-matched AUROC and C1, not
+the pooled AUROC. The $\ge 4$-row DoS stratum is already known to be unreportable (13 / 14 vehicles).}
+For the three pseudonym-rotating attacks the pooled AUROC of every detector must be read against 0.952--0.967 for
+length alone. Matched on length (Eq.~\eqref{eq:lm}), the benign-only convolutional autoencoder scores
+\pending{0.xxx} on DataReplay, \pending{0.xxx} on DoSRandom and \pending{0.xxx} on DoSDisruptive, where 0.5 means
+no information beyond length; the best detector per attack reaches \pending{0.xxx\,/\,0.xxx\,/\,0.xxx}.
+Fig.~\ref{fig:length} gives the AUROC by exact number of rows. On DataReplay windows of four or more rows
+\pending{(3{,}8xx attack windows)} the benign-only detectors score \pending{0.xxx--0.xxx}. \pending{[Sentence
+chosen by R4 per attack, and by R5 for DataReplay.]} The supervised detectors, trained with GridSybil labels only,
+reach length-matched AUROCs of \pending{0.xxx\,/\,0.xxx\,/\,0.xxx} on these attacks; this is transfer from
+GridSybil and not evidence about unseen attacks in general.
+
+\begin{figure}[t]
+\centering
+\fbox{\parbox[c][1.55in][c]{0.92\columnwidth}{\centering\footnotesize
+\textbf{Figure placeholder.}\\[2pt]
+AUROC (y) by exact number of real rows $n=1,2,3$, 4--16, $\ge 17$ (x), four panels (one per attack), lines for
+Conv-AE, the best reference detector and Sup-AE (benign-only / supervised); length only is 0.5 at each exact
+$n$; unreportable strata left empty; bars underneath: attack windows per stratum.}}
+\caption{AUROC within strata of the exact window length. \pending{To be drawn from the score files.}}
+\label{fig:length}
+\end{figure}
+
+\subsection{Paired Comparisons and Sensitivity}\label{sec:res-paired}
+
+\todo{R7 for every row of Table~\ref{tab:paired}: a difference not larger than the seed standard deviation gets
+no ranking. C5 is the comparison in which prior test exposure favors Conv-AE (Section~\ref{sec:exposure}).}
+Table~\ref{tab:paired} lists the five pre-specified comparisons. \pending{[Two sentences: which intervals exclude
+zero.]} The conclusions \pending{do / do not} change in the three sensitivity subsets: for the 1416 period alone
+the benign-only convolutional autoencoder reaches \pending{0.xxx} on GridSybil, without the benign windows of
+the GridSybil 0709 folder \pending{0.xxx}, and against benign windows of the GridSybil folders only
+\pending{0.xxx} (length only: 0.580, 0.561 and 0.560).
+
+\begin{table}[t]
+\caption{Paired differences for the five pre-specified comparisons, with 95\% cluster-bootstrap intervals from
+shared resamples. $\Delta$LM: difference in length-matched AUROC (for C1, detector minus 0.5).}
+\label{tab:paired}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{3.55cm}cc@{}}
+\toprule
+Comparison & $\Delta$AUROC & $\Delta$LM \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{C1: detector $-$ length only (Conv-AE, benign-only)}$^{a}$} \\
+\quad GridSybil      & \tbd & \tbd \\
+\quad DataReplay     & \tbd & \tbd \\
+\quad DoSRandom      & \tbd & \tbd \\
+\quad DoSDisruptive  & \tbd & \tbd \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{C2: benign-only $-$ mix-all, GridSybil}} \\
+\quad Conv-AE          & \tbd & \tbd \\
+\quad LSTM-AE          & \tbd & \tbd \\
+\quad PCA              & \tbd & \tbd \\
+\quad Isolation Forest & \tbd & \tbd \\
+\quad One-class SVM    & \tbd & \tbd \\
+\quad kNN distance     & \tbd & \tbd \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{C3: benign-gridfolders $-$ mix-gridfolders, GridSybil}} \\
+\quad Conv-AE          & \tbd & \tbd \\
+\quad LSTM-AE          & \tbd & \tbd \\
+\quad PCA              & \tbd & \tbd \\
+\quad Isolation Forest & \tbd & \tbd \\
+\quad One-class SVM    & \tbd & \tbd \\
+\quad kNN distance     & \tbd & \tbd \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{C4: Sup-AE $-$ best benign-only detector, GridSybil}} \\
+\quad vs.\ \pending{[detector]} & \tbd & \tbd \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{C5: Conv-AE $-$ reference, benign-only, GridSybil}} \\
+\quad LSTM-AE          & \tbd & \tbd \\
+\quad PCA              & \tbd & \tbd \\
+\quad Isolation Forest & \tbd & \tbd \\
+\quad One-class SVM    & \tbd & \tbd \\
+\quad kNN distance     & \tbd & \tbd \\
+\bottomrule
+\multicolumn{3}{@{}p{0.95\columnwidth}@{}}{$^{a}$C1 is computed for every detector and regime; the other rows
+are in the released results file.}
+\end{tabular}
+\end{table}
+
+\subsection{Preliminary Evidence From Earlier Single-Seed Runs}\label{sec:res-prelim}
+
+\todo{This subsection and Table~\ref{tab:prelim} exist only so that the draft shows the expected shape of the
+results. They will be removed from the final paper. Source: 01-our-studies/inventory.md.}
+Before this protocol we ran nine small studies with the same family of convolutional autoencoder. They are
+\emph{not} results of this paper: they use different window lengths (32, 48, 64), different splits and test
+vehicles, different normalizations, and, except for one study with three seeds, a single seed without intervals
+(Table~\ref{tab:prelim}, blue). Their numbers cannot be compared across rows. They motivated the regimes and the
+length control: reconstruction trained on benign data scored \prelim{0.655--0.736} on GridSybil across the three
+window lengths, an unlabeled mix scored \prelim{0.482--0.484} where the attack is the majority of the training
+windows and \prelim{0.610} where it is 31\%, GridSybil labels gave \prelim{0.926--0.929}, and on DataReplay and
+DoSDisruptive the benign-only autoencoder (\prelim{0.391}, \prelim{0.611}) scored below window length alone
+(0.952, 0.967). The contrast between the 31\% and the 64\% mix is suggestive only: these runs also differ in
+window length, input, split and test vehicles. The controlled version is the mix-all and mix-gridfolders regimes
+of this protocol (C2, C3), which are themselves two confounded points; a sweep over the attack share is out of
+scope (Section~\ref{sec:scope}).
+
+\begin{table}[t]
+\caption{Earlier single-seed studies (blue; different inputs and splits, not comparable across rows, to be
+removed). Window AUROC on each study's own test set; ``Len.'': length-only AUROC on that test set.}
+\label{tab:prelim}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{3.3cm}clcc@{}}
+\toprule
+Study (training data) & $T$ & Attack & AUROC & Len. \\
+\midrule
+Autoencoder, benign only$^{b}$ & 64 & GridSybil & \prelim{0.655 $\pm$ 0.002} & \prelim{0.535} \\
+Autoencoder, benign only & 48 & GridSybil & \prelim{0.689} & \prelim{0.530} \\
+Autoencoder, benign only & 32 & GridSybil & \prelim{0.736} & \prelim{0.559} \\
+ & & DataReplay & \prelim{0.391} & \prelim{0.952} \\
+ & & DoSRandom & \prelim{0.973} & \prelim{0.967} \\
+ & & DoSDisruptive & \prelim{0.611} & \prelim{0.967} \\
+Autoencoder, unlabeled mix (64.6\% attack) & 64 & GridSybil & \prelim{0.482} & \prelim{0.535} \\
+Autoencoder, unlabeled mix (64\% attack) & 48 & GridSybil & \prelim{0.484} & \prelim{0.530} \\
+Same, overlapping windows & 48 & GridSybil & \prelim{0.484} & -- \\
+Autoencoder, unlabeled mix (31.3\% attack) & 32 & GridSybil & \prelim{0.610} & \prelim{0.560} \\
+Encoder + head, labels$^{b}$ & 64 & GridSybil & \prelim{0.928 $\pm$ 0.002} & \prelim{0.535} \\
+Autoencoder + head, labels & 48 & GridSybil & \prelim{0.929} & \prelim{0.530} \\
+Autoencoder + head, labels & 32 & GridSybil & \prelim{0.926} & \prelim{0.560} \\
+Statistics + logistic regr. & 64 & GridSybil & \prelim{0.855} & \prelim{0.535} \\
+\bottomrule
+\multicolumn{5}{@{}l}{$^{b}$Three seeds; all other rows one seed.}
+\end{tabular}
+\end{table}

@@ -1,0 +1,62 @@
+% IEEE conference format. Overleaf: upload this folder (or its zip), set main.tex as the main document,
+% compiler pdfLaTeX. IEEEtran.cls and IEEEtran.bst ship with Overleaf / TeX Live.
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{cite}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+
+% --- Draft macros ------------------------------------------------------------------------------------
+% \pending{..}: a value that does not exist yet (runs under the one-protocol sweep are not finished).
+% \prelim{..}:  a number from the earlier single-seed studies (different protocol); replace before submission.
+% \todo{..}:    a note to the authors. Set \drafttrue / \draftfalse below.
+\newif\ifdraft
+\drafttrue
+\newcommand{\pending}[1]{\ifdraft\textcolor{red}{#1}\else#1\fi}
+\newcommand{\prelim}[1]{\ifdraft\textcolor{blue}{#1}\else#1\fi}
+\newcommand{\todo}[1]{\ifdraft\textcolor{red}{[\textbf{TODO:} #1]}\fi}
+\newcommand{\tbd}{\pending{--}}
+
+\begin{document}
+
+\title{When Does Reconstruction Detect a Sybil? An Empirical Study of Autoencoder Anomaly Detection on
+VeReMi-Extension\ifdraft\thanks{\textcolor{red}{Draft of 2026-11-11. Red = pending or to do; blue = preliminary
+numbers from earlier single-seed studies under a different protocol. Not for distribution.}}\fi}
+
+\author{\IEEEauthorblockN{Bibek Gupta}
+\IEEEauthorblockA{\textit{Department of Computer Science} \\
+\textit{Florida Polytechnic University}\\
+Lakeland, FL, USA \\
+\todo{email}}
+\and
+\IEEEauthorblockN{\todo{Advisor name}}
+\IEEEauthorblockA{\textit{Department of Computer Science} \\
+\textit{Florida Polytechnic University}\\
+Lakeland, FL, USA \\
+\todo{email}}}
+
+\maketitle
+
+\input{sections/00-abstract}
+
+\input{sections/01-introduction}
+\input{sections/02-background}
+\input{sections/03-protocol}
+\input{sections/04-detectors}
+\input{sections/05-results}
+\input{sections/06-discussion}
+\input{sections/07-conclusion}
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

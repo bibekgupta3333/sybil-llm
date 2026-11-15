@@ -68,6 +68,7 @@ is described in `docs/plan/stage1-preprocessing-feature-engineering.md`.
 | File | Status | What it is |
 |---|---|---|
 | [`../baselinepaper/README.md`](../baselinepaper/README.md) | live (paper planning) | empirical paper from the baseline studies: sourced inventory of our results, 76-paper literature list, gap analysis, paper plan (enhancements E1–E10), venues |
+| [`../baselinepaper/paper-slides.html`](../baselinepaper/paper-slides.html) | live (paper planning) | 20-slide research-paper style deck of the baseline paper draft, presenting the ten trained baseline models as the study (introduction, related work, questions, methodology with diagrams, preliminary findings and results, discussion, conclusion, status and decisions, suggested additions (proposals), references); style of `task/autoencoder-models-slides.html`, `N` = speaker notes |
 | [`research-notes/veremi-plausibility-baseline-spec.md`](research-notes/veremi-plausibility-baseline-spec.md) | live | spec of the tracker 4.5 baseline: the VeReMi-Extension paper's Table III detector (F2MD plausibility / consistency checks + ThresholdApp θ 0.28125) — every check as a formula with parameters and F2MD source lines, labels, which messages count, UNKNOWN inputs, expected gaps; implemented in `src/baselines/plausibility/` (README: paper vs ours, 6 / 8 subsets within 0.05 F1) |
 | [`research-notes/related-papers.md`](research-notes/related-papers.md) | reference | related-work survey |
 | [`research-notes/gap-analysis.md`](research-notes/gap-analysis.md) | reference | research-gap analysis |

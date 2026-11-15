@@ -1,0 +1,28 @@
+% 07-conclusion.tex -- Conditional on results. Rewrite after the rules R1--R7 are applied to the frozen table.
+\section{Conclusion}\label{sec:conclusion}
+
+\todo{Every sentence in \textbackslash pending below depends on R1--R7. If R1 fires, the conclusion is that a
+simple detector suffices under a sender-held-out protocol. If the Kill rule fires, there is no paper.}
+We evaluated six unsupervised detectors and two supervised detectors for Sybil attacks on VeReMi-Extension under
+one protocol: one receiver-side window input, one split that holds out sender vehicles across the four scenario
+families, five training regimes, thresholds from validation data, and a control for window length. One result
+is already fixed, because it needs no model: the number of messages in a window alone separates DataReplay and
+both DoS attacks from benign traffic with an AUROC of 0.952--0.967, and GridSybil with 0.559. Any sequence
+detector's score on these attacks has to be read against that. \pending{For GridSybil, what the detector is
+trained on changes detection more than which detector is used: benign-only training reaches 0.xxx--0.xxx across
+six detectors, unlabeled training on attack-majority data 0.xxx, and GridSybil labels 0.xxx. Matched on window
+length, no benign-only detector separates replayed trajectories from benign ones.} We recommend that evaluations
+on this dataset hold out vehicles across scenario families, state how the training data was selected, and report
+a length-only score next to every sequence model.
+
+\section*{Reproducibility}
+
+Every run stores its configuration with all hyperparameters and the random seed, the package versions and device,
+the git commit with a dirty flag, a fingerprint of the data cache, the SHA-256 of every source file it used, its
+training history, and one score file per validation and test split. Metrics, intervals and tables are rebuilt from
+these score files by a single evaluation module. The protocol, the hyperparameters and the wording rules for the
+results were fixed before any detector was scored on the test set, and deviations are logged with their date and
+reason. Results on the GPU backend used for the neural detectors are seeded but not guaranteed to be bit-identical
+across reruns. \todo{Code and score-file release: repository URL, license, and whether the window cache
+(2.75\,GB) or only the build scripts are published; anonymize for review. Tables must be rebuilt from a clean
+commit before submission (earlier runs all had a dirty working tree).}

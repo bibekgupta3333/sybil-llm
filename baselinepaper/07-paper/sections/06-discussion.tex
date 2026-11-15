@@ -1,0 +1,107 @@
+% 06-discussion.tex -- Conditional on results that do not exist yet. Text in \pending{} is the planned wording
+% and is kept, changed or deleted by the pre-committed rules (protocol.md section 8a).
+\section{Discussion}\label{sec:discussion}
+
+\subsection{A Replayed Genuine Trajectory Is In-Distribution}\label{sec:disc-replay}
+
+\todo{R5 decides this subsection. Keep it only if no benign-only detector exceeds 0.60 on DataReplay windows of
+$\ge 4$ rows. If all intervals lie below 0.5, keep it and add that inverting the score would need labels. If R4
+fires for DataReplay, reduce it to ``not evaluable at this unit''.}
+In the DataReplay attack the Sybil pseudonyms broadcast the trajectory of a genuine neighboring vehicle. Seen from
+one receiver and one pseudonym, the resulting window is a genuine trajectory under a new pseudonym. A detector that
+scores each link on its own compares the window with benign motion, and the window is benign motion: it is inside
+the training distribution by construction. \pending{Our results are consistent with this: matched on window
+length, no benign-only detector separates DataReplay from benign windows (length-matched AUROC 0.xxx--0.xxx), and
+the detectors differ less from each other than from chance.} This is a property of the threat model and of the
+per-sender unit, not of one model family. It differs from the cases in which a generative model assigns high
+likelihood to unrelated out-of-distribution data~\cite{nalisnick2019deep,kirichenko2020normalizing} or an
+autoencoder reconstructs anomalies well~\cite{gong2019memorizing,yoon2021autoencoding}; there the cause is the
+model's inductive bias. Replay is also known to be hard for reconstruction-based detection on the in-vehicle
+CAN bus~\cite{longari2022candito,hanselmann2020canet}. What can reveal the attack is context across senders, for
+example two pseudonyms claiming the same track; no detector in this study has that input.
+
+\subsection{Attack-Majority Training Data}\label{sec:disc-majority}
+
+\todo{R6 decides this subsection. If the mix-gridfolders autoencoder reaches $\ge 0.65$ on GridSybil, delete the
+finding from abstract and title and report the number in one sentence. With two confounded regimes, do not write
+``the more attack windows, the worse'': that needs E6.}
+An unsupervised detector learns what is frequent. Contaminated training data is known to degrade
+autoencoders~\cite{zhou2017anomaly,ruff2021unifying}, and methods exist for a small unlabeled anomalous
+minority~\cite{qiu2022latent}. In the two GridSybil folders the situation is different in kind: the attack
+contributes 64.6\% of the training windows, so the attack is the majority class and ``normal'' is redefined.
+\pending{In this regime the convolutional autoencoder scores 0.xxx on GridSybil, against 0.xxx when trained on
+the benign windows of the same folders, and the Mahalanobis score falls to 0.xxx.} To our knowledge, a
+majority-anomaly training set has not been studied for misbehavior detection. The practical consequence is that
+``unsupervised'' on this dataset has two meanings, benign-only data selected with ground-truth labels and
+unlabeled recorded traffic, and results obtained under the first do not carry over to the second.
+
+\subsection{Window Length: Signature and Shortcut}\label{sec:disc-length}
+
+\todo{Uses measured values for the control; sentences on detectors follow R4.}
+DataReplay and the DoS attacks change pseudonym after one or two messages, so a receiver sees them as many
+very short links: 94.9--99.7\% of their windows have at most three rows, and length alone reaches 0.952--0.967.
+We regard length in two ways. As a \emph{signature}, a burst of short-lived pseudonyms is real, receiver-observable
+evidence of these attacks, and a deployed detector may use it. As a \emph{shortcut}~\cite{geirhos2020shortcut},
+it tells nothing about whether a model has learned plausible motion, which is what a sequence model is claimed to
+contribute, and it may not hold under another pseudonym-change policy. A pooled AUROC cannot tell the two apart.
+Every detector here can see length, so we report each result next to the one-feature control and matched on
+length, in line with the call for simple baselines~\cite{arp2022dos,kim2022rigorous}.
+\pending{Matched on length, the benign-only detectors retain 0.xxx--0.xxx on the DoS attacks.} The unit of
+analysis creates this effect: with pseudonym links, the attack mechanism determines the sequence length. Another
+unit, such as all messages a receiver hears in a time interval, would change it and is left to future work.
+
+\subsection{The Gap to Published One-Class Results}\label{sec:disc-gap}
+
+\todo{Observation only. Not allowed without E7 or E9: ``inflated'', ``due to leakage'', any cause. Before
+submission: full-text check of the cited papers' metrics, split and sequence unit (gap-analysis.md, Section 6);
+the values 0.93--0.99 are from our literature notes.}
+Published one-class and reconstruction-based detectors report recall or $F_1$ values of
+\pending{0.93--0.99} for Sybil attacks on VeReMi-Extension~\cite{alladi2021deep,kalogiannis2026pampos,%
+vishwanath2026federated}. \pending{Under our protocol the best benign-only detector reaches an AUROC of 0.xxx on
+GridSybil.} We report this difference as an observation and do not attribute it to a cause. The numbers are not
+measured on the same scale (accuracy, recall or $F_1$ at a chosen threshold against threshold-free AUROC), and
+the studies differ from ours in at least three respects that we did not vary: the split unit, the source of the
+decision threshold, and the sequence unit (sequences grouped by sender identifier against receiver-side
+pseudonym links). Any one of them, or the detectors themselves, could account for the difference.
+
+\subsection{Limitations and Threats to Validity}\label{sec:limitations}
+
+\textbf{Near-copies across families (unmeasured).} The GridSybil 0709 folder is a separate re-simulation of the
+0709 traffic with different vehicle identifiers, so a vehicle key does not link its vehicles to their counterparts
+in the other 0709 folders. Near-copies of some benign test trajectories may therefore be in the training set. We
+did not measure this for the split used here; the sensitivity rows without that folder's benign windows and for
+the 1416 period alone bound its effect on our numbers.
+
+\textbf{Repeated benign traffic.} Benign traffic appears once per attack family, about four times in total.
+Benign windows are thus not independent. The bootstrap resamples vehicle keys, which keeps the copies together,
+but the effective benign sample is smaller than the window count suggests.
+
+\textbf{One dataset, one split.} All results are from one simulated dataset and one split seed. The intervals
+cover test sampling only; five seeds give a rough standard deviation.
+
+\textbf{Sender-held-out only.} Receivers are not held out: the receiver's position and velocity, four of the 13
+features, come from vehicles that also hear training senders.
+
+\textbf{One training attack.} GridSybil is the only attack in any training pool. The supervised results on the
+other three attacks are transfer from GridSybil, in one direction, and say nothing general about unseen attacks.
+
+\textbf{No window-level plausibility score.} The rule-based plausibility checks shipped with the
+dataset~\cite{kamel2020veremi,kamel2020simulation} decide per message; we have no window-level score for them
+under this protocol, so the non-learned reference here is the length control only.
+
+\textbf{Privileged grouping.} In the GridSybil scenarios the ghost vehicles share one pseudonym value; their
+messages were separated by the true sender identifier when links were built. A receiver does not have this
+information, so GridSybil windows are cleaner than a deployed system would see.
+
+\textbf{Prior exposure and budget.} Two detectors were developed with knowledge of seed-0 test results
+(Section~\ref{sec:exposure}), and the LSTM autoencoder has a lower epoch cap than the convolutional one.
+\todo{Update after the LSTM epoch-cap decision; report how many runs stopped at the cap.}
+
+\subsection{Out of Scope}\label{sec:scope}
+
+The following were excluded in advance and are not answered here: a sweep over the attack share in the training
+data, which would turn the two mix regimes into a curve; a random-split run of the same detectors and a
+measurement of the near-copies, which would be needed before any statement about the effect of the split;
+leave-one-attack-out training; an ablation of the sequence unit; a window-level plausibility score; and transfer
+between the 0709 and 1416 periods. We also did not test learned one-class objectives or contamination-aware
+training~\cite{ruff2018deep,ruff2020deep,qiu2022latent}.

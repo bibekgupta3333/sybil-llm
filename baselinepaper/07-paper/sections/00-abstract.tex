@@ -1,0 +1,19 @@
+% Abstract and keywords. No result of the one-protocol runs is stated; \pending{} marks every value to come.
+\begin{abstract}
+Learning-based detectors of Sybil attacks in vehicular networks are commonly evaluated on VeReMi-Extension, where
+accuracies and F1 scores above 0.93 are reported under protocols that differ in the sequence unit, the train/test
+split, and the source of the decision threshold. This paper evaluates the four Sybil attacks of the dataset under
+one protocol: receiver-side pseudonym windows, a split by physical vehicle, thresholds taken from validation data
+only, five seeds, and a window-length control. Six unsupervised detector families and two supervised models are
+trained under three assumptions about the training data: benign only, an unlabeled mix, and labels. On GridSybil,
+benign-only detectors reach an AUROC between \pending{X} and \pending{X}, training on the unlabeled mix gives
+\pending{X}, and labels give \pending{X}; \pending{the training-data assumption changes the result more than the
+choice of detector}. For the three attacks that change pseudonym every one or two messages, window length alone
+reaches \pending{X}, and the length-matched AUROC of the best detector is \pending{X}. Results on these attacks
+therefore need to be read against a length-only score.
+\end{abstract}
+
+\begin{IEEEkeywords}
+misbehavior detection, Sybil attack, V2X, VANET, anomaly detection, autoencoder, VeReMi-Extension, evaluation
+protocol
+\end{IEEEkeywords}

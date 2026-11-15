@@ -1,0 +1,1281 @@
+{
+ "generated_utc": "2026-11-10T17:03:31+00:00",
+ "protocol": {
+  "benign_input_dir": "src/data/encoder_input/all/T32_benign",
+  "grid_input_dir": "src/data/encoder_input/all/T32_benign_grid",
+  "cache_dir": "baselinepaper/experiments/cache",
+  "runs_dir": "baselinepaper/experiments/runs",
+  "results_dir": "baselinepaper/experiments/results",
+  "seq_len": 32,
+  "n_features": 13,
+  "gridsybil_scenarios": [
+   "GridSybil_0709",
+   "GridSybil_1416"
+  ],
+  "seeds": [
+   0,
+   1,
+   2,
+   3,
+   4
+  ],
+  "benign_val_percentiles": [
+   95.0,
+   99.0
+  ],
+  "own_val_percentile": 95.0,
+  "strata": [
+   {
+    "name": "rows_1_3",
+    "label": "1-3 rows",
+    "lo": 1,
+    "hi": 3
+   },
+   {
+    "name": "rows_ge_4",
+    "label": ">= 4 rows",
+    "lo": 4,
+    "hi": 32
+   },
+   {
+    "name": "rows_1",
+    "label": "1 row",
+    "lo": 1,
+    "hi": 1
+   },
+   {
+    "name": "rows_2",
+    "label": "2 rows",
+    "lo": 2,
+    "hi": 2
+   },
+   {
+    "name": "rows_3",
+    "label": "3 rows",
+    "lo": 3,
+    "hi": 3
+   },
+   {
+    "name": "rows_4_16",
+    "label": "4-16 rows",
+    "lo": 4,
+    "hi": 16
+   },
+   {
+    "name": "rows_ge_17",
+    "label": ">= 17 rows",
+    "lo": 17,
+    "hi": 32
+   }
+  ],
+  "max_rows_matched": 32,
+  "min_attack_windows": 200,
+  "min_attack_vehicles": 20,
+  "sensitivity_group": "1416",
+  "sensitivity_excluded_benign_scenario": "GridSybil_0709",
+  "bootstrap_resamples": 1000,
+  "bootstrap_seed": 0,
+  "ci_level": 0.95,
+  "pool_seed": 0,
+  "max_rederive_abs_diff": 0.001,
+  "workers": 8,
+  "min_free_gb": 8.0
+ },
+ "cache": {
+  "meta_sha256": "037fbcc32bee461be46e64160635ec9118f0e40bd75da1f064ff10d91b5e65a0",
+  "windows": {
+   "train_benign": 502773,
+   "val_benign": 65313,
+   "test_benign": 60142,
+   "test_gridsybil": 28087,
+   "test_datareplay": 76283,
+   "test_dosrandom": 199834,
+   "test_dosdisruptive": 199826,
+   "train_gridsybil": 229080,
+   "val_gridsybil": 28374,
+   "rederived_test_gridsybil": 28087
+  },
+  "training_pools": {
+   "benign_only": {
+    "benign": 502773,
+    "gridsybil": 0,
+    "windows": 502773,
+    "attack_share": 0.0
+   },
+   "benign_gridfolders": {
+    "benign": 125749,
+    "gridsybil": 0,
+    "windows": 125749,
+    "attack_share": 0.0
+   },
+   "mix_all": {
+    "benign": 502773,
+    "gridsybil": 229080,
+    "windows": 731853,
+    "attack_share": 0.3130136789765158
+   },
+   "mix_gridfolders": {
+    "benign": 125749,
+    "gridsybil": 229080,
+    "windows": 354829,
+    "attack_share": 0.6456067570576249
+   },
+   "supervised": {
+    "benign": 502773,
+    "gridsybil": 229080,
+    "windows": 731853,
+    "attack_share": 0.3130136789765158
+   }
+  },
+  "validation_pools": {
+   "benign_only": {
+    "benign": 65313,
+    "gridsybil": 0,
+    "windows": 65313,
+    "attack_share": 0.0
+   },
+   "benign_gridfolders": {
+    "benign": 15893,
+    "gridsybil": 0,
+    "windows": 15893,
+    "attack_share": 0.0
+   },
+   "mix_all": {
+    "benign": 65313,
+    "gridsybil": 28374,
+    "windows": 93687,
+    "attack_share": 0.3028595215985142
+   },
+   "mix_gridfolders": {
+    "benign": 15893,
+    "gridsybil": 28374,
+    "windows": 44267,
+    "attack_share": 0.6409740890505342
+   },
+   "supervised": {
+    "benign": 65313,
+    "gridsybil": 28374,
+    "windows": 93687,
+    "attack_share": 0.3028595215985142
+   }
+  }
+ },
+ "entries": [
+  {
+   "regime": "none",
+   "detector": "length_only",
+   "score": "length",
+   "is_stochastic": false,
+   "seeds": [
+    0
+   ],
+   "expected_seeds": [
+    0
+   ],
+   "all_seeds_present": true,
+   "primary_operating_point": "benign_val_p95",
+   "thresholds_per_seed": {
+    "benign_val_p95": [
+     -1.0
+    ],
+    "benign_val_p99": [
+     -1.0
+    ],
+    "own_val_p95": [
+     -1.0
+    ]
+   },
+   "benign_test_fpr": {
+    "benign_val_p95": {
+     "ci": [
+      0.0,
+      0.0
+     ],
+     "ci_level": 0.95,
+     "undefined_resamples": 0,
+     "per_seed": [
+      0.0
+     ],
+     "mean": 0.0,
+     "std": null
+    },
+    "benign_val_p99": {
+     "ci": [
+      0.0,
+      0.0
+     ],
+     "ci_level": 0.95,
+     "undefined_resamples": 0,
+     "per_seed": [
+      0.0
+     ],
+     "mean": 0.0,
+     "std": null
+    },
+    "own_val_p95": {
+     "ci": [
+      0.0,
+      0.0
+     ],
+     "ci_level": 0.95,
+     "undefined_resamples": 0,
+     "per_seed": [
+      0.0
+     ],
+     "mean": 0.0,
+     "std": null
+    }
+   },
+   "tasks": {
+    "test_gridsybil": {
+     "n_benign": 60142,
+     "n_attack": 28087,
+     "n_benign_vehicles": 525,
+     "n_attack_vehicles": 172,
+     "attack_share": 0.31834204173231023,
+     "auroc": {
+      "ci": [
+       0.5380080742583995,
+       0.5792192276024062
+      ],
+      "ci_level": 0.95,
+      "undefined_resamples": 0,
+      "per_seed": [
+       0.5586360565086337
+      ],
+      "mean": 0.5586360565086337,
+      "std": null
+     },
+     "average_precision": {
+      "ci": [
+       0.34261519217120184,
+       0.3938088862642686
+      ],
+      "ci_level": 0.95,
+      "undefined_resamples": 0,
+      "per_seed": [
+       0.36702045802769145
+      ],
+      "mean": 0.36702045802769145,
+      "std": null
+     },
+     "length_matched_auroc": {
+      "ci": [
+       0.5,
+       0.5
+      ],
+      "ci_level": 0.95,
+      "undefined_resamples": 0,
+      "per_seed": [
+       0.5
+      ],
+      "mean": 0.5,
+      "std": null,
+      "same_length_pairs": 108988167
+     },
+     "recall": {
+      "benign_val_p95": {
+       "ci": [
+        0.0,
+        0.0
+       ],
+       "ci_level": 0.95,
+       "undefined_resamples": 0,
+       "per_seed": [
+        0.0
+       ],
+       "mean": 0.0,
+       "std": null
+      },
+      "benign_val_p99": {
+       "ci": [
+        0.0,
+        0.0
+       ],
+       "ci_level": 0.95,
+       "undefined_resamples": 0,
+       "per_seed": [
+        0.0
+       ],
+       "mean": 0.0,
+       "std": null
+      },
+      "own_val_p95": {
+       "ci": [
+        0.0,
+        0.0
+       ],
+       "ci_level": 0.95,
+       "undefined_resamples": 0,
+       "per_seed": [
+        0.0
+       ],
+       "mean": 0.0,
+       "std": null
+      }
+     },
+     "strata": {
+      "rows_1_3": {
+       "reported": true,
+       "n_benign": 8369,
+       "n_attack": 5722,
+       "n_attack_vehicles": 169,
+       "auroc": {
+        "ci": [
+         0.5051564684263165,
+         0.535593405960902
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.5208524084551813
+        ],
+        "mean": 0.5208524084551813,
+        "std": null
+       }
+      },
+      "rows_ge_4": {
+       "reported": true,
+       "n_benign": 51773,
+       "n_attack": 22365,
+       "n_attack_vehicles": 172,
+       "auroc": {
+        "ci": [
+         0.518047740664891,
+         0.559156208466476
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.5375797735656034
+        ],
+        "mean": 0.5375797735656034,
+        "std": null
+       }
+      },
+      "rows_1": {
+       "reported": true,
+       "n_benign": 3107,
+       "n_attack": 2358,
+       "n_attack_vehicles": 164,
+       "auroc": {
+        "ci": [
+         0.5,
+         0.5
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.5
+        ],
+        "mean": 0.5,
+        "std": null
+       }
+      },
+      "rows_2": {
+       "reported": true,
+       "n_benign": 2869,
+       "n_attack": 1842,
+       "n_attack_vehicles": 164,
+       "auroc": {
+        "ci": [
+         0.5,
+         0.5
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.5
+        ],
+        "mean": 0.5,
+        "std": null
+       }
+      },
+      "rows_3": {
+       "reported": true,
+       "n_benign": 2393,
+       "n_attack": 1522,
+       "n_attack_vehicles": 160,
+       "auroc": {
+        "ci": [
+         0.5,
+         0.5
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.5
+        ],
+        "mean": 0.5,
+        "std": null
+       }
+      },
+      "rows_4_16": {
+       "reported": true,
+       "n_benign": 23798,
+       "n_attack": 11697,
+       "n_attack_vehicles": 172,
+       "auroc": {
+        "ci": [
+         0.523271990913301,
+         0.5521582662416716
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.5375616376423137
+        ],
+        "mean": 0.5375616376423137,
+        "std": null
+       }
+      },
+      "rows_ge_17": {
+       "reported": true,
+       "n_benign": 27975,
+       "n_attack": 10668,
+       "n_attack_vehicles": 166,
+       "auroc": {
+        "ci": [
+         0.46933084080465926,
+         0.5078602741226588
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.48788566141028616
+        ],
+        "mean": 0.48788566141028616,
+        "std": null
+       }
+      }
+     },
+     "sensitivity": {
+      "group_1416_only": {
+       "reported": true,
+       "n_benign": 12104,
+       "n_attack": 5885,
+       "n_attack_vehicles": 51,
+       "auroc": {
+        "ci": [
+         0.5504941068431406,
+         0.6107840772423877
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.5798000941711061
+        ],
+        "mean": 0.5798000941711061,
+        "std": null
+       }
+      },
+      "benign_without_GridSybil_0709": {
+       "reported": true,
+       "n_benign": 47652,
+       "n_attack": 28087,
+       "n_attack_vehicles": 172,
+       "auroc": {
+        "ci": [
+         0.5405157205327511,
+         0.5820759904831699
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.5606706798444022
+        ],
+        "mean": 0.5606706798444022,
+        "std": null
+       }
+      },
+      "benign_of_attack_family_folders": {
+       "reported": true,
+       "n_benign": 15518,
+       "n_attack": 28087,
+       "n_attack_vehicles": 172,
+       "auroc": {
+        "ci": [
+         0.5390045078032448,
+         0.5806901461468343
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.560021874385818
+        ],
+        "mean": 0.560021874385818,
+        "std": null
+       }
+      }
+     }
+    },
+    "test_datareplay": {
+     "n_benign": 60142,
+     "n_attack": 76283,
+     "n_benign_vehicles": 525,
+     "n_attack_vehicles": 173,
+     "attack_share": 0.5591570459959685,
+     "auroc": {
+      "ci": [
+       0.9477836728448148,
+       0.9547676711352118
+      ],
+      "ci_level": 0.95,
+      "undefined_resamples": 0,
+      "per_seed": [
+       0.9515067811234938
+      ],
+      "mean": 0.9515067811234938,
+      "std": null
+     },
+     "average_precision": {
+      "ci": [
+       0.922325908321511,
+       0.9418031733567446
+      ],
+      "ci_level": 0.95,
+      "undefined_resamples": 0,
+      "per_seed": [
+       0.9336451449556535
+      ],
+      "mean": 0.9336451449556535,
+      "std": null
+     },
+     "length_matched_auroc": {
+      "ci": [
+       0.5,
+       0.5
+      ],
+      "ci_level": 0.95,
+      "undefined_resamples": 0,
+      "per_seed": [
+       0.5
+      ],
+      "mean": 0.5,
+      "std": null,
+      "same_length_pairs": 227567515
+     },
+     "recall": {
+      "benign_val_p95": {
+       "ci": [
+        0.0,
+        0.0
+       ],
+       "ci_level": 0.95,
+       "undefined_resamples": 0,
+       "per_seed": [
+        0.0
+       ],
+       "mean": 0.0,
+       "std": null
+      },
+      "benign_val_p99": {
+       "ci": [
+        0.0,
+        0.0
+       ],
+       "ci_level": 0.95,
+       "undefined_resamples": 0,
+       "per_seed": [
+        0.0
+       ],
+       "mean": 0.0,
+       "std": null
+      },
+      "own_val_p95": {
+       "ci": [
+        0.0,
+        0.0
+       ],
+       "ci_level": 0.95,
+       "undefined_resamples": 0,
+       "per_seed": [
+        0.0
+       ],
+       "mean": 0.0,
+       "std": null
+      }
+     },
+     "strata": {
+      "rows_1_3": {
+       "reported": true,
+       "n_benign": 8369,
+       "n_attack": 72400,
+       "n_attack_vehicles": 172,
+       "auroc": {
+        "ci": [
+         0.6998675256215782,
+         0.7212201865777911
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.7105637369296978
+        ],
+        "mean": 0.7105637369296978,
+        "std": null
+       }
+      },
+      "rows_ge_4": {
+       "reported": true,
+       "n_benign": 51773,
+       "n_attack": 3883,
+       "n_attack_vehicles": 126,
+       "auroc": {
+        "ci": [
+         0.9203891424459317,
+         0.9342807779316924
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.927340818550506
+        ],
+        "mean": 0.927340818550506,
+        "std": null
+       }
+      },
+      "rows_1": {
+       "reported": true,
+       "n_benign": 3107,
+       "n_attack": 53530,
+       "n_attack_vehicles": 172,
+       "auroc": {
+        "ci": [
+         0.5,
+         0.5
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.5
+        ],
+        "mean": 0.5,
+        "std": null
+       }
+      },
+      "rows_2": {
+       "reported": true,
+       "n_benign": 2869,
+       "n_attack": 16393,
+       "n_attack_vehicles": 170,
+       "auroc": {
+        "ci": [
+         0.5,
+         0.5
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.5
+        ],
+        "mean": 0.5,
+        "std": null
+       }
+      },
+      "rows_3": {
+       "reported": true,
+       "n_benign": 2393,
+       "n_attack": 2477,
+       "n_attack_vehicles": 131,
+       "auroc": {
+        "ci": [
+         0.5,
+         0.5
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.5
+        ],
+        "mean": 0.5,
+        "std": null
+       }
+      },
+      "rows_4_16": {
+       "reported": true,
+       "n_benign": 23798,
+       "n_attack": 3880,
+       "n_attack_vehicles": 126,
+       "auroc": {
+        "ci": [
+         0.8277350239295842,
+         0.8567579206618978
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.8426043230696854
+        ],
+        "mean": 0.8426043230696854,
+        "std": null
+       }
+      },
+      "rows_ge_17": {
+       "reported": false,
+       "n_benign": 27975,
+       "n_attack": 3,
+       "n_attack_vehicles": 2,
+       "auroc": null
+      }
+     },
+     "sensitivity": {
+      "group_1416_only": {
+       "reported": true,
+       "n_benign": 12104,
+       "n_attack": 12617,
+       "n_attack_vehicles": 51,
+       "auroc": {
+        "ci": [
+         0.9445033499471731,
+         0.9609607153159132
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.9535435796162722
+        ],
+        "mean": 0.9535435796162722,
+        "std": null
+       }
+      },
+      "benign_without_GridSybil_0709": {
+       "reported": true,
+       "n_benign": 47652,
+       "n_attack": 76283,
+       "n_attack_vehicles": 173,
+       "auroc": {
+        "ci": [
+         0.9473377104834451,
+         0.9551307622527702
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.9514400912719493
+        ],
+        "mean": 0.9514400912719493,
+        "std": null
+       }
+      },
+      "benign_of_attack_family_folders": {
+       "reported": true,
+       "n_benign": 14862,
+       "n_attack": 76283,
+       "n_attack_vehicles": 173,
+       "auroc": {
+        "ci": [
+         0.9476257264942994,
+         0.9553670146016895
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.9516099112715289
+        ],
+        "mean": 0.9516099112715289,
+        "std": null
+       }
+      }
+     }
+    },
+    "test_dosrandom": {
+     "n_benign": 60142,
+     "n_attack": 199834,
+     "n_benign_vehicles": 525,
+     "n_attack_vehicles": 173,
+     "attack_share": 0.768663261224113,
+     "auroc": {
+      "ci": [
+       0.9651418346524011,
+       0.9696387862282005
+      ],
+      "ci_level": 0.95,
+      "undefined_resamples": 0,
+      "per_seed": [
+       0.9674642102940453
+      ],
+      "mean": 0.9674642102940453,
+      "std": null
+     },
+     "average_precision": {
+      "ci": [
+       0.9787227654973545,
+       0.983282553837131
+      ],
+      "ci_level": 0.95,
+      "undefined_resamples": 0,
+      "per_seed": [
+       0.9811144480052404
+      ],
+      "mean": 0.9811144480052404,
+      "std": null
+     },
+     "length_matched_auroc": {
+      "ci": [
+       0.5,
+       0.5
+      ],
+      "ci_level": 0.95,
+      "undefined_resamples": 0,
+      "per_seed": [
+       0.5
+      ],
+      "mean": 0.5,
+      "std": null,
+      "same_length_pairs": 613216961
+     },
+     "recall": {
+      "benign_val_p95": {
+       "ci": [
+        0.0,
+        0.0
+       ],
+       "ci_level": 0.95,
+       "undefined_resamples": 0,
+       "per_seed": [
+        0.0
+       ],
+       "mean": 0.0,
+       "std": null
+      },
+      "benign_val_p99": {
+       "ci": [
+        0.0,
+        0.0
+       ],
+       "ci_level": 0.95,
+       "undefined_resamples": 0,
+       "per_seed": [
+        0.0
+       ],
+       "mean": 0.0,
+       "std": null
+      },
+      "own_val_p95": {
+       "ci": [
+        0.0,
+        0.0
+       ],
+       "ci_level": 0.95,
+       "undefined_resamples": 0,
+       "per_seed": [
+        0.0
+       ],
+       "mean": 0.0,
+       "std": null
+      }
+     },
+     "strata": {
+      "rows_1_3": {
+       "reported": true,
+       "n_benign": 8369,
+       "n_attack": 199311,
+       "n_attack_vehicles": 173,
+       "auroc": {
+        "ci": [
+         0.7568392831645838,
+         0.779780337828465
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.7685524891705744
+        ],
+        "mean": 0.7685524891705744,
+        "std": null
+       }
+      },
+      "rows_ge_4": {
+       "reported": false,
+       "n_benign": 51773,
+       "n_attack": 523,
+       "n_attack_vehicles": 13,
+       "auroc": null
+      },
+      "rows_1": {
+       "reported": true,
+       "n_benign": 3107,
+       "n_attack": 177476,
+       "n_attack_vehicles": 173,
+       "auroc": {
+        "ci": [
+         0.5,
+         0.5
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.5
+        ],
+        "mean": 0.5,
+        "std": null
+       }
+      },
+      "rows_2": {
+       "reported": true,
+       "n_benign": 2869,
+       "n_attack": 17582,
+       "n_attack_vehicles": 134,
+       "auroc": {
+        "ci": [
+         0.5,
+         0.5
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.5
+        ],
+        "mean": 0.5,
+        "std": null
+       }
+      },
+      "rows_3": {
+       "reported": true,
+       "n_benign": 2393,
+       "n_attack": 4253,
+       "n_attack_vehicles": 60,
+       "auroc": {
+        "ci": [
+         0.5,
+         0.5
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.5
+        ],
+        "mean": 0.5,
+        "std": null
+       }
+      },
+      "rows_4_16": {
+       "reported": false,
+       "n_benign": 23798,
+       "n_attack": 523,
+       "n_attack_vehicles": 13,
+       "auroc": null
+      },
+      "rows_ge_17": {
+       "reported": false,
+       "n_benign": 27975,
+       "n_attack": 0,
+       "n_attack_vehicles": 0,
+       "auroc": null
+      }
+     },
+     "sensitivity": {
+      "group_1416_only": {
+       "reported": true,
+       "n_benign": 12104,
+       "n_attack": 34138,
+       "n_attack_vehicles": 51,
+       "auroc": {
+        "ci": [
+         0.9643363395279931,
+         0.9758296882412754
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.9706201769618489
+        ],
+        "mean": 0.9706201769618489,
+        "std": null
+       }
+      },
+      "benign_without_GridSybil_0709": {
+       "reported": true,
+       "n_benign": 47652,
+       "n_attack": 199834,
+       "n_attack_vehicles": 173,
+       "auroc": {
+        "ci": [
+         0.9645239363570848,
+         0.9700871176518826
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.9674852529072311
+        ],
+        "mean": 0.9674852529072311,
+        "std": null
+       }
+      },
+      "benign_of_attack_family_folders": {
+       "reported": true,
+       "n_benign": 14881,
+       "n_attack": 199834,
+       "n_attack_vehicles": 173,
+       "auroc": {
+        "ci": [
+         0.9639100120836297,
+         0.9695919870050669
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.9668257896107395
+        ],
+        "mean": 0.9668257896107395,
+        "std": null
+       }
+      }
+     }
+    },
+    "test_dosdisruptive": {
+     "n_benign": 60142,
+     "n_attack": 199826,
+     "n_benign_vehicles": 525,
+     "n_attack_vehicles": 173,
+     "attack_share": 0.7686561422944362,
+     "auroc": {
+      "ci": [
+       0.9652131432538749,
+       0.9696866895020746
+      ],
+      "ci_level": 0.95,
+      "undefined_resamples": 0,
+      "per_seed": [
+       0.9674619784098601
+      ],
+      "mean": 0.9674619784098601,
+      "std": null
+     },
+     "average_precision": {
+      "ci": [
+       0.9785406304647651,
+       0.9830774347659745
+      ],
+      "ci_level": 0.95,
+      "undefined_resamples": 0,
+      "per_seed": [
+       0.9811123942028469
+      ],
+      "mean": 0.9811123942028469,
+      "std": null
+     },
+     "length_matched_auroc": {
+      "ci": [
+       0.5,
+       0.5
+      ],
+      "ci_level": 0.95,
+      "undefined_resamples": 0,
+      "per_seed": [
+       0.5
+      ],
+      "mean": 0.5,
+      "std": null,
+      "same_length_pairs": 613190538
+     },
+     "recall": {
+      "benign_val_p95": {
+       "ci": [
+        0.0,
+        0.0
+       ],
+       "ci_level": 0.95,
+       "undefined_resamples": 0,
+       "per_seed": [
+        0.0
+       ],
+       "mean": 0.0,
+       "std": null
+      },
+      "benign_val_p99": {
+       "ci": [
+        0.0,
+        0.0
+       ],
+       "ci_level": 0.95,
+       "undefined_resamples": 0,
+       "per_seed": [
+        0.0
+       ],
+       "mean": 0.0,
+       "std": null
+      },
+      "own_val_p95": {
+       "ci": [
+        0.0,
+        0.0
+       ],
+       "ci_level": 0.95,
+       "undefined_resamples": 0,
+       "per_seed": [
+        0.0
+       ],
+       "mean": 0.0,
+       "std": null
+      }
+     },
+     "strata": {
+      "rows_1_3": {
+       "reported": true,
+       "n_benign": 8369,
+       "n_attack": 199302,
+       "n_attack_vehicles": 173,
+       "auroc": {
+        "ci": [
+         0.7569440701978013,
+         0.7796562598095259
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.7685410348336269
+        ],
+        "mean": 0.7685410348336269,
+        "std": null
+       }
+      },
+      "rows_ge_4": {
+       "reported": false,
+       "n_benign": 51773,
+       "n_attack": 524,
+       "n_attack_vehicles": 14,
+       "auroc": null
+      },
+      "rows_1": {
+       "reported": true,
+       "n_benign": 3107,
+       "n_attack": 177460,
+       "n_attack_vehicles": 173,
+       "auroc": {
+        "ci": [
+         0.5,
+         0.5
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.5
+        ],
+        "mean": 0.5,
+        "std": null
+       }
+      },
+      "rows_2": {
+       "reported": true,
+       "n_benign": 2869,
+       "n_attack": 17591,
+       "n_attack_vehicles": 137,
+       "auroc": {
+        "ci": [
+         0.5,
+         0.5
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.5
+        ],
+        "mean": 0.5,
+        "std": null
+       }
+      },
+      "rows_3": {
+       "reported": true,
+       "n_benign": 2393,
+       "n_attack": 4251,
+       "n_attack_vehicles": 60,
+       "auroc": {
+        "ci": [
+         0.5,
+         0.5
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.5
+        ],
+        "mean": 0.5,
+        "std": null
+       }
+      },
+      "rows_4_16": {
+       "reported": false,
+       "n_benign": 23798,
+       "n_attack": 524,
+       "n_attack_vehicles": 14,
+       "auroc": null
+      },
+      "rows_ge_17": {
+       "reported": false,
+       "n_benign": 27975,
+       "n_attack": 0,
+       "n_attack_vehicles": 0,
+       "auroc": null
+      }
+     },
+     "sensitivity": {
+      "group_1416_only": {
+       "reported": true,
+       "n_benign": 12104,
+       "n_attack": 34134,
+       "n_attack_vehicles": 51,
+       "auroc": {
+        "ci": [
+         0.9648654681256642,
+         0.9758833490733426
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.9706142858647643
+        ],
+        "mean": 0.9706142858647643,
+        "std": null
+       }
+      },
+      "benign_without_GridSybil_0709": {
+       "reported": true,
+       "n_benign": 47652,
+       "n_attack": 199826,
+       "n_attack_vehicles": 173,
+       "auroc": {
+        "ci": [
+         0.9646635271637736,
+         0.9700633762184757
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.9674830034955897
+        ],
+        "mean": 0.9674830034955897,
+        "std": null
+       }
+      },
+      "benign_of_attack_family_folders": {
+       "reported": true,
+       "n_benign": 14881,
+       "n_attack": 199826,
+       "n_attack_vehicles": 173,
+       "auroc": {
+        "ci": [
+         0.963933656500312,
+         0.9694814593322603
+        ],
+        "ci_level": 0.95,
+        "undefined_resamples": 0,
+        "per_seed": [
+         0.9668235168440371
+        ],
+        "mean": 0.9668235168440371,
+        "std": null
+       }
+      }
+     }
+    }
+   }
+  }
+ ],
+ "paired_differences": {
+  "detector_minus_length_only": {},
+  "regime_minus_regime": {}
+ }
+}

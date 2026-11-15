@@ -1,0 +1,151 @@
+\section{Background and Related Work}
+\label{sec:background}
+
+\subsection{VeReMi-Extension and Its Sybil Attacks}
+
+VeReMi~\cite{heijden2018veremi} is a simulated dataset of receiver logs with five position-falsification attacks
+and no Sybil attack. VeReMi-Extension~\cite{kamel2020veremi}, generated with the F2MD
+framework~\cite{kamel2020simulation}, adds a sensor error model and further attacks, among them four Sybil attacks
+with the attacker codes A16 to A19. Each log belongs to one receiving vehicle and lists the messages it heard, with the
+position, speed, and acceleration claimed by the sender and the sender's pseudonym. In the data used here, each
+attack is recorded in two time windows (07--09 and 14--16), and a benign vehicle sends one message per second.
+
+The four attacks differ in what the attacker fabricates and in how it uses pseudonyms.\todo{Check the four
+descriptions against the attack definitions in \cite{kamel2020veremi} and the F2MD documentation; the wording below
+follows our own inspection of the logs.}
+\emph{GridSybil} (A16): the attacker broadcasts under several pseudonyms at the same time and claims positions a
+few meters apart, which a receiver sees as a group of slow vehicles; each pseudonym is kept for many messages.
+\emph{DataReplaySybil} (A17): the attacker re-broadcasts data taken from a genuine vehicle under a pseudonym that
+it changes after one or two messages. \emph{DoSRandomSybil} (A18): the attacker sends at a higher rate than
+normal, with random field values, and changes pseudonym with almost every message. \emph{DoSDisruptiveSybil}
+(A19): the attacker sends at a higher rate, with content taken from other vehicles' messages, again under
+pseudonyms used once or twice.
+
+Two properties of this data matter for evaluation. First, a receiver can group messages only by pseudonym. For
+A17 to A19 the sequence heard from one pseudonym is then one to three messages long in 95\% to 99.7\% of the
+windows used in this paper, against 20\% for GridSybil and about 14\% for benign traffic. A short pseudonym life
+is an observable signature of these attacks, and it is also a property that any sequence model can use without
+modeling motion. Grouping by the true sender identifier of the simulation, as some studies do, removes this effect
+and uses information that a receiver does not have. Second, neither dataset paper defines a train/test
+split~\cite{heijden2018veremi,kamel2020veremi}, and the authors of VeReMi caution against using the data as the
+sole basis for evaluating learned models~\cite{heijden2018veremi}. The successor dataset VeReMi NextGen ships
+training, validation, and test sets~\cite{hermann2026veremi}. We further find that the attack scenarios of one
+time window replay the same underlying traffic, so that a split made inside one scenario does not separate
+vehicles across scenarios (Section~\ref{sec:protocol}).
+
+The dataset paper reports a non-learned reference: plausibility and consistency checks combined by a fixed
+threshold, applied to each received message~\cite{kamel2020veremi}. We re-implemented this detector offline and
+obtain an F1 score within 0.05 of the published value on six of the eight Sybil subsets.\todo{Re-read Table~III of
+\cite{kamel2020veremi}; the published values were taken from our notes.} Because it scores messages and the
+detectors below score windows, it serves as context and is not part of the comparison.
+
+\subsection{Learning-Based Detection on VeReMi}
+
+Most learning-based detectors are supervised, as the survey by Boualouache and Engel
+observes~\cite{boualouache2023survey}; it adds that the ability of the unsupervised ones to detect unseen attacks
+is unverified, because they are evaluated on known attacks. Work on the original VeReMi addresses position
+falsification with classical classifiers, often on plausibility
+features~\cite{so2018integrating,sharma2021machine,ercan2022misbehavior,sharma2022machine,uprety2021privacy}.
+On VeReMi-Extension, LSTM and CNN classifiers over message sequences~\cite{alladi2021securing,alladi2023deep},
+a fine-tuned language model~\cite{hamhoum2024mistralbsm}, and recurrent networks on engineered
+features~\cite{youness2025vemisnet,mahesh2025hyperlstm} report accuracy or F1 of 0.95 to 0.998 over many classes.
+Lower values appear under more local or stricter settings: 0.68 to 0.80 when each vehicle learns from its own
+messages~\cite{demir2025distributed}, and an F-score of 0.48 to 0.49 on DoS Sybil variants that were not in
+training, 0.71 with knowledge transfer~\cite{sedar2024knowledge}.
+
+Sybil attacks are the sole target of few studies. Kamel et al.\ classify the Sybil type from misbehavior reports
+collected at a back-end authority~\cite{kamel2019misbehavior}; other work uses gradient boosting~\cite{fdil2024sybil}
+or a graph network on the authors' own extended data~\cite{tang2025deep}. Elsewhere the Sybil attacks are some
+classes among many, mostly the two DoS
+variants~\cite{hamhoum2024mistralbsm,sedar2024knowledge,baharlouei2024evaluating}, and one study excludes them by
+design~\cite{franceschini2025line}.
+
+Split practice is summarized in Table~\ref{tab:related}. Where a split is described, it is drawn over windows or
+sequences~\cite{youness2025vemisnet,franceschini2025line}, within each dataset or each vehicle's own
+log~\cite{baharlouei2024evaluating,campos2025federated,demir2025distributed}, or by time and by
+attack~\cite{sedar2024knowledge}; in many papers we could not find it. Among the papers we
+read, we found none that reports a length or message-rate control, and none that discusses pseudonym lifetimes of
+one or two messages.
+
+\begin{table*}[t]
+\caption{Closest prior work on VeReMi-Extension and this work. ``n.s.'': not stated in the text we could read;
+``--'': not applicable.}
+\label{tab:related}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\begin{tabular}{@{}L{2.4cm}L{2.1cm}L{3.5cm}L{2.9cm}L{2.8cm}L{2.2cm}@{}}
+\toprule
+Work & Learning setting & Unit & Split & Threshold source & Sybil evaluated \\
+\midrule
+Alladi et al.~\cite{alladi2021deep} & one-class (benign only) & 20 consecutive messages of one sender &
+85\% of benign sequences for training; by vehicle n.s. & maximum accuracy on labeled test data & A16--A19 \\
+PAMPOS~\cite{kalogiannis2026pampos} & one-class (benign only) & 10-message sliding window; sequences of
+$\geq$\,15 messages; decision per sender & by sender, 70/15/15 & percentile of benign validation scores &
+A16--A19 \\
+MistralBSM~\cite{hamhoum2024mistralbsm} & supervised & windows of 10--100 messages grouped by sender ID & n.s. &
+-- & A18, one of nine classes \\
+VeMisNet~\cite{youness2025vemisnet} & supervised & message sequence, length n.s. & stratified 80/20 over
+sequences & -- & among 20 classes; per attack n.s. \\
+ADVENT eval.~\cite{baharlouei2024evaluating} & supervised & per-vehicle time-windowed statistics & 70/30 of each
+dataset & n.s. & A18, A19 \\
+Sedar et al.~\cite{sedar2024knowledge} & reinforcement learning, label-derived rewards & time series of
+messages & by time and by attack & -- & A18, A19 (unseen) \\
+\midrule
+This work & benign only; unlabeled mix; supervised & receiver-side pseudonym link, up to 32 messages & by physical
+vehicle, 80/10/10 & percentile of validation scores & A16--A19, each separately \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Reconstruction-Based and One-Class Detection}
+
+One-class detectors are trained on benign sequences and flag inputs that they reconstruct or predict poorly.
+Alladi et al.\ reconstruct sequences of 20 messages with CNN-LSTM and stacked LSTM networks and report an accuracy
+of 0.98, with a recall of 0.98 to 1.0 on the four Sybil types; the threshold is the one with the highest accuracy
+on the labeled test sequences~\cite{alladi2021deep}. The journal extension of this work reports the same
+accuracy~\cite{alladi2021deepadv}. PAMPOS predicts the next message with a
+causal transformer, splits by sender, takes the threshold from benign validation senders, and reports an F1 of 0.94
+to 0.95 on A16 to A19; it requires sequences of at least 15 messages and decides per
+sender~\cite{kalogiannis2026pampos}.\todo{Re-check the values of \cite{alladi2021deep} and
+\cite{kalogiannis2026pampos} against the full texts before submission.} Further one-class or reconstruction models
+use LSTM autoencoders~\cite{vishwanath2026federated}, generative adversarial
+networks~\cite{zhong2023sybil,shahriar2024vehigan}, transformers~\cite{liu2023svmdformer}, and variational
+autoencoders with Gaussian mixtures~\cite{campos2025federated}; in one case the reconstruction errors are passed
+to an SVM that is fitted with labels~\cite{bao2026lstm}. In almost all of these, ``normal'' training data is
+benign data selected with the ground-truth labels. Training on an unlabeled mix is rare: an LSTM autoencoder with a
+Gaussian mixture model trained on mixed trajectory data reaches 51\% accuracy at its 99th-percentile threshold,
+which the authors compare to random guessing~\cite{wang2024anomaly}.
+
+Weak results are reported where an attack respects the physics of motion or replays valid data. In VehiGAN, every
+model is at chance on a constant position offset, and a plain autoencoder on engineered features has a higher
+average AUROC than the proposed ensemble~\cite{shahriar2024vehigan}; PAMPOS reports an F1 of 0.19 on the same
+attack~\cite{kalogiannis2026pampos}. On the in-vehicle CAN bus, a full replay is detected at a rate of 0.57
+because, as the authors note, replayed sequences are valid~\cite{longari2022candito}, and a plain window
+autoencoder detects 3\% of replayed sequences~\cite{hanselmann2020canet}. For V2X Sybil attacks, we found no
+comparable negative result and, to our knowledge, no study that compares several detectors under benign-only,
+unlabeled-mix, and supervised training on one split.
+
+\subsection{Warnings From Anomaly Detection and Security Research}
+
+Several effects examined in this paper are known in general. Unsupervised anomaly detection assumes that the
+training data is almost entirely normal; an autoencoder fits what is frequent in its training set, and methods for
+contaminated data assume that anomalies are a small
+minority~\cite{ruff2021unifying,pang2021deep,zhou2017anomaly,qiu2022latent}. Autoencoders and other generative
+models can reconstruct anomalies well or score out-of-distribution inputs as more normal than the training
+data~\cite{gong2019memorizing,yoon2021autoencoding,nalisnick2019deep,kirichenko2020normalizing,wang2019location}. Distances in a
+latent space depend on clean, compact normal data~\cite{ruff2018deep,denouden2018improving}, and a small number of
+labels can change results substantially~\cite{ruff2020deep,ruff2021rethinking,han2022adbench}. Models also exploit
+shortcuts, features that separate the classes in a dataset without reflecting the intended
+concept~\cite{geirhos2020shortcut,jacobs2022ai}.
+
+On the evaluation side, time-series anomaly benchmarks have been criticized for trivial problems and unrealistic
+anomaly density~\cite{wu2021current}, and simple baselines are often competitive with deep
+models~\cite{kim2022rigorous,audibert2022deep,sarfraz2024position,schmidl2022anomaly}. Security research lists
+sampling bias, data snooping, and inappropriate baselines among recurring
+pitfalls~\cite{arp2022dos,sommer2010outside,pendlebury2019tesseract,apruzzese2023sok}; leakage between training
+and test data is a documented source of irreproducible results~\cite{kapoor2023leakage}; and audits of intrusion
+detection datasets show that dataset defects change reported
+results~\cite{engelen2021troubleshooting,liu2022error,flood2024bad}. We do not present these effects as new. This
+paper measures whether, and how strongly, they occur for Sybil detection on VeReMi-Extension.

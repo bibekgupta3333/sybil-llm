@@ -13,6 +13,7 @@ The current project state is in the root [`agent.md`](../agent.md); file paths b
 | [`README.md`](../README.md) | live | front door: method, repo map, quick start |
 | [`docs/changelog.md`](changelog.md) | live | changelog entries older than the newest 10 in `agent.md` |
 | [`src/README.md`](../src/README.md) | live | code layout, run order, data format |
+| [`src/model/all_t32_benign/README.md`](../src/model/all_t32_benign/README.md) · [`PLAN.md`](../src/model/all_t32_benign/PLAN.md) | live | TimesNet one-class pretraining + evaluation on `all/T32_benign` for EC2: layout, EC2 runbook (npm `t32b:*`), rules kept; plan and fixes over model-all (X1, X9) |
 | [`src/agent.md`](../src/agent.md) | live | coding rules and per-task workflow for `src/` |
 
 ## Plan — `docs/plan/` (live)

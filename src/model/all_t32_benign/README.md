@@ -43,6 +43,7 @@ Runs: `src/runs/pretraining/all/T32_benign/model-t32b-seed<k>/` · evaluation: `
 | `npm run benign:pause` | writes `PAUSE` in the run folder: the run stops after the current update, evaluates, saves `last.pt` with the partial epoch (Ctrl+C / SIGTERM do the same; a second Ctrl+C interrupts at once) |
 | `npm run benign:resume` | continues the paused / stopped run at the next batch (no epoch or step logged twice) |
 | `npm run benign:eval` | one-class evaluation + random-init control + executes the notebook |
+| `npm run benign:fetch` | download a run + its evaluation folders from HF back to their local places, sha256-checked, never overwrites (`SEED=k`) |
 | `npm run benign:upload` | every file of the run folder + its evaluation folders → HF model repo `runs/<run_id>/`, `evaluations/<name>/`, each with SHA256SUMS (`src/pipeline/all_t32_benign/hub.py`) |
 
 Run folder `src/runs/pretraining/all/T32_benign/model-t32b-seed<k>/`: config.json, env.json (versions, git, GPU),

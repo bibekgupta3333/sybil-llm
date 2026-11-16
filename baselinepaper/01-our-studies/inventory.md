@@ -8,6 +8,16 @@ copied from a file on disk; the source is given per block. Machine-readable copy
 seed each; numbers copied from their test-metrics JSON files, nothing re-run). They fill the cells that were
 missing: benign-only at T = 48, unlabelled mix at T = 64, unlabelled mix at T = 32.
 
+**Updated 2026-11-16 (seed-3 reruns):** one extra seed (3) for five grid cells: S0 AE, C, D, F, G. Run on EC2 g4dn
+(Tesla T4, CUDA, torch 2.14.1+cu126, git 0c104ef, `git_dirty: false`), same config as the earlier runs except the seed.
+Each run was checked by an independent CPU recompute from `best.pt` (judge verdict; S0 / C / D / F PASS-WITH-NOTES,
+G PASS). Seed-0 numbers below are unchanged; each section gets a "Seed 3" block, and a summary table follows the
+cross-study table. Run folders (gitignored, on the EC2 host): `task/encoder/runs/ae-seed3`,
+`task/autoencoder_st/runs/seed3`, `task/autoencoder_benign_t32/runs/seed3`, `task/autoencoder_benign_t48/runs/seed3`,
+`task/autoencoder_t64/runs/seed3`; copies with logs, judge verdict and SHA256SUMS in the private HF model repo
+`bibekgupta3333/roadfm-lite-timesnet` under `baselines/<study>/seed3` (`baselines/encoder/ae-seed3`). A, E and H
+seed 3 are pending (their inputs are not on HF yet). Not an exact reproduction of seed 0 (different device and seed).
+
 **Where the numbers live (important for the paper):**
 
 - `task/encoder/` stores its test metrics in a file: `task/encoder/runs/evaluation/results.json`.
@@ -99,6 +109,17 @@ inverted in every seed (direction fixed before testing, reported as is); the fir
 (a protocol change after seeing results); no hyperparameter search; std is over 3 seeds only; CI covers
 test-vehicle sampling only. `runs/notebook-seed0/` is a one-notebook replication of seed 0 (AE 0.6546, supervised
 0.9259: identical to the package runs).
+
+**Seed 3 (AE only, 2026-11-16, EC2 T4)** — sources: `task/encoder/runs/ae-seed3/{config,env,summary}.json`;
+`task/encoder/runs/evaluation/results.json` as written on EC2 (`config.runs` = `[ae-seed3]`); judge verdict
+`baselines/encoder/ae-seed3/judge/verdict.md` (HF). 130 epochs, best val loss 0.12044 at epoch 125, early stopping
+(patience 5), 281.5 s wall, CUDA. Test: reconstruction AUROC **0.6615** (vehicle-bootstrap CI 0.637 – 0.683), PR-AUC
+0.807; val p95 precision / recall / F1 / FPR 0.890 / 0.205 / 0.333 / 0.051; Mahalanobis AUROC 0.3332, PR-AUC 0.598.
+Reconstruction AUROC by length bin ≤ 3 / 4–16 / 17–48 / 49–64: 0.555 / 0.660 / 0.717 / 0.755. Length-only 0.5348 and
+stats-LR 0.8549 unchanged (deterministic). Pooled over seeds 0–3 (judge, for information only): reconstruction
+0.6569 ± 0.0036, Mahalanobis 0.3224 ± 0.0147. Judge: PASS-WITH-NOTES. **Caution:** the EC2
+`runs/evaluation/results.json` holds seed 3 only, so its "mean ± std" has n = 1; it is not the 3-seed table above
+(that file is on the Mac).
 
 ---
 
@@ -210,6 +231,15 @@ Length-only AUROC (best direction) 0.5304. AUROC by real rows: 1–3 0.9170 (6,8
 **Caveats:** one seed, no CI; trained and tested on GridSybil only (nothing about unseen attacks); track ids hold the
 true sender (F13); val BCE plateaued from epoch 20 while train BCE kept falling (README).
 
+**Seed 3 (2026-11-16, EC2 T4)** — sources: `runs/seed3/{config,env,summary}.json`;
+`runs/seed3/autoencoder_st_T48.executed.ipynb` (cells 20, 28, 30, 36); judge verdict
+`baselines/autoencoder_st/seed3/judge/verdict.md` (HF). Best val AUROC 0.9244 at epoch 43; stop at 53; 2 LR halvings;
+460.5 s train / 531.5 s wall, CUDA. Test window: AUROC **0.9253**, PR-AUC 0.9695; val max-F1 θ 0.2556: precision /
+recall / F1 / benign FPR 0.9562 / 0.8406 / 0.8947 / 0.0778; val FPR-5% θ 0.3222: 0.9717 / 0.8278 / 0.8940 / 0.0487.
+Track max / mean AUROC 0.9245 / 0.9250. Length-only 0.5304; reconstruction error alone 0.4814. Judge: PASS-WITH-NOTES
+(benign FPR at the val max-F1 θ is 0.078 vs 0.051 for seed 0 because the val max-F1 θ fell lower; the FPR-5% θ gives
+0.049 on test).
+
 ---
 
 ## D. `task/autoencoder_benign_t32/` — one-class AE (benign only), all 8 folders, T = 32, four attacks tested
@@ -265,6 +295,18 @@ claimed_pos_y 0.783. The ≥ 4-row DoS windows have median normalised log_dtau 1
 the model there); F14 (GridSybil_0709 near-copies can straddle the split; **stated, not measured** for this split);
 F1 (benign traffic appears once per attack family, ≈ 4×, so benign windows are not independent); track ids hold the
 true sender (F13); 306 unknown-label GridSybil_0709 windows dropped when the input was built (`agent.md`).
+
+**Seed 3 (2026-11-16, EC2 T4)** — sources: `runs/seed3/{config,env,summary}.json`;
+`runs/seed3/autoencoder_benign_T32.executed.ipynb` (cells 27, 37, 43); judge verdict
+`baselines/autoencoder_benign_t32/seed3/judge/verdict.md` (HF). Best benign val masked MSE 0.10820 at epoch 170; stop
+at 180; 8 LR halvings; 1,913.8 s train / 1,999.0 s wall, CUDA; Mahalanobis cond 30.0. Test window AUROC
+reconstruction / Mahalanobis (seed 0 in brackets): GridSybil **0.730** / 0.508 (0.736 / 0.510), ≥ 4 rows 0.775 / 0.539;
+DataReplay 0.386 / 0.365 (0.391 / 0.336); DoSRandom 0.967 / 0.918 (0.973 / 0.837); DoSDisruptive 0.593 / 0.595
+(0.611 / 0.556). GridSybil recall @ val p95 / p99 (reconstruction) 0.298 / 0.180, Mahalanobis @ p95 0.142; benign
+test FPR @ val p95 0.048. Length-only unchanged (0.559 / 0.952 / 0.967 / 0.967). Judge: PASS-WITH-NOTES
+(reconstruction within 0.02 AUROC of seed 0 everywhere; Mahalanobis on z is seed-sensitive outside GridSybil, e.g.
+DoSRandom recall @ p95 0.555 vs 0.223; all values stay at or below the length-only reference, so only GridSybil beats
+the length shortcut, as before).
 
 ---
 
@@ -344,6 +386,15 @@ Track level (12,053 benign / 23,904 GridSybil tracks) AUROC max / mean: reconstr
 **Caveats:** one seed, no CI; normalisation fitted on benign train rows only (differs from T48 / T48_tvt); track ids
 hold the true sender (F13); precision / F1 at the thresholds are not in the file.
 
+**Seed 3 (2026-11-16, EC2 T4)** — sources: `runs/seed3/{config,env,summary}.json`; `runs/seed3/test_metrics.json`;
+judge verdict `baselines/autoencoder_benign_t48/seed3/judge/verdict.md` (HF). Best benign val masked MSE 0.14998 at
+epoch 126; stop at 136; 6 LR halvings; 392.2 s train / 426.9 s wall, CUDA; Mahalanobis cond 15.8. Test window:
+reconstruction AUROC **0.685** (1–3 rows 0.590, ≥ 4 rows 0.716), PR-AUC 0.826, val p95 recall / benign FPR 0.236 /
+0.045; Mahalanobis AUROC 0.454, PR-AUC 0.689, val p95 recall / FPR 0.111 / 0.045. Track max / mean: reconstruction
+0.672 / 0.675, Mahalanobis 0.436 / 0.435. Length-only 0.530 (unchanged). Judge: PASS-WITH-NOTES (all headline metrics
+within 0.02 of seed 0; Mahalanobis recall @ p95 0.111 vs 0.062, the latent score is seed-sensitive, AUROC still
+below 0.5).
+
 ---
 
 ## G. `task/autoencoder_t64/` — unlabelled AE (benign + GridSybil pooled), T = 64
@@ -378,6 +429,14 @@ tracks, 0 mixed-label) AUROC max / mean: reconstruction 0.481 / 0.480, Mahalanob
 
 **Caveats:** GridSybil is the majority of the fit windows and is treated as normal; one seed, no CI; early-stopping
 and plateau patience (10 / 5) differ from S0's (5 / 3); F13 for the track level.
+
+**Seed 3 (2026-11-16, EC2 T4)** — sources: `runs/seed3/{config,env,summary}.json`; `runs/seed3/results.json`; judge
+verdict `baselines/autoencoder_t64/seed3/judge/verdict.md` (HF). Best val masked MSE 0.14530 at epoch 117; stop at
+127; 6 LR halvings; 624.7 s train / 681.2 s wall, CUDA; `label_reads: []`. Test window: reconstruction AUROC **0.480**
+(1–3 rows 0.367, ≥ 4 rows 0.509), PR-AUC 0.659, val p95 precision / recall / F1 / benign FPR 0.648 / 0.045 / 0.084 /
+0.049; Mahalanobis AUROC 0.337, PR-AUC 0.593, val p95 recall / FPR 0.044 / 0.057. Track max / mean: reconstruction
+0.479 / 0.477, Mahalanobis 0.327 / 0.321. Length-only 0.535 (unchanged). Judge: PASS (every metric within 0.02 of
+seed 0; reading unchanged).
 
 ---
 
@@ -492,6 +551,18 @@ Other attacks (only D and P cover them):
 | DataReplay | 0.391 | 0.336 | 0.952 | 0.046 | 0.510 / 0.537 |
 | DoSRandom | 0.973 | 0.837 | 0.967 | 0.880 | 0.887 / 0.885 |
 | DoSDisruptive | 0.611 | 0.556 | 0.967 | 0.292 | 0.660 / 0.697 |
+
+**Seed-3 reruns (2026-11-16, EC2 T4)**, GridSybil vs benign, test, window AUROC; seed 0 (or S0's 3-seed mean) for
+comparison. Sources: the "Seed 3" block of each section; judge verdicts under `baselines/<study>/seed3/judge/` (HF).
+
+| Cell | Score | Seed 0 | Seed 3 | Judge |
+|---|---|---|---|---|
+| S0 one-class AE, T64 | recon / Mahalanobis | 0.655 ± 0.002 / 0.319 ± 0.016 (seeds 0–2) | 0.6615 / 0.3332 (seeds 0–3 pooled: 0.6569 ± 0.0036 / 0.3224 ± 0.0147) | PASS-WITH-NOTES |
+| C supervised AE, T48_tvt | head | 0.9289 | 0.9253 | PASS-WITH-NOTES |
+| D one-class AE, all/T32_benign | recon / Mahalanobis | 0.736 / 0.510 | 0.730 / 0.508 | PASS-WITH-NOTES |
+| F one-class AE, T48_benign | recon / Mahalanobis | 0.689 / 0.437 | 0.685 / 0.454 | PASS-WITH-NOTES |
+| G unlabelled AE, T64 | recon / Mahalanobis | 0.482 / 0.352 | 0.480 / 0.337 | PASS |
+| A, E, H | — | — | pending (inputs not on HF yet) | — |
 
 ---
 

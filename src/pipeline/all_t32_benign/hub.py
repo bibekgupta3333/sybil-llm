@@ -7,6 +7,7 @@ file of the run folder (history.jsonl, feature_history.jsonl, steps.jsonl, summa
 Usage (repo root):
     .venv-train/bin/python -m src.pipeline.all_t32_benign.hub upload --seed 0
     .venv-train/bin/python -m src.pipeline.all_t32_benign.hub upload --run-id model-t32b-short-seed0
+    .venv-train/bin/python -m src.pipeline.all_t32_benign.hub download --seed 0   (run + evaluations, sha256-checked)
 
 Repo layout: `runs/<run_id>/...` and `evaluations/<eval_folder>/...` in `$HF_MODEL_REPO`
 (default `bibekgupta3333/roadfm-lite-timesnet`, private).
@@ -102,6 +103,40 @@ class RunUploader:
         print(f"done: https://huggingface.co/{self.repo}/tree/main/runs/{self.run_id}", flush=True)
 
 
+def download(run_id: str, repo: str) -> None:
+    """Downloads `runs/<run_id>/` and its evaluation folders back to their local places and checks each SHA256SUMS."""
+    import shutil
+    import tempfile
+
+    from huggingface_hub import snapshot_download  # lazy, as in RunUploader.run
+
+    targets = {
+        f"runs/{run_id}": RUNS_ROOT / run_id,
+        f"evaluations/{run_id}": EVAL_ROOT / run_id,
+        f"evaluations/{run_id}-random-init": EVAL_ROOT / f"{run_id}-random-init",
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        snapshot_download(repo, repo_type="model", local_dir=tmp, allow_patterns=[f"{k}/*" for k in targets])
+        for prefix, dest in targets.items():
+            src = Path(tmp) / prefix
+            if not (src / SUMS).is_file():
+                print(f"skip {prefix}: not in {repo}", flush=True)
+                continue
+            for line in (src / SUMS).read_text().splitlines():
+                digest, rel = line.split("  ", 1)
+                h = hashlib.sha256()
+                with (src / rel).open("rb") as f:
+                    for block in iter(lambda: f.read(1 << 20), b""):
+                        h.update(block)
+                if h.hexdigest() != digest:
+                    raise SystemExit(f"sha256 mismatch: {prefix}/{rel}")
+            if dest.exists():
+                raise SystemExit(f"{dest} exists; move it away first (nothing overwritten)")
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(src, dest)
+            print(f"{prefix} -> {dest} (sha256 OK)", flush=True)
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = p.add_subparsers(dest="command", required=True)
@@ -109,8 +144,17 @@ def main(argv: list[str] | None = None) -> None:
     up.add_argument("--seed", type=int, default=0, help="run model-t32b-seed<seed> (default 0)")
     up.add_argument("--run-id", help="run folder name (overrides --seed)")
     up.add_argument("--repo", default=os.environ.get("HF_MODEL_REPO", DEFAULT_REPO))
+    down = sub.add_parser("download", help="download a run + its evaluation folders (sha256-checked)")
+    for q in (down,):
+        q.add_argument("--seed", type=int, default=0, help="run model-t32b-seed<seed> (default 0)")
+        q.add_argument("--run-id", help="run folder name (overrides --seed)")
+        q.add_argument("--repo", default=os.environ.get("HF_MODEL_REPO", DEFAULT_REPO))
     args = p.parse_args(argv)
-    RunUploader(args.run_id or f"model-t32b-seed{args.seed}", args.repo).run()
+    run_id = args.run_id or f"model-t32b-seed{args.seed}"
+    if args.command == "download":
+        download(run_id, args.repo)
+    else:
+        RunUploader(run_id, args.repo).run()
 
 
 if __name__ == "__main__":

@@ -312,6 +312,19 @@ npm run hf:download:all           # hf download into a temp dir, then hf_hub.py 
 npm run hf:download:grid
 ```
 
+**Folders with sub-folders (baseline reruns, T32 TimesNet run + evaluations)** — `scripts/hf_fetch.sh` (hf download
+into a temp dir, `hf_hub.py verify`, then copy; skips a non-empty local folder unless `FORCE=1`):
+
+```bash
+npm run hf:download:baselines     # all 5 seed-3 baseline cells -> task/<package>/runs/seed3 (encoder: ae-seed3)
+npm run hf:download:baselines:st  # one cell: :st  :benign-t32  :benign-t48  :t64  :encoder  (SEED=k, default 3)
+npm run hf:download:t32b          # runs/model-t32b-seed0 + evaluations/model-t32b-seed0{,-random-init} (SEED=k, default 0)
+```
+
+Each baseline folder holds the run files plus `console/` (runner logs), `judge/` (independent verdict) and
+`SHA256SUMS`; the encoder folder also has `evaluation_seed3_only/` (n = 1, not the multi-seed table) and
+`README_seed3.txt`. The package notebooks read the newest run folder, so after the download they show seed 3.
+
 - `hf_hub.py sums <run_dir>` writes `SHA256SUMS` for the files above; `hf_hub.py verify <dir> [--install-to <run_dir>]
   [--force]` checks a downloaded folder against it and only then copies it into the run folder.
 - `HF=` and `HF_MODEL_REPO=` override the `hf` binary and the repo for the `hf:*` commands.

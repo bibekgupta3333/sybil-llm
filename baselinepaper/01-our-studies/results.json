@@ -8,7 +8,8 @@
    "paths are relative to the repo root"
   ],
   "positive_class": "attack (GridSybil unless stated)",
-  "updated": "2026-11-11: added task/autoencoder_benign_t48, task/autoencoder_t64, task/autoencoder_t32 (one seed each; test metrics from their JSON files, not from notebooks)"
+  "updated": "2026-11-11: added task/autoencoder_benign_t48, task/autoencoder_t64, task/autoencoder_t32 (one seed each; test metrics from their JSON files, not from notebooks)",
+  "updated_2026-11-16": "added seed3_rerun (one extra seed, EC2 g4dn T4) to task/encoder (ae), task/autoencoder_st, task/autoencoder_benign_t32, task/autoencoder_benign_t48, task/autoencoder_t64; seed-0 entries unchanged; unlabelled T48 / T32 and supervised T32 seed 3 pending (inputs not yet on HF)"
  },
  "task/encoder": {
   "study": "task/encoder",
@@ -2009,6 +2010,211 @@
     1.7400676803724047,
     0.6420752093129872
    ]
+  },
+  "seed3_rerun": {
+   "run_id": "ae-seed3",
+   "seed": 3,
+   "date": "2026-11-16",
+   "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 0c104ef (clean); seed 0 ran on the Mac (MPS)",
+   "note": "one extra seed for the grid cell; same config as seed 0 except the seed; not an exact reproduction (different device and seed)",
+   "run": {
+    "summary": {
+     "source": "task/encoder/runs/ae-seed3/summary.json",
+     "value": {
+      "epochs_run": 130,
+      "best_epoch": 125,
+      "best_val_loss": 0.12044443744978328,
+      "stop_reason": "early_stopping (patience 5)",
+      "run_id": "ae-seed3",
+      "mode": "ae",
+      "seed": 3,
+      "model": "ConvAutoencoder",
+      "n_params": 80189,
+      "n_fit": 107924,
+      "n_val": 12149,
+      "n_val_benign": 12149,
+      "n_fit_benign_for_mahalanobis": 107924,
+      "n_test": 38426,
+      "fit_vehicles": 3263,
+      "val_vehicles": 362,
+      "label_reads": [
+       "train: select benign windows (one-class)",
+       "test: evaluation labels, read after every test score exists"
+      ],
+      "wall_seconds": 281.5,
+      "device": "cuda"
+     }
+    },
+    "config": {
+     "source": "task/encoder/runs/ae-seed3/config.json",
+     "value": {
+      "mode": "ae",
+      "seed": 3,
+      "data_dir": "src/data/encoder_input/benign_gridsybil/T64",
+      "runs_dir": "task/encoder/runs",
+      "cache_dir": "task/encoder/runs/cache",
+      "val_frac": 0.1,
+      "split_seed": 0,
+      "mask_channel": true,
+      "latent_dim": 16,
+      "channels": [
+       32,
+       64,
+       64
+      ],
+      "head_hidden": 32,
+      "lr": 0.001,
+      "weight_decay": 1e-05,
+      "batch_size": 256,
+      "max_epochs": 300,
+      "patience": 5,
+      "plateau_factor": 0.5,
+      "plateau_patience": 3,
+      "maha_ridge": 1e-06,
+      "device": "auto",
+      "eval_batch": 4096,
+      "max_windows": 0,
+      "log_feature_error": false
+     }
+    },
+    "env": {
+     "source": "task/encoder/runs/ae-seed3/env.json",
+     "value": {
+      "python": "3.14.5 (main, Jun  2 2026, 22:25:17) [Clang 22.1.3 ]",
+      "platform": "Linux-7.0.0-1014-aws-x86_64-with-glibc2.43",
+      "machine": "x86_64",
+      "torch": "2.14.1+cu126",
+      "numpy": "2.5.3",
+      "sklearn": "1.9.1",
+      "device": "cuda",
+      "mps_available": false,
+      "cuda_available": true,
+      "git_commit": "0c104ef27176b2fc15b4d01982d6054318c42434",
+      "git_dirty": false,
+      "argv": [
+       "/home/ubuntu/sybil-llm/task/encoder/train.py",
+       "--mode",
+       "ae",
+       "--seed",
+       "3",
+       "--epochs",
+       "300"
+      ],
+      "started": "2026-11-16T06:00:55"
+     }
+    }
+   },
+   "judge": {
+    "verdict": "PASS-WITH-NOTES",
+    "source": "/tmp/claude-0/-home-ubuntu-sybil-llm/b67ecbef-35c5-4afc-bc5f-5d3f2df46c62/scratchpad/judge/enc_ae_seed3/verdict.md",
+    "hf_copy": "baselines/encoder/ae-seed3/judge/verdict.md",
+    "method": "independent CPU recompute from best.pt (own data reader); test metrics equal the run's"
+   },
+   "hf": {
+    "repo": "hf://bibekgupta3333/roadfm-lite-timesnet (private model repo)",
+    "path": "baselines/encoder/ae-seed3",
+    "contents": "run files, console/ logs, judge/ verdict, SHA256SUMS; sha256 round trip verified"
+   },
+   "test": {
+    "source": "task/encoder/runs/evaluation/results.json as written on EC2 2026-11-16 (config.runs = [task/encoder/runs/ae-seed3])",
+    "note": "WARNING: the EC2 evaluation folder holds seed 3 only, so every mean +- std in that file has n = 1; it is NOT the 3-seed table of task/encoder/evaluation above (that came from the Mac). Only the seed-3 per_seed entries of the two AE scores are copied here (full stored precision); the deterministic baselines are unchanged (length 0.5348, stats-LR 0.8549)",
+    "per_seed": {
+     "ae:recon_error": {
+      "run_id": "ae-seed3",
+      "seed": 3,
+      "auroc": 0.6615115645304986,
+      "pr_auc": 0.8070257678000528,
+      "auroc_ci95_vehicle_bootstrap": [
+       0.6374928699147634,
+       0.6832897803797863
+      ],
+      "thresholds": {
+       "val_p95": {
+        "threshold": 0.374787837266922,
+        "precision": 0.8895653644512092,
+        "recall": 0.2047887872299007,
+        "f1": 0.332932464080005,
+        "fpr": 0.05125186406090574,
+        "confusion": {
+         "tn": 12088,
+         "fp": 653,
+         "fn": 20425,
+         "tp": 5260
+        }
+       },
+       "val_p99": {
+        "threshold": 0.5798590779304504,
+        "precision": 0.9566248729244324,
+        "recall": 0.10990850691064824,
+        "f1": 0.19716440843693253,
+        "fpr": 0.010046307197237266,
+        "confusion": {
+         "tn": 12613,
+         "fp": 128,
+         "fn": 22862,
+         "tp": 2823
+        }
+       }
+      },
+      "strata_auroc": {
+       "n<=3": 0.554588355470254,
+       "4-16": 0.6596229246836907,
+       "17-48": 0.7168216862036769,
+       "49-64": 0.7548791452136532
+      }
+     },
+     "ae:mahalanobis": {
+      "run_id": "ae-seed3",
+      "seed": 3,
+      "auroc": 0.3331691283660907,
+      "pr_auc": 0.598450999590543,
+      "auroc_ci95_vehicle_bootstrap": [
+       0.31570773185250534,
+       0.3529170481491099
+      ],
+      "thresholds": {
+       "val_p95": {
+        "threshold": 5.869342803955078,
+        "precision": 0.6633879781420765,
+        "recall": 0.04726494062682499,
+        "f1": 0.08824277666727239,
+        "fpr": 0.04834785338670434,
+        "confusion": {
+         "tn": 12125,
+         "fp": 616,
+         "fn": 24471,
+         "tp": 1214
+        }
+       },
+       "val_p99": {
+        "threshold": 7.282097816467285,
+        "precision": 0.8248081841432225,
+        "recall": 0.02511193303484524,
+        "f1": 0.048739940303018855,
+        "fpr": 0.010752688172043012,
+        "confusion": {
+         "tn": 12604,
+         "fp": 137,
+         "fn": 25040,
+         "tp": 645
+        }
+       }
+      },
+      "strata_auroc": {
+       "n<=3": 0.3205940707446172,
+       "4-16": 0.28781104723725637,
+       "17-48": 0.3085868357624374,
+       "49-64": 0.4408073174891808
+      }
+     }
+    },
+    "pooled_4_seeds_judge": {
+     "source": "/tmp/claude-0/-home-ubuntu-sybil-llm/b67ecbef-35c5-4afc-bc5f-5d3f2df46c62/scratchpad/judge/enc_ae_seed3/verdict.md",
+     "note": "seeds 0, 1, 2 (MPS) + 3 (CUDA), for information only; computed by the judge, not by evaluate.py",
+     "recon_auroc": "0.6569 +- 0.0036",
+     "mahalanobis_auroc": "0.3224 +- 0.0147"
+    }
+   }
   }
  },
  "task/autoencoder": {
@@ -3053,6 +3259,325 @@
     1.7390633245169886,
     0.6414984712401105
    ]
+  },
+  "seed3_rerun": {
+   "run_id": "seed3",
+   "seed": 3,
+   "date": "2026-11-16",
+   "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 0c104ef (clean); seed 0 ran on the Mac (MPS)",
+   "note": "one extra seed for the grid cell; same config as seed 0 except the seed; not an exact reproduction (different device and seed)",
+   "run": {
+    "summary": {
+     "source": "task/autoencoder_st/runs/seed3/summary.json",
+     "value": {
+      "run_id": "seed3",
+      "params": 72318,
+      "best_epoch": 43,
+      "best_val_auroc": 0.924418788265005,
+      "best_val": {
+       "loss": 0.4057116198683242,
+       "bce": 0.20266745978644138,
+       "recon": 0.20304416008188284,
+       "auroc": 0.924418788265005,
+       "pr_auc": 0.9672631928550257,
+       "f1": 0.8860732447331311,
+       "balanced_accuracy": 0.890910878208341
+      },
+      "epochs_run": 53,
+      "stop_reason": "early_stopping",
+      "lr_changes": [
+       {
+        "after_epoch": 41,
+        "from": 0.001,
+        "to": 0.0005
+       },
+       {
+        "after_epoch": 49,
+        "from": 0.0005,
+        "to": 0.00025
+       }
+      ],
+      "train_seconds": 460.5,
+      "train_windows": 316050,
+      "val_windows": 39332,
+      "train_tracks": 283212,
+      "val_tracks": 35028,
+      "class_counts": {
+       "train": {
+        "benign": 112890,
+        "gridsybil": 203160
+       },
+       "val": {
+        "benign": 13584,
+        "gridsybil": 25748
+       }
+      },
+      "pos_weight": 0.5556704075605434,
+      "thresholds": {
+       "window": {
+        "max_f1": {
+         "threshold": 0.25557902455329895,
+         "precision": 0.9514155735170708,
+         "recall": 0.836608668634457,
+         "f1": 0.890326313831656,
+         "balanced_accuracy": 0.8778155239520931,
+         "benign_fpr": 0.08097762073027091,
+         "confusion": {
+          "tn": 12484,
+          "fp": 1100,
+          "fn": 4207,
+          "tp": 21541
+         }
+        },
+        "benign_fpr_5pct": {
+         "threshold": 0.3222353011369702,
+         "precision": 0.9688915320920445,
+         "recall": 0.8225493242193569,
+         "f1": 0.8897431050055664,
+         "balanced_accuracy": 0.8862452157021401,
+         "benign_fpr": 0.05005889281507656,
+         "confusion": {
+          "tn": 12904,
+          "fp": 680,
+          "fn": 4569,
+          "tp": 21179
+         }
+        }
+       },
+       "track": {
+        "max": {
+         "max_f1": {
+          "threshold": 0.27043774724006653,
+          "precision": 0.9523308797756748,
+          "recall": 0.8338009644892591,
+          "f1": 0.8891330263434702,
+          "balanced_accuracy": 0.8779415691655659,
+          "benign_fpr": 0.07791782615812735,
+          "confusion": {
+           "tn": 11266,
+           "fp": 952,
+           "fn": 3791,
+           "tp": 19019
+          }
+         },
+         "benign_fpr_5pct": {
+          "threshold": 0.34284756332635846,
+          "precision": 0.9683878311258278,
+          "recall": 0.8205611573871109,
+          "f1": 0.8883667948170297,
+          "balanced_accuracy": 0.885276486370753,
+          "benign_fpr": 0.050008184645604845,
+          "confusion": {
+           "tn": 11607,
+           "fp": 611,
+           "fn": 4093,
+           "tp": 18717
+          }
+         }
+        },
+        "mean": {
+         "max_f1": {
+          "threshold": 0.25562208890914917,
+          "precision": 0.9493784186971655,
+          "recall": 0.837001315212626,
+          "f1": 0.8896551724137931,
+          "balanced_accuracy": 0.8768408114776504,
+          "benign_fpr": 0.08331969225732526,
+          "confusion": {
+           "tn": 11200,
+           "fp": 1018,
+           "fn": 3718,
+           "tp": 19092
+          }
+         },
+         "benign_fpr_5pct": {
+          "threshold": 0.3272594347596167,
+          "precision": 0.9684041783017893,
+          "recall": 0.8209995615957913,
+          "f1": 0.8886305400018981,
+          "balanced_accuracy": 0.8854956884750933,
+          "benign_fpr": 0.050008184645604845,
+          "confusion": {
+           "tn": 11607,
+           "fp": 611,
+           "fn": 4083,
+           "tp": 18727
+          }
+         }
+        }
+       }
+      },
+      "threshold_source": "val split",
+      "wall_seconds": 531.5,
+      "device": "cuda"
+     }
+    },
+    "config": {
+     "source": "task/autoencoder_st/runs/seed3/config.json",
+     "value": {
+      "data_dir": "src/data/encoder_input/benign_gridsybil/T48_tvt",
+      "runs_dir": "task/autoencoder_st/runs",
+      "seq_len": 48,
+      "n_features": 13,
+      "latent_dim": 16,
+      "head_hidden": 32,
+      "head_dropout": 0.2,
+      "recon_weight": 1.0,
+      "lr": 0.001,
+      "weight_decay": 1e-05,
+      "batch_size": 256,
+      "max_epochs": 100,
+      "grad_clip": 1.0,
+      "patience": 10,
+      "min_delta": 0.0001,
+      "plateau_factor": 0.5,
+      "plateau_patience": 5,
+      "target_fpr": 0.05,
+      "seed": 3,
+      "device": "auto",
+      "eval_batch": 4096,
+      "workers": 8,
+      "log_feature_error": false
+     }
+    },
+    "env": {
+     "source": "task/autoencoder_st/runs/seed3/env.json",
+     "value": {
+      "python": "3.14.5",
+      "torch": "2.14.1+cu126",
+      "numpy": "2.5.3",
+      "sklearn": "1.9.1",
+      "platform": "Linux-7.0.0-1014-aws-x86_64-with-glibc2.43",
+      "device": "cuda",
+      "git_commit": "0c104ef27176b2fc15b4d01982d6054318c42434",
+      "git_dirty": false,
+      "argv": [
+       "/home/ubuntu/sybil-llm/task/autoencoder_st/train.py",
+       "--seed",
+       "3"
+      ]
+     }
+    }
+   },
+   "judge": {
+    "verdict": "PASS-WITH-NOTES",
+    "source": "/tmp/claude-0/-home-ubuntu-sybil-llm/b67ecbef-35c5-4afc-bc5f-5d3f2df46c62/scratchpad/judge/aest_seed3/verdict.md",
+    "hf_copy": "baselines/autoencoder_st/seed3/judge/verdict.md",
+    "method": "independent CPU recompute from best.pt (own data reader); test metrics equal the run's"
+   },
+   "hf": {
+    "repo": "hf://bibekgupta3333/roadfm-lite-timesnet (private model repo)",
+    "path": "baselines/autoencoder_st/seed3",
+    "contents": "run files, console/ logs, judge/ verdict, SHA256SUMS; sha256 round trip verified"
+   },
+   "test": {
+    "source": "task/autoencoder_st/runs/seed3/autoencoder_st_T48.executed.ipynb (cells 20, 28, 30, 36)",
+    "note": "read from the stored cell output of the executed notebook (rounded as printed), same format as seed 0",
+    "metrics": {
+     "run": "seed3",
+     "params": 72318,
+     "best_epoch": 43,
+     "best_val_auroc": 0.9244,
+     "epochs_run": 53,
+     "stop_reason": "early_stopping",
+     "lr_changes": 2,
+     "train_minutes": 7.7,
+     "mixed_label_tracks": 0,
+     "window/max_f1": {
+      "auroc": 0.9253,
+      "pr_auc": 0.9695,
+      "θ": 0.2556,
+      "precision": 0.9562,
+      "recall": 0.8406,
+      "f1": 0.8947,
+      "balanced_accuracy": 0.8814,
+      "benign_fpr": 0.0778
+     },
+     "window/benign_fpr_5pct": {
+      "auroc": 0.9253,
+      "pr_auc": 0.9695,
+      "θ": 0.3222,
+      "precision": 0.9717,
+      "recall": 0.8278,
+      "f1": 0.894,
+      "balanced_accuracy": 0.8895,
+      "benign_fpr": 0.0487
+     },
+     "window/fixed 0.5": {
+      "auroc": 0.9253,
+      "pr_auc": 0.9695,
+      "θ": 0.5,
+      "precision": 0.9875,
+      "recall": 0.8096,
+      "f1": 0.8898,
+      "balanced_accuracy": 0.8944,
+      "benign_fpr": 0.0207
+     },
+     "track max/max_f1": {
+      "auroc": 0.9245,
+      "pr_auc": 0.9687,
+      "θ": 0.2704,
+      "precision": 0.957,
+      "recall": 0.8391,
+      "f1": 0.8942,
+      "balanced_accuracy": 0.8822,
+      "benign_fpr": 0.0748
+     },
+     "track max/benign_fpr_5pct": {
+      "auroc": 0.9245,
+      "pr_auc": 0.9687,
+      "θ": 0.3428,
+      "precision": 0.9714,
+      "recall": 0.8267,
+      "f1": 0.8933,
+      "balanced_accuracy": 0.8893,
+      "benign_fpr": 0.0482
+     },
+     "track max/fixed 0.5": {
+      "auroc": 0.9245,
+      "pr_auc": 0.9687,
+      "θ": 0.5,
+      "precision": 0.9859,
+      "recall": 0.8105,
+      "f1": 0.8896,
+      "balanced_accuracy": 0.8937,
+      "benign_fpr": 0.0231
+     },
+     "track mean/max_f1": {
+      "auroc": 0.925,
+      "pr_auc": 0.9689,
+      "θ": 0.2556,
+      "precision": 0.9542,
+      "recall": 0.841,
+      "f1": 0.8941,
+      "balanced_accuracy": 0.8805,
+      "benign_fpr": 0.08
+     },
+     "track mean/benign_fpr_5pct": {
+      "auroc": 0.925,
+      "pr_auc": 0.9689,
+      "θ": 0.3273,
+      "precision": 0.9713,
+      "recall": 0.8268,
+      "f1": 0.8932,
+      "balanced_accuracy": 0.8892,
+      "benign_fpr": 0.0484
+     },
+     "track mean/fixed 0.5": {
+      "auroc": 0.925,
+      "pr_auc": 0.9689,
+      "θ": 0.5,
+      "precision": 0.9877,
+      "recall": 0.8079,
+      "f1": 0.8888,
+      "balanced_accuracy": 0.894,
+      "benign_fpr": 0.02
+     }
+    },
+    "length_only_auroc": 0.5304,
+    "reconstruction_error_alone": 0.4814,
+    "judge_notes": "benign FPR at the val max-F1 threshold 0.0778 vs 0.0509 (seed 0): the val max-F1 threshold fell lower (0.2556 vs 0.3507), val benign FPR there already 0.081; the FPR-5% threshold gives 0.0487 on test"
+   }
   }
  },
  "task/autoencoder_benign_t32": {
@@ -3574,6 +4099,429 @@
     1.7542943899441954,
     0.3188474425143316
    ]
+  },
+  "seed3_rerun": {
+   "run_id": "seed3",
+   "seed": 3,
+   "date": "2026-11-16",
+   "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 0c104ef (clean); seed 0 ran on the Mac (MPS)",
+   "note": "one extra seed for the grid cell; same config as seed 0 except the seed; not an exact reproduction (different device and seed)",
+   "run": {
+    "summary": {
+     "source": "task/autoencoder_benign_t32/runs/seed3/summary.json",
+     "value": {
+      "run_id": "seed3",
+      "params": 63293,
+      "best_epoch": 170,
+      "best_val_loss": 0.1082037181198418,
+      "epochs_run": 180,
+      "stop_reason": "early_stopping",
+      "lr_changes": [
+       {
+        "after_epoch": 56,
+        "from": 0.001,
+        "to": 0.0005
+       },
+       {
+        "after_epoch": 76,
+        "from": 0.0005,
+        "to": 0.00025
+       },
+       {
+        "after_epoch": 114,
+        "from": 0.00025,
+        "to": 0.000125
+       },
+       {
+        "after_epoch": 134,
+        "from": 0.000125,
+        "to": 6.25e-05
+       },
+       {
+        "after_epoch": 143,
+        "from": 6.25e-05,
+        "to": 3.125e-05
+       },
+       {
+        "after_epoch": 162,
+        "from": 3.125e-05,
+        "to": 1.5625e-05
+       },
+       {
+        "after_epoch": 169,
+        "from": 1.5625e-05,
+        "to": 7.8125e-06
+       },
+       {
+        "after_epoch": 176,
+        "from": 7.8125e-06,
+        "to": 3.90625e-06
+       }
+      ],
+      "train_seconds": 1913.8,
+      "train_windows": 502773,
+      "val_windows": 65313,
+      "train_tracks": 401986,
+      "val_tracks": 52108,
+      "train_vehicles": 4206,
+      "val_vehicles": 524,
+      "mahalanobis": {
+       "cond": 30.02581984465446,
+       "shrinkage": 0.0
+      },
+      "thresholds": {
+       "window": {
+        "reconstruction": {
+         "p95": 0.38323959708213806,
+         "p99": 0.6860092282295227
+        },
+        "mahalanobis": {
+         "p95": 6.015030172678379,
+         "p99": 8.197767301744282
+        }
+       },
+       "track": {
+        "reconstruction_max": {
+         "p95": 0.4180587232112868,
+         "p99": 0.7273481291532516
+        },
+        "reconstruction_mean": {
+         "p95": 0.3631675988435741,
+         "p99": 0.6590105879306795
+        },
+        "mahalanobis_max": {
+         "p95": 6.300726986195296,
+         "p99": 8.47146734229465
+        },
+        "mahalanobis_mean": {
+         "p95": 5.934576410946264,
+         "p99": 7.819310228126514
+        }
+       }
+      },
+      "threshold_source": "benign val split",
+      "wall_seconds": 1999.0,
+      "device": "cuda"
+     }
+    },
+    "config": {
+     "source": "task/autoencoder_benign_t32/runs/seed3/config.json",
+     "value": {
+      "data_dir": "src/data/encoder_input/all/T32_benign",
+      "runs_dir": "task/autoencoder_benign_t32/runs",
+      "cache_dir": "task/autoencoder_benign_t32/cache",
+      "seq_len": 32,
+      "n_features": 13,
+      "latent_dim": 16,
+      "lr": 0.001,
+      "weight_decay": 1e-05,
+      "batch_size": 256,
+      "max_epochs": 300,
+      "patience": 10,
+      "plateau_factor": 0.5,
+      "plateau_patience": 5,
+      "min_delta": 0.0001,
+      "grad_clip": 1.0,
+      "threshold_quantiles": [
+       0.95,
+       0.99
+      ],
+      "mahalanobis_max_cond": 1000000.0,
+      "mahalanobis_shrinkage": 0.01,
+      "seed": 3,
+      "device": "auto",
+      "eval_batch": 4096,
+      "workers": 8,
+      "log_feature_error": false
+     }
+    },
+    "env": {
+     "source": "task/autoencoder_benign_t32/runs/seed3/env.json",
+     "value": {
+      "python": "3.14.5",
+      "torch": "2.14.1+cu126",
+      "numpy": "2.5.3",
+      "platform": "Linux-7.0.0-1014-aws-x86_64-with-glibc2.43",
+      "device": "cuda",
+      "git_commit": "0c104ef27176b2fc15b4d01982d6054318c42434",
+      "git_dirty": false,
+      "argv": [
+       "/home/ubuntu/sybil-llm/task/autoencoder_benign_t32/train.py",
+       "--seed",
+       "3"
+      ]
+     }
+    }
+   },
+   "judge": {
+    "verdict": "PASS-WITH-NOTES",
+    "source": "/tmp/claude-0/-home-ubuntu-sybil-llm/b67ecbef-35c5-4afc-bc5f-5d3f2df46c62/scratchpad/judge/aeb32_seed3/verdict.md",
+    "hf_copy": "baselines/autoencoder_benign_t32/seed3/judge/verdict.md",
+    "method": "independent CPU recompute from best.pt (own data reader); test metrics equal the run's"
+   },
+   "hf": {
+    "repo": "hf://bibekgupta3333/roadfm-lite-timesnet (private model repo)",
+    "path": "baselines/autoencoder_benign_t32/seed3",
+    "contents": "run files, console/ logs, judge/ verdict, SHA256SUMS; sha256 round trip verified"
+   },
+   "test": {
+    "source": "task/autoencoder_benign_t32/runs/seed3/autoencoder_benign_T32.executed.ipynb (cells 27, 37, 43)",
+    "note": "read from the stored cell output of the executed notebook (rounded as printed), same format as seed 0",
+    "metrics": {
+     "run": "seed3",
+     "params": 63293,
+     "best_epoch": 170,
+     "best_val_loss": 0.1082,
+     "epochs_run": 180,
+     "stop_reason": "early_stopping",
+     "lr_changes": 8,
+     "GridSybil/reconstruction/window": {
+      "AUROC": 0.73,
+      "AUROC (>= 4 rows)": 0.775,
+      "PR-AUC": 0.627,
+      "chance": 0.318,
+      "recall p95": 0.298,
+      "benign FPR p95": 0.048,
+      "recall p99": 0.18,
+      "benign FPR p99": 0.009
+     },
+     "GridSybil/reconstruction/track max": {
+      "AUROC": 0.707,
+      "PR-AUC": 0.594,
+      "chance": 0.325,
+      "recall p95": 0.255,
+      "benign FPR p95": 0.049,
+      "recall p99": 0.138,
+      "benign FPR p99": 0.009
+     },
+     "GridSybil/reconstruction/track mean": {
+      "AUROC": 0.715,
+      "PR-AUC": 0.608,
+      "chance": 0.325,
+      "recall p95": 0.277,
+      "benign FPR p95": 0.049,
+      "recall p99": 0.145,
+      "benign FPR p99": 0.008
+     },
+     "GridSybil/mahalanobis/window": {
+      "AUROC": 0.508,
+      "AUROC (>= 4 rows)": 0.539,
+      "PR-AUC": 0.414,
+      "chance": 0.318,
+      "recall p95": 0.142,
+      "benign FPR p95": 0.048,
+      "recall p99": 0.075,
+      "benign FPR p99": 0.01
+     },
+     "GridSybil/mahalanobis/track max": {
+      "AUROC": 0.479,
+      "PR-AUC": 0.38,
+      "chance": 0.325,
+      "recall p95": 0.109,
+      "benign FPR p95": 0.049,
+      "recall p99": 0.048,
+      "benign FPR p99": 0.009
+     },
+     "GridSybil/mahalanobis/track mean": {
+      "AUROC": 0.483,
+      "PR-AUC": 0.381,
+      "chance": 0.325,
+      "recall p95": 0.111,
+      "benign FPR p95": 0.049,
+      "recall p99": 0.051,
+      "benign FPR p99": 0.011
+     },
+     "GridSybil/length only (reference)/window": {
+      "AUROC": 0.559,
+      "PR-AUC": 0.367,
+      "chance": 0.318
+     },
+     "DataReplay/reconstruction/window": {
+      "AUROC": 0.386,
+      "AUROC (>= 4 rows)": 0.353,
+      "PR-AUC": 0.494,
+      "chance": 0.559,
+      "recall p95": 0.039,
+      "benign FPR p95": 0.048,
+      "recall p99": 0.022,
+      "benign FPR p99": 0.009
+     },
+     "DataReplay/reconstruction/track max": {
+      "AUROC": 0.346,
+      "PR-AUC": 0.528,
+      "chance": 0.613,
+      "recall p95": 0.036,
+      "benign FPR p95": 0.049,
+      "recall p99": 0.021,
+      "benign FPR p99": 0.009
+     },
+     "DataReplay/reconstruction/track mean": {
+      "AUROC": 0.362,
+      "PR-AUC": 0.539,
+      "chance": 0.613,
+      "recall p95": 0.041,
+      "benign FPR p95": 0.049,
+      "recall p99": 0.023,
+      "benign FPR p99": 0.008
+     },
+     "DataReplay/mahalanobis/window": {
+      "AUROC": 0.365,
+      "AUROC (>= 4 rows)": 0.282,
+      "PR-AUC": 0.471,
+      "chance": 0.559,
+      "recall p95": 0.013,
+      "benign FPR p95": 0.048,
+      "recall p99": 0.0,
+      "benign FPR p99": 0.01
+     },
+     "DataReplay/mahalanobis/track max": {
+      "AUROC": 0.322,
+      "PR-AUC": 0.503,
+      "chance": 0.613,
+      "recall p95": 0.009,
+      "benign FPR p95": 0.049,
+      "recall p99": 0.0,
+      "benign FPR p99": 0.009
+     },
+     "DataReplay/mahalanobis/track mean": {
+      "AUROC": 0.345,
+      "PR-AUC": 0.517,
+      "chance": 0.613,
+      "recall p95": 0.014,
+      "benign FPR p95": 0.049,
+      "recall p99": 0.0,
+      "benign FPR p99": 0.011
+     },
+     "DataReplay/length only (reference)/window": {
+      "AUROC": 0.952,
+      "PR-AUC": 0.934,
+      "chance": 0.559
+     },
+     "DoSRandom/reconstruction/window": {
+      "AUROC": 0.967,
+      "AUROC (>= 4 rows)": 1.0,
+      "PR-AUC": 0.989,
+      "chance": 0.769,
+      "recall p95": 0.851,
+      "benign FPR p95": 0.048,
+      "recall p99": 0.701,
+      "benign FPR p99": 0.009
+     },
+     "DoSRandom/reconstruction/track max": {
+      "AUROC": 0.962,
+      "PR-AUC": 0.99,
+      "chance": 0.806,
+      "recall p95": 0.835,
+      "benign FPR p95": 0.049,
+      "recall p99": 0.68,
+      "benign FPR p99": 0.009
+     },
+     "DoSRandom/reconstruction/track mean": {
+      "AUROC": 0.967,
+      "PR-AUC": 0.992,
+      "chance": 0.806,
+      "recall p95": 0.86,
+      "benign FPR p95": 0.049,
+      "recall p99": 0.715,
+      "benign FPR p99": 0.008
+     },
+     "DoSRandom/mahalanobis/window": {
+      "AUROC": 0.918,
+      "AUROC (>= 4 rows)": 0.995,
+      "PR-AUC": 0.961,
+      "chance": 0.769,
+      "recall p95": 0.555,
+      "benign FPR p95": 0.048,
+      "recall p99": 0.083,
+      "benign FPR p99": 0.01
+     },
+     "DoSRandom/mahalanobis/track max": {
+      "AUROC": 0.903,
+      "PR-AUC": 0.962,
+      "chance": 0.806,
+      "recall p95": 0.474,
+      "benign FPR p95": 0.049,
+      "recall p99": 0.054,
+      "benign FPR p99": 0.009
+     },
+     "DoSRandom/mahalanobis/track mean": {
+      "AUROC": 0.917,
+      "PR-AUC": 0.97,
+      "chance": 0.806,
+      "recall p95": 0.577,
+      "benign FPR p95": 0.049,
+      "recall p99": 0.14,
+      "benign FPR p99": 0.011
+     },
+     "DoSRandom/length only (reference)/window": {
+      "AUROC": 0.967,
+      "PR-AUC": 0.981,
+      "chance": 0.769
+     },
+     "DoSDisruptive/reconstruction/window": {
+      "AUROC": 0.593,
+      "AUROC (>= 4 rows)": 0.999,
+      "PR-AUC": 0.855,
+      "chance": 0.769,
+      "recall p95": 0.26,
+      "benign FPR p95": 0.048,
+      "recall p99": 0.17,
+      "benign FPR p99": 0.009
+     },
+     "DoSDisruptive/reconstruction/track max": {
+      "AUROC": 0.564,
+      "PR-AUC": 0.87,
+      "chance": 0.806,
+      "recall p95": 0.247,
+      "benign FPR p95": 0.049,
+      "recall p99": 0.161,
+      "benign FPR p99": 0.009
+     },
+     "DoSDisruptive/reconstruction/track mean": {
+      "AUROC": 0.578,
+      "PR-AUC": 0.876,
+      "chance": 0.806,
+      "recall p95": 0.268,
+      "benign FPR p95": 0.049,
+      "recall p99": 0.176,
+      "benign FPR p99": 0.008
+     },
+     "DoSDisruptive/mahalanobis/window": {
+      "AUROC": 0.595,
+      "AUROC (>= 4 rows)": 0.99,
+      "PR-AUC": 0.828,
+      "chance": 0.769,
+      "recall p95": 0.098,
+      "benign FPR p95": 0.048,
+      "recall p99": 0.003,
+      "benign FPR p99": 0.01
+     },
+     "DoSDisruptive/mahalanobis/track max": {
+      "AUROC": 0.559,
+      "PR-AUC": 0.841,
+      "chance": 0.806,
+      "recall p95": 0.072,
+      "benign FPR p95": 0.049,
+      "recall p99": 0.002,
+      "benign FPR p99": 0.009
+     },
+     "DoSDisruptive/mahalanobis/track mean": {
+      "AUROC": 0.581,
+      "PR-AUC": 0.854,
+      "chance": 0.806,
+      "recall p95": 0.106,
+      "benign FPR p95": 0.049,
+      "recall p99": 0.008,
+      "benign FPR p99": 0.011
+     },
+     "DoSDisruptive/length only (reference)/window": {
+      "AUROC": 0.967,
+      "PR-AUC": 0.981,
+      "chance": 0.769
+     }
+    },
+    "judge_notes": "reconstruction within 0.02 AUROC of seed 0 everywhere; Mahalanobis on z is seed-sensitive outside GridSybil (DoSRandom 0.918 vs 0.837, DoSDisruptive 0.595 vs 0.556, DataReplay 0.365 vs 0.336; DoSRandom recall @ p95 0.555 vs 0.223), all still at or below the length-only reference"
+   }
   }
  },
  "task/autoencoder_st_t32": {
@@ -5322,6 +6270,316 @@
     1.7540283070197795,
     0.319356001126132
    ]
+  },
+  "seed3_rerun": {
+   "run_id": "seed3",
+   "seed": 3,
+   "date": "2026-11-16",
+   "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 0c104ef (clean); seed 0 ran on the Mac (MPS)",
+   "note": "one extra seed for the grid cell; same config as seed 0 except the seed; not an exact reproduction (different device and seed)",
+   "run": {
+    "summary": {
+     "source": "task/autoencoder_benign_t48/runs/seed3/summary.json",
+     "value": {
+      "run_id": "seed3",
+      "params": 71741,
+      "best_epoch": 126,
+      "best_val_loss": 0.14998483398235565,
+      "epochs_run": 136,
+      "stop_reason": "early_stopping",
+      "lr_changes": [
+       {
+        "after_epoch": 89,
+        "from": 0.001,
+        "to": 0.0005
+       },
+       {
+        "after_epoch": 96,
+        "from": 0.0005,
+        "to": 0.00025
+       },
+       {
+        "after_epoch": 103,
+        "from": 0.00025,
+        "to": 0.000125
+       },
+       {
+        "after_epoch": 111,
+        "from": 0.000125,
+        "to": 6.25e-05
+       },
+       {
+        "after_epoch": 125,
+        "from": 6.25e-05,
+        "to": 3.125e-05
+       },
+       {
+        "after_epoch": 132,
+        "from": 3.125e-05,
+        "to": 1.5625e-05
+       }
+      ],
+      "train_seconds": 392.2,
+      "train_windows": 112890,
+      "val_windows": 13584,
+      "train_tracks": 101399,
+      "val_tracks": 12218,
+      "train_vehicles": 3223,
+      "val_vehicles": 402,
+      "mahalanobis": {
+       "cond": 15.839936382886542,
+       "shrinkage": 0.0
+      },
+      "thresholds": {
+       "window": {
+        "reconstruction": {
+         "p95": 0.4694674015045166,
+         "p99": 0.7877139449119568
+        },
+        "mahalanobis": {
+         "p95": 5.9365631486961155,
+         "p99": 7.570230810741148
+        }
+       },
+       "track": {
+        "reconstruction_max": {
+         "p95": 0.48346562832593915,
+         "p99": 0.802047697305679
+        },
+        "reconstruction_mean": {
+         "p95": 0.45700529664754863,
+         "p99": 0.7657677644491193
+        },
+        "mahalanobis_max": {
+         "p95": 6.031549758552127,
+         "p99": 7.683716010608494
+        },
+        "mahalanobis_mean": {
+         "p95": 5.736302007547816,
+         "p99": 7.349724607247351
+        }
+       }
+      },
+      "threshold_source": "benign val split",
+      "wall_seconds": 426.9,
+      "device": "cuda"
+     }
+    },
+    "config": {
+     "source": "task/autoencoder_benign_t48/runs/seed3/config.json",
+     "value": {
+      "data_dir": "src/data/encoder_input/benign_gridsybil/T48_benign",
+      "runs_dir": "task/autoencoder_benign_t48/runs",
+      "cache_dir": "task/autoencoder_benign_t48/cache",
+      "seq_len": 48,
+      "n_features": 13,
+      "latent_dim": 16,
+      "lr": 0.001,
+      "weight_decay": 1e-05,
+      "batch_size": 256,
+      "max_epochs": 300,
+      "patience": 10,
+      "plateau_factor": 0.5,
+      "plateau_patience": 5,
+      "min_delta": 0.0001,
+      "grad_clip": 1.0,
+      "threshold_quantiles": [
+       0.95,
+       0.99
+      ],
+      "mahalanobis_max_cond": 1000000.0,
+      "mahalanobis_shrinkage": 0.01,
+      "seed": 3,
+      "device": "auto",
+      "eval_batch": 4096,
+      "workers": 8,
+      "log_feature_error": false
+     }
+    },
+    "env": {
+     "source": "task/autoencoder_benign_t48/runs/seed3/env.json",
+     "value": {
+      "python": "3.14.5",
+      "torch": "2.14.1+cu126",
+      "numpy": "2.5.3",
+      "platform": "Linux-7.0.0-1014-aws-x86_64-with-glibc2.43",
+      "device": "cuda",
+      "git_commit": "0c104ef27176b2fc15b4d01982d6054318c42434",
+      "git_dirty": false,
+      "argv": [
+       "/home/ubuntu/sybil-llm/task/autoencoder_benign_t48/train.py",
+       "--seed",
+       "3"
+      ]
+     }
+    }
+   },
+   "judge": {
+    "verdict": "PASS-WITH-NOTES",
+    "source": "/tmp/claude-0/-home-ubuntu-sybil-llm/b67ecbef-35c5-4afc-bc5f-5d3f2df46c62/scratchpad/judge/aeb48_seed3/verdict.md",
+    "hf_copy": "baselines/autoencoder_benign_t48/seed3/judge/verdict.md",
+    "method": "independent CPU recompute from best.pt (own data reader); test metrics equal the run's"
+   },
+   "hf": {
+    "repo": "hf://bibekgupta3333/roadfm-lite-timesnet (private model repo)",
+    "path": "baselines/autoencoder_benign_t48/seed3",
+    "contents": "run files, console/ logs, judge/ verdict, SHA256SUMS; sha256 round trip verified"
+   },
+   "test": {
+    "source": "task/autoencoder_benign_t48/runs/seed3/test_metrics.json",
+    "value": {
+     "run_id": "seed3",
+     "windows": {
+      "val": 13584,
+      "test": 13405,
+      "test_gridsybil": 27064
+     },
+     "val_alarm_rate": {
+      "reconstruction": {
+       "p95": 0.05005889281507656,
+       "p99": 0.010011778563015312
+      },
+      "mahalanobis": {
+       "p95": 0.05005889281507656,
+       "p99": 0.010011778563015312
+      }
+     },
+     "positive": "GridSybil (test_gridsybil)",
+     "negative": "benign (test)",
+     "threshold_source": "benign val p95 / p99 from summary.json",
+     "tracks_in_both_splits": 0,
+     "window": {
+      "reconstruction": {
+       "n_benign": 13405,
+       "n_attack": 27064,
+       "chance": 0.6687588030344214,
+       "auroc": 0.6845119937842227,
+       "pr_auc": 0.8260065544432283,
+       "recall_p95": 0.23625480342890925,
+       "benign_fpr_p95": 0.044983215218202165,
+       "threshold_p95": 0.4694674015045166,
+       "recall_p99": 0.14849985220218742,
+       "benign_fpr_p99": 0.008131294293174189,
+       "threshold_p99": 0.7877139449119568,
+       "rows_1_3": {
+        "n_benign": 1846,
+        "n_attack": 5003,
+        "chance": 0.7304716016936779,
+        "auroc": 0.5903084368230633,
+        "pr_auc": 0.8005077854867462
+       },
+       "rows_ge_4": {
+        "n_benign": 11559,
+        "n_attack": 22061,
+        "chance": 0.6561867935752528,
+        "auroc": 0.7163104535447234,
+        "pr_auc": 0.8375319972769513
+       }
+      },
+      "mahalanobis": {
+       "n_benign": 13405,
+       "n_attack": 27064,
+       "chance": 0.6687588030344214,
+       "auroc": 0.453554903993165,
+       "pr_auc": 0.6891627417295035,
+       "recall_p95": 0.11051581436594739,
+       "benign_fpr_p95": 0.04475941812756434,
+       "threshold_p95": 5.9365631486961155,
+       "recall_p99": 0.05897132722435708,
+       "benign_fpr_p99": 0.007534502051473331,
+       "threshold_p99": 7.570230810741148,
+       "rows_1_3": {
+        "n_benign": 1846,
+        "n_attack": 5003,
+        "chance": 0.7304716016936779,
+        "auroc": 0.39579849056979677,
+        "pr_auc": 0.6890144106423354
+       },
+       "rows_ge_4": {
+        "n_benign": 11559,
+        "n_attack": 22061,
+        "chance": 0.6561867935752528,
+        "auroc": 0.47800154773805315,
+        "pr_auc": 0.6962732974454442
+       }
+      }
+     },
+     "track": {
+      "reconstruction_max": {
+       "n_benign": 12053,
+       "n_attack": 23904,
+       "chance": 0.6647940595711544,
+       "auroc": 0.6721408453166076,
+       "pr_auc": 0.8107655093582786,
+       "recall_p95": 0.20490294511378848,
+       "benign_fpr_p95": 0.04604662739566913,
+       "threshold_p95": 0.48346562832593915,
+       "recall_p99": 0.11567101740294511,
+       "benign_fpr_p99": 0.008545590309466522,
+       "threshold_p99": 0.802047697305679
+      },
+      "reconstruction_mean": {
+       "n_benign": 12053,
+       "n_attack": 23904,
+       "chance": 0.6647940595711544,
+       "auroc": 0.6748275736592211,
+       "pr_auc": 0.8138508391976441,
+       "recall_p95": 0.21268406961178046,
+       "benign_fpr_p95": 0.04646146187671119,
+       "threshold_p95": 0.45700529664754863,
+       "recall_p99": 0.11759538152610442,
+       "benign_fpr_p99": 0.007964822036007633,
+       "threshold_p99": 0.7657677644491193
+      },
+      "mahalanobis_max": {
+       "n_benign": 12053,
+       "n_attack": 23904,
+       "chance": 0.6647940595711544,
+       "auroc": 0.4364209166653616,
+       "pr_auc": 0.6640266481934882,
+       "recall_p95": 0.08316599732262382,
+       "benign_fpr_p95": 0.04305981913216626,
+       "threshold_p95": 6.031549758552127,
+       "recall_p99": 0.036646586345381524,
+       "benign_fpr_p99": 0.00730108686634033,
+       "threshold_p99": 7.683716010608494
+      },
+      "mahalanobis_mean": {
+       "n_benign": 12053,
+       "n_attack": 23904,
+       "chance": 0.6647940595711544,
+       "auroc": 0.43464169254800666,
+       "pr_auc": 0.6641612891322044,
+       "recall_p95": 0.08810240963855422,
+       "benign_fpr_p95": 0.04762299842362897,
+       "threshold_p95": 5.736302007547816,
+       "recall_p99": 0.036479250334672024,
+       "benign_fpr_p99": 0.007798888243590808,
+       "threshold_p99": 7.349724607247351
+      }
+     },
+     "length_only": {
+      "n_benign": 13405,
+      "n_attack": 27064,
+      "chance": 0.6687588030344214,
+      "auroc": 0.5304102406408593,
+      "pr_auc": 0.6972166360597998,
+      "rule": "score = -n_messages (shorter = more anomalous); fixed in advance, not chosen on test labels",
+      "sibling_convention": "task/autoencoder_benign_t32 uses the same score = -n_messages; no difference"
+     },
+     "share_rows_1_3": {
+      "benign": 0.13770980977247296,
+      "attack": 0.18485811409991132
+     },
+     "label_checks": {
+      "benign_test_vehicles": 401,
+      "attack_test_vehicles": 173,
+      "test_vehicles_in_train_or_val": 0
+     }
+    },
+    "note": "copied in full from the test-metrics file written by the study's evaluation script (full stored precision)",
+    "judge_notes": "all headline metrics within 0.02 of seed 0; Mahalanobis recall @ val p95 0.111 vs 0.062 (latent score seed-sensitive), Mahalanobis AUROC still below 0.5"
+   }
   }
  },
  "task/autoencoder_t64": {
@@ -6106,6 +7364,546 @@
     1.7400676803724047,
     0.6420752093129872
    ]
+  },
+  "seed3_rerun": {
+   "run_id": "seed3",
+   "seed": 3,
+   "date": "2026-11-16",
+   "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 0c104ef (clean); seed 0 ran on the Mac (MPS)",
+   "note": "one extra seed for the grid cell; same config as seed 0 except the seed; not an exact reproduction (different device and seed)",
+   "run": {
+    "summary": {
+     "source": "task/autoencoder_t64/runs/seed3/summary.json",
+     "value": {
+      "run_id": "seed3",
+      "params": 80189,
+      "best_epoch": 117,
+      "best_val_loss": 0.1452958104040005,
+      "epochs_run": 127,
+      "stop_reason": "early_stopping",
+      "lr_changes": [
+       {
+        "after_epoch": 60,
+        "from": 0.001,
+        "to": 0.0005
+       },
+       {
+        "after_epoch": 74,
+        "from": 0.0005,
+        "to": 0.00025
+       },
+       {
+        "after_epoch": 84,
+        "from": 0.00025,
+        "to": 0.000125
+       },
+       {
+        "after_epoch": 97,
+        "from": 0.000125,
+        "to": 6.25e-05
+       },
+       {
+        "after_epoch": 114,
+        "from": 6.25e-05,
+        "to": 3.125e-05
+       },
+       {
+        "after_epoch": 123,
+        "from": 3.125e-05,
+        "to": 1.5625e-05
+       }
+      ],
+      "train_seconds": 624.7,
+      "train_windows": 338001,
+      "fit_windows": 304733,
+      "val_windows": 33268,
+      "fit_vehicles": 4660,
+      "val_vehicles": 518,
+      "mahalanobis_fitted_on": "z of the fit windows (train minus the validation vehicles), both classes",
+      "thresholds": {
+       "window": {
+        "reconstruction": {
+         "p95": 0.3910793960094452,
+         "p99": 0.6022102236747742
+        },
+        "mahalanobis": {
+         "p95": 6.210696220397949,
+         "p99": 8.59034538269043
+        }
+       },
+       "track": {
+        "reconstruction_max": {
+         "p95": 0.39725087583065033,
+         "p99": 0.6081909477710717
+        },
+        "reconstruction_mean": {
+         "p95": 0.38448192179203033,
+         "p99": 0.5890968441963191
+        },
+        "mahalanobis_max": {
+         "p95": 6.018399953842163,
+         "p99": 8.221028900146482
+        },
+        "mahalanobis_mean": {
+         "p95": 5.724193334579468,
+         "p99": 7.497653436660762
+        }
+       }
+      },
+      "splits_opened": [
+       "train"
+      ],
+      "label_reads": [],
+      "wall_seconds": 681.2,
+      "device": "cuda"
+     }
+    },
+    "config": {
+     "source": "task/autoencoder_t64/runs/seed3/config.json",
+     "value": {
+      "data_dir": "src/data/encoder_input/benign_gridsybil/T64",
+      "runs_dir": "task/autoencoder_t64/runs",
+      "cache_dir": "task/encoder/runs/cache",
+      "val_frac": 0.1,
+      "split_seed": 0,
+      "latent_dim": 16,
+      "channels": [
+       32,
+       64,
+       64
+      ],
+      "lr": 0.001,
+      "weight_decay": 1e-05,
+      "batch_size": 256,
+      "max_epochs": 300,
+      "patience": 10,
+      "plateau_factor": 0.5,
+      "plateau_patience": 5,
+      "min_delta": 0.0,
+      "maha_ridge": 1e-06,
+      "threshold_quantiles": [
+       0.95,
+       0.99
+      ],
+      "seed": 3,
+      "device": "auto",
+      "eval_batch": 4096
+     }
+    },
+    "env": {
+     "source": "task/autoencoder_t64/runs/seed3/env.json",
+     "value": {
+      "python": "3.14.5 (main, Jun  2 2026, 22:25:17) [Clang 22.1.3 ]",
+      "platform": "Linux-7.0.0-1014-aws-x86_64-with-glibc2.43",
+      "machine": "x86_64",
+      "torch": "2.14.1+cu126",
+      "numpy": "2.5.3",
+      "sklearn": "1.9.1",
+      "device": "cuda",
+      "mps_available": false,
+      "cuda_available": true,
+      "git_commit": "0c104ef27176b2fc15b4d01982d6054318c42434",
+      "git_dirty": false,
+      "argv": [
+       "/home/ubuntu/sybil-llm/task/autoencoder_t64/train.py",
+       "--seed",
+       "3"
+      ],
+      "started": "2026-11-16T05:47:24"
+     }
+    }
+   },
+   "judge": {
+    "verdict": "PASS",
+    "source": "/tmp/claude-0/-home-ubuntu-sybil-llm/b67ecbef-35c5-4afc-bc5f-5d3f2df46c62/scratchpad/judge/aet64_seed3/verdict.md",
+    "hf_copy": "baselines/autoencoder_t64/seed3/judge/verdict.md",
+    "method": "independent CPU recompute from best.pt (own data reader); test metrics equal the run's"
+   },
+   "hf": {
+    "repo": "hf://bibekgupta3333/roadfm-lite-timesnet (private model repo)",
+    "path": "baselines/autoencoder_t64/seed3",
+    "contents": "run files, console/ logs, judge/ verdict, SHA256SUMS; sha256 round trip verified"
+   },
+   "test": {
+    "source": "task/autoencoder_t64/runs/seed3/results.json",
+    "value": {
+     "run": "seed3",
+     "note": "one seed, side experiment; GridSybil = positive; alarm = score >= threshold",
+     "training": {
+      "params": 80189,
+      "best_epoch": 117,
+      "best_val_loss": 0.1452958104040005,
+      "epochs_run": 127,
+      "stop_reason": "early_stopping",
+      "wall_seconds": 681.2,
+      "lr_halvings": 6
+     },
+     "training_set": {
+      "train": {
+       "windows": 338001,
+       "benign": 120073,
+       "gridsybil": 217928,
+       "gridsybil_share": 0.6447554888890862
+      },
+      "fit": {
+       "windows": 304733,
+       "benign": 107810,
+       "gridsybil": 196923,
+       "gridsybil_share": 0.6462148831928278
+      },
+      "val": {
+       "windows": 33268,
+       "benign": 12263,
+       "gridsybil": 21005,
+       "gridsybil_share": 0.6313875195382951
+      }
+     },
+     "test": {
+      "windows": 38426,
+      "benign": 12741,
+      "gridsybil": 25685,
+      "gridsybil_share": 0.6684276271274657
+     },
+     "window": {
+      "reconstruction": {
+       "auroc": 0.4800187262080756,
+       "pr_auc": 0.6591651842972901,
+       "thresholds": {
+        "val_p95": {
+         "threshold": 0.3910793960094452,
+         "precision": 0.647982062780269,
+         "recall": 0.04500681331516449,
+         "f1": 0.08416760712075429,
+         "benign_fpr": 0.04928969468644533,
+         "confusion": {
+          "tn": 12113,
+          "fp": 628,
+          "fn": 24529,
+          "tp": 1156
+         }
+        },
+        "val_p99": {
+         "threshold": 0.6022102236747742,
+         "precision": 0.7527777777777778,
+         "recall": 0.01055090519758614,
+         "f1": 0.02081013630255327,
+         "benign_fpr": 0.006985322973079036,
+         "confusion": {
+          "tn": 12652,
+          "fp": 89,
+          "fn": 25414,
+          "tp": 271
+         }
+        }
+       }
+      },
+      "mahalanobis": {
+       "auroc": 0.33699419517190365,
+       "pr_auc": 0.5925227429209998,
+       "thresholds": {
+        "val_p95": {
+         "threshold": 6.210696220397949,
+         "precision": 0.6091152815013405,
+         "recall": 0.04422814872493673,
+         "f1": 0.08246823956442831,
+         "benign_fpr": 0.057216858959265364,
+         "confusion": {
+          "tn": 12012,
+          "fp": 729,
+          "fn": 24549,
+          "tp": 1136
+         }
+        },
+        "val_p99": {
+         "threshold": 8.59034538269043,
+         "precision": 0.7954545454545454,
+         "recall": 0.008175978197391473,
+         "f1": 0.016185594820609658,
+         "benign_fpr": 0.004238285848834471,
+         "confusion": {
+          "tn": 12687,
+          "fp": 54,
+          "fn": 25475,
+          "tp": 210
+         }
+        }
+       }
+      }
+     },
+     "val_alarm_rate": {
+      "reconstruction": {
+       "p95": 0.0500180353492846,
+       "p99": 0.010009618852951785
+      },
+      "mahalanobis": {
+       "p95": 0.0500180353492846,
+       "p99": 0.010009618852951785
+      }
+     },
+     "length_only": {
+      "rule": "score = -n_messages (shorter = more anomalous), fixed before reading labels",
+      "auroc": 0.5348474970793584,
+      "pr_auc": 0.69854785587217
+     },
+     "strata_short_long": {
+      "1-3 rows": {
+       "windows": 6720,
+       "benign": 1822,
+       "gridsybil": 4898,
+       "auroc_reconstruction": 0.3674484175310248,
+       "auroc_mahalanobis": 0.2991271667595233,
+       "auroc_length_minus_n": 0.5050659132359407
+      },
+      ">=4 rows": {
+       "windows": 31706,
+       "benign": 10919,
+       "gridsybil": 20787,
+       "auroc_reconstruction": 0.509262659684399,
+       "auroc_mahalanobis": 0.34626985101191643,
+       "auroc_length_minus_n": 0.5156628609451177
+      }
+     },
+     "strata_encoder_bins": {
+      "n<=3": {
+       "windows": 6720,
+       "benign": 1822,
+       "gridsybil": 4898,
+       "auroc_reconstruction": 0.3674484175310248,
+       "auroc_mahalanobis": 0.2991271667595233,
+       "auroc_length_minus_n": 0.5050659132359407
+      },
+      "4-16": {
+       "windows": 15865,
+       "benign": 5236,
+       "gridsybil": 10629,
+       "auroc_reconstruction": 0.47338853818283017,
+       "auroc_mahalanobis": 0.2758623976622183,
+       "auroc_length_minus_n": 0.5360951606157562
+      },
+      "17-48": {
+       "windows": 11800,
+       "benign": 4452,
+       "gridsybil": 7348,
+       "auroc_reconstruction": 0.552380689490903,
+       "auroc_mahalanobis": 0.32432117203965016,
+       "auroc_length_minus_n": 0.49273798335698116
+      },
+      "49-64": {
+       "windows": 4041,
+       "benign": 1231,
+       "gridsybil": 2810,
+       "auroc_reconstruction": 0.5129476946382162,
+       "auroc_mahalanobis": 0.37978410631636467,
+       "auroc_length_minus_n": 0.4732594511304931
+      }
+     },
+     "track": {
+      "tracks": 35957,
+      "benign": 12053,
+      "gridsybil": 23904,
+      "mixed_label_tracks": 0,
+      "share_single_window": 0.9446561170286731,
+      "reconstruction_max": {
+       "auroc": 0.4785180973208356,
+       "pr_auc": 0.654833639789058,
+       "thresholds": {
+        "val_p95": {
+         "threshold": 0.39725087583065033,
+         "precision": 0.6414532459797498,
+         "recall": 0.045055220883534135,
+         "f1": 0.08419653676269398,
+         "benign_fpr": 0.04994607151746453,
+         "confusion": {
+          "tn": 11451,
+          "fp": 602,
+          "fn": 22827,
+          "tp": 1077
+         }
+        },
+        "val_p99": {
+         "threshold": 0.6081909477710717,
+         "precision": 0.7631578947368421,
+         "recall": 0.010918674698795181,
+         "f1": 0.02152932442464737,
+         "benign_fpr": 0.00672031859288144,
+         "confusion": {
+          "tn": 11972,
+          "fp": 81,
+          "fn": 23643,
+          "tp": 261
+         }
+        }
+       }
+      },
+      "reconstruction_mean": {
+       "auroc": 0.47739933016726327,
+       "pr_auc": 0.6527454965804644,
+       "thresholds": {
+        "val_p95": {
+         "threshold": 0.38448192179203033,
+         "precision": 0.6340144230769231,
+         "recall": 0.04413487282463186,
+         "f1": 0.08252503128911139,
+         "benign_fpr": 0.05052683979092342,
+         "confusion": {
+          "tn": 11444,
+          "fp": 609,
+          "fn": 22849,
+          "tp": 1055
+         }
+        },
+        "val_p99": {
+         "threshold": 0.5890968441963191,
+         "precision": 0.7080745341614907,
+         "recall": 0.009538152610441768,
+         "f1": 0.018822752414761,
+         "benign_fpr": 0.007798888243590808,
+         "confusion": {
+          "tn": 11959,
+          "fp": 94,
+          "fn": 23676,
+          "tp": 228
+         }
+        }
+       }
+      },
+      "mahalanobis_max": {
+       "auroc": 0.32666123161303084,
+       "pr_auc": 0.5791275135806593,
+       "thresholds": {
+        "val_p95": {
+         "threshold": 6.018399953842163,
+         "precision": 0.560989010989011,
+         "recall": 0.04271251673360107,
+         "f1": 0.07938112268698491,
+         "benign_fpr": 0.06629055007052186,
+         "confusion": {
+          "tn": 11254,
+          "fp": 799,
+          "fn": 22883,
+          "tp": 1021
+         }
+        },
+        "val_p99": {
+         "threshold": 8.221028900146482,
+         "precision": 0.6979166666666666,
+         "recall": 0.008408634538152611,
+         "f1": 0.016617063492063492,
+         "benign_fpr": 0.007218119970131918,
+         "confusion": {
+          "tn": 11966,
+          "fp": 87,
+          "fn": 23703,
+          "tp": 201
+         }
+        }
+       }
+      },
+      "mahalanobis_mean": {
+       "auroc": 0.3206132350414407,
+       "pr_auc": 0.5732552281468906,
+       "thresholds": {
+        "val_p95": {
+         "threshold": 5.724193334579468,
+         "precision": 0.5481927710843374,
+         "recall": 0.04187583668005355,
+         "f1": 0.07780800621842207,
+         "benign_fpr": 0.0684476893719406,
+         "confusion": {
+          "tn": 11228,
+          "fp": 825,
+          "fn": 22903,
+          "tp": 1001
+         }
+        },
+        "val_p99": {
+         "threshold": 7.497653436660762,
+         "precision": 0.6442577030812325,
+         "recall": 0.00962182061579652,
+         "f1": 0.018960471538683486,
+         "benign_fpr": 0.010536795818468432,
+         "confusion": {
+          "tn": 11926,
+          "fp": 127,
+          "fn": 23674,
+          "tp": 230
+         }
+        }
+       }
+      }
+     },
+     "per_feature": {
+      "claimed_pos_x": {
+       "benign_mean": 0.015100197866559029,
+       "gridsybil_mean": 0.030522583052515984,
+       "auroc": 0.5639593068455059
+      },
+      "claimed_pos_y": {
+       "benign_mean": 0.012409395538270473,
+       "gridsybil_mean": 0.03310220316052437,
+       "auroc": 0.6272686111860659
+      },
+      "rx_pos_x": {
+       "benign_mean": 0.016673333942890167,
+       "gridsybil_mean": 0.01916610077023506,
+       "auroc": 0.4929703442984263
+      },
+      "rx_pos_y": {
+       "benign_mean": 0.015955576673150063,
+       "gridsybil_mean": 0.021001344546675682,
+       "auroc": 0.5212361622750818
+      },
+      "claimed_vel_x": {
+       "benign_mean": 0.14309458434581757,
+       "gridsybil_mean": 0.03992181271314621,
+       "auroc": 0.25243856668084075
+      },
+      "claimed_vel_y": {
+       "benign_mean": 0.12189800292253494,
+       "gridsybil_mean": 0.03836287930607796,
+       "auroc": 0.2575731999183444
+      },
+      "rx_vel_x": {
+       "benign_mean": 0.11902276426553726,
+       "gridsybil_mean": 0.11051436513662338,
+       "auroc": 0.46783640227013024
+      },
+      "rx_vel_y": {
+       "benign_mean": 0.10526327043771744,
+       "gridsybil_mean": 0.09896528720855713,
+       "auroc": 0.4803770320103048
+      },
+      "claimed_acl_x": {
+       "benign_mean": 0.4217011630535126,
+       "gridsybil_mean": 0.30675646662712097,
+       "auroc": 0.43727700271641856
+      },
+      "claimed_acl_y": {
+       "benign_mean": 0.4097355306148529,
+       "gridsybil_mean": 0.39377090334892273,
+       "auroc": 0.4633919606777132
+      },
+      "range": {
+       "benign_mean": 0.019109034910798073,
+       "gridsybil_mean": 0.047589439898729324,
+       "auroc": 0.6409733921582315
+      },
+      "bearing": {
+       "benign_mean": 0.12088809907436371,
+       "gridsybil_mean": 0.16960671544075012,
+       "auroc": 0.5459255318029039
+      },
+      "log_dtau": {
+       "benign_mean": 0.14356856048107147,
+       "gridsybil_mean": 0.28757575154304504,
+       "auroc": 0.6156426495454574
+      }
+     },
+     "context_task_encoder_benign_only_T64": null
+    },
+    "note": "copied in full from the test-metrics file written by the study's evaluation script (full stored precision)",
+    "judge_notes": "every metric within 0.02 of seed 0; reading unchanged (reconstruction about chance, Mahalanobis below chance, both below the length rule)"
+   }
   }
  },
  "task/autoencoder_t32": {

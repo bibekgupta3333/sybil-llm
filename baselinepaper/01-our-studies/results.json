@@ -9,7 +9,8 @@
   ],
   "positive_class": "attack (GridSybil unless stated)",
   "updated": "2026-11-11: added task/autoencoder_benign_t48, task/autoencoder_t64, task/autoencoder_t32 (one seed each; test metrics from their JSON files, not from notebooks)",
-  "updated_2026-11-16": "added seed3_rerun (one extra seed, EC2 g4dn T4) to task/encoder (ae), task/autoencoder_st, task/autoencoder_benign_t32, task/autoencoder_benign_t48, task/autoencoder_t64; seed-0 entries unchanged; unlabelled T48 / T32 and supervised T32 seed 3 pending (inputs not yet on HF)"
+  "updated_2026-11-16": "added seed3_rerun (one extra seed, EC2 g4dn T4) to task/encoder (ae), task/autoencoder_st, task/autoencoder_benign_t32, task/autoencoder_benign_t48, task/autoencoder_t64; seed-0 entries unchanged; unlabelled T48 / T32 and supervised T32 seed 3 pending (inputs not yet on HF)",
+  "updated_2026-11-17": "added seed_reruns (seeds 1, 2 for all eight grid cells, seed 3 for task/autoencoder, task/autoencoder_t32, task/autoencoder_st_t32, seed 4 for task/encoder AE; EC2 g4dn T4, git 6b08c39, dirty = package.json only) and seed_summary (4 seeds per cell, task/encoder also seeds 0-4) per study; numbers from the judge CPU recomputes (HF baselines/<package>/seed<k>/judge/) and run summary.json; seed-0 entries and seed3_rerun unchanged; A / E / H seeds 1-3 trained on the EC2 rebuild of their inputs (verified equal to the Mac builds, no split change)"
  },
  "task/encoder": {
   "study": "task/encoder",
@@ -2215,6 +2216,135 @@
      "mahalanobis_auroc": "0.3224 +- 0.0147"
     }
    }
+  },
+  "seed_reruns": {
+   "ae-seed4": {
+    "run_id": "ae-seed4",
+    "seed": 4,
+    "date": "2026-11-17",
+    "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 6b08c39, git_dirty True (dirty = package.json npm lines only, per judge)",
+    "sources": {
+     "run_folder": "task/encoder/runs/ae-seed4/ (gitignored; EC2)",
+     "hf": "bibekgupta3333/roadfm-lite-timesnet: baselines/encoder/ae-seed4/",
+     "judge_verdict": "baselines/encoder/ae-seed4/judge/verdict.md (HF); test numbers below = judge CPU recompute (baselines/encoder/ae-seed4/judge/recompute.json or verdict table)"
+    },
+    "judge": "PASS-WITH-NOTES",
+    "training": {
+     "best_epoch": 109,
+     "best_val_loss": 0.12118626117655615,
+     "epochs_run": 114,
+     "stop_reason": "early_stopping (patience 5)",
+     "wall_seconds": 184.1,
+     "device": "cuda"
+    },
+    "test": {
+     "n_benign": 12741,
+     "n_attack": 25685,
+     "auroc_recon": 0.653176414175613,
+     "auroc_maha": 0.326886062641797,
+     "prauc_recon": 0.8010103420395484,
+     "prauc_maha": 0.5940437608642658,
+     "auroc_len": 0.5348474970793584,
+     "recon_p95": {
+      "precision": 0.8884022424667134,
+      "recall": 0.19743040685224839,
+      "f1": 0.3230656515783773,
+      "fpr": 0.04999607566125108
+     },
+     "recon_p99": {
+      "precision": 0.9586048294365658,
+      "recall": 0.0973720070079813,
+      "f1": 0.1767865978652718,
+      "fpr": 0.008476571697668942
+     },
+     "maha_p95": {
+      "precision": 0.6278795038393384,
+      "recall": 0.04138602297060541,
+      "f1": 0.07765359047410328,
+      "fpr": 0.04944666823640217
+     },
+     "maha_p99": {
+      "precision": 0.8095238095238095,
+      "recall": 0.021179676854195056,
+      "f1": 0.04127935652767766,
+      "fpr": 0.010046307197237266
+     },
+     "strata_recon": {
+      "<=3": 0.5327490913426436,
+      "4-16": 0.6498665473425149,
+      "17-48": 0.7129286819646666,
+      "49-64": 0.754718410226908
+     },
+     "strata_maha": {
+      "<=3": 0.29367628714693017,
+      "4-16": 0.26370411146523115,
+      "17-48": 0.3214852456322347,
+      "49-64": 0.41705959047269386
+     }
+    },
+    "note": "extra seed 4 (AE only); ae-seed4 on HF also holds evaluation_ae_seed34 = seeds 3 + 4 only (n = 2: recon 0.657 ± 0.006, Mahalanobis 0.330 ± 0.004), NOT the seeds 0-2 table"
+   }
+  },
+  "seed_summary": {
+   "note": "AE only; seeds 0-2 Mac MPS (evaluation results.json), 3-4 EC2 CUDA (judge recompute); pooled per-seed values, not an evaluation-script output",
+   "seeds_0_3": {
+    "auroc_recon": {
+     "n": 4,
+     "values": [
+      0.6545977413746021,
+      0.6580427011753016,
+      0.6535510666783579,
+      0.6615116027272939
+     ],
+     "mean": 0.6569,
+     "sd_sample": 0.0036,
+     "min": 0.6535510666783579,
+     "max": 0.6615116027272939
+    },
+    "auroc_maha": {
+     "n": 4,
+     "values": [
+      0.3333603904152507,
+      0.3022973706991497,
+      0.32079859659473736,
+      0.3331691023922699
+     ],
+     "mean": 0.3224,
+     "sd_sample": 0.0146,
+     "min": 0.3022973706991497,
+     "max": 0.3333603904152507
+    }
+   },
+   "seeds_0_4": {
+    "auroc_recon": {
+     "n": 5,
+     "values": [
+      0.6545977413746021,
+      0.6580427011753016,
+      0.6535510666783579,
+      0.6615116027272939,
+      0.653176414175613
+     ],
+     "mean": 0.6562,
+     "sd_sample": 0.0035,
+     "min": 0.653176414175613,
+     "max": 0.6615116027272939
+    },
+    "auroc_maha": {
+     "n": 5,
+     "values": [
+      0.3333603904152507,
+      0.3022973706991497,
+      0.32079859659473736,
+      0.3331691023922699,
+      0.326886062641797
+     ],
+     "mean": 0.3233,
+     "sd_sample": 0.0128,
+     "min": 0.3022973706991497,
+     "max": 0.3333603904152507
+    }
+   }
   }
  },
  "task/autoencoder": {
@@ -2454,6 +2584,168 @@
     1.7400676803724047,
     0.6420752093129872
    ]
+  },
+  "seed_reruns": {
+   "seed1": {
+    "run_id": "seed1",
+    "seed": 1,
+    "date": "2026-11-17",
+    "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 6b08c39, git_dirty True (dirty = package.json npm lines only, per judge)",
+    "sources": {
+     "run_folder": "task/autoencoder/runs/seed1/ (gitignored; EC2)",
+     "hf": "bibekgupta3333/roadfm-lite-timesnet: baselines/autoencoder/seed1/",
+     "judge_verdict": "baselines/autoencoder/seed1/judge/verdict.md (HF); test numbers below = judge CPU recompute (baselines/autoencoder/seed1/judge/recompute.json or verdict table)"
+    },
+    "judge": "PASS-WITH-NOTES",
+    "training": {
+     "best_epoch": 169,
+     "best_val_loss": 0.1304883538084965,
+     "epochs_run": 179,
+     "stop_reason": "early_stopping",
+     "train_seconds": 947.1,
+     "wall_seconds": 988.8,
+     "device": "cuda",
+     "lr_halvings": 9
+    },
+    "test": {
+     "positive": "GridSybil vs benign, test 40,469 windows",
+     "auroc": 0.4859249292957536,
+     "pr_auc": 0.6619059265252141,
+     "threshold_p95_val": 0.3744273066520683,
+     "precision": 0.640746500777605,
+     "recall": 0.045669524091043454,
+     "f1": 0.085261959783396,
+     "benign_fpr": 0.051697127937336815,
+     "confusion": {
+      "tn": 12712,
+      "fp": 693,
+      "fn": 25828,
+      "tp": 1236
+     },
+     "length_only_auroc": 0.5304102406408593,
+     "auroc_by_length": {
+      "<=3": 0.38820748720864984,
+      "4-16": 0.47823605812290526,
+      "17-32": 0.5514888543498045,
+      "33-48": 0.5326892826694531
+     },
+     "val_windows": 34975,
+     "val_vehicles": 518
+    },
+    "note": "val vehicles drawn with the run seed (val differs across seeds; test fixed); test metrics exist only in the executed notebook copy in the run folder; seeds 1-3 trained on the EC2 rebuild of T48 (verified equal to the Mac build)"
+   },
+   "seed2": {
+    "run_id": "seed2",
+    "seed": 2,
+    "date": "2026-11-17",
+    "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 6b08c39, git_dirty True (dirty = package.json npm lines only, per judge)",
+    "sources": {
+     "run_folder": "task/autoencoder/runs/seed2/ (gitignored; EC2)",
+     "hf": "bibekgupta3333/roadfm-lite-timesnet: baselines/autoencoder/seed2/",
+     "judge_verdict": "baselines/autoencoder/seed2/judge/verdict.md (HF); test numbers below = judge CPU recompute (baselines/autoencoder/seed2/judge/recompute.json or verdict table)"
+    },
+    "judge": "PASS-WITH-NOTES",
+    "training": {
+     "best_epoch": 157,
+     "best_val_loss": 0.13923815563446132,
+     "epochs_run": 167,
+     "stop_reason": "early_stopping",
+     "train_seconds": 905.4,
+     "wall_seconds": 946.9,
+     "device": "cuda",
+     "lr_halvings": 6
+    },
+    "test": {
+     "positive": "GridSybil vs benign, test 40,469 windows",
+     "auroc": 0.48495549472134125,
+     "pr_auc": 0.6621256066124065,
+     "threshold_p95_val": 0.37768405675888056,
+     "precision": 0.6537805571347356,
+     "recall": 0.04249187112030742,
+     "f1": 0.07979738403358429,
+     "benign_fpr": 0.04543080939947781,
+     "confusion": {
+      "tn": 12796,
+      "fp": 609,
+      "fn": 25914,
+      "tp": 1150
+     },
+     "length_only_auroc": 0.5304102406408593,
+     "auroc_by_length": {
+      "<=3": 0.36995825256741943,
+      "4-16": 0.47601821417225043,
+      "17-32": 0.5558499959849033,
+      "33-48": 0.5371479651412098
+     },
+     "val_windows": 33185,
+     "val_vehicles": 518
+    },
+    "note": "val vehicles drawn with the run seed (val differs across seeds; test fixed); test metrics exist only in the executed notebook copy in the run folder; seeds 1-3 trained on the EC2 rebuild of T48 (verified equal to the Mac build)"
+   },
+   "seed3": {
+    "run_id": "seed3",
+    "seed": 3,
+    "date": "2026-11-17",
+    "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 6b08c39, git_dirty True (dirty = package.json npm lines only, per judge)",
+    "sources": {
+     "run_folder": "task/autoencoder/runs/seed3/ (gitignored; EC2)",
+     "hf": "bibekgupta3333/roadfm-lite-timesnet: baselines/autoencoder/seed3/",
+     "judge_verdict": "baselines/autoencoder/seed3/judge/verdict.md (HF); test numbers below = judge CPU recompute (baselines/autoencoder/seed3/judge/recompute.json or verdict table)"
+    },
+    "judge": "PASS-WITH-NOTES",
+    "training": {
+     "best_epoch": 152,
+     "best_val_loss": 0.12886366678592714,
+     "epochs_run": 162,
+     "stop_reason": "early_stopping",
+     "train_seconds": 956.9,
+     "wall_seconds": 1018.4,
+     "device": "cuda",
+     "lr_halvings": 7
+    },
+    "test": {
+     "positive": "GridSybil vs benign, test 40,469 windows",
+     "auroc": 0.48560381498073335,
+     "pr_auc": 0.6617670753285141,
+     "threshold_p95_val": 0.3693523406982422,
+     "precision": 0.6496062992125984,
+     "recall": 0.048773278155483296,
+     "f1": 0.09073412152873246,
+     "benign_fpr": 0.053114509511376355,
+     "confusion": {
+      "tn": 12693,
+      "fp": 712,
+      "fn": 25744,
+      "tp": 1320
+     },
+     "length_only_auroc": 0.5304102406408593,
+     "auroc_by_length": {
+      "<=3": 0.3798571344733788,
+      "4-16": 0.4757473079977649,
+      "17-32": 0.5521556523326276,
+      "33-48": 0.538426526322443
+     },
+     "val_windows": 34881,
+     "val_vehicles": 518
+    },
+    "note": "val vehicles drawn with the run seed (val differs across seeds; test fixed); test metrics exist only in the executed notebook copy in the run folder; seeds 1-3 trained on the EC2 rebuild of T48 (verified equal to the Mac build)"
+   }
+  },
+  "seed_summary": {
+   "note": "seeds 0-3; seed 0 = Mac MPS (rounded notebook value), seeds 1-3 = EC2 CUDA; sd = sample sd",
+   "auroc_recon": {
+    "n": 4,
+    "values": [
+     0.484,
+     0.4859249292957536,
+     0.48495549472134125,
+     0.48560381498073335
+    ],
+    "mean": 0.4851,
+    "sd_sample": 0.0008,
+    "min": 0.484,
+    "max": 0.4859249292957536
+   }
   }
  },
  "task/autoencoder_overlap": {
@@ -3578,6 +3870,182 @@
     "reconstruction_error_alone": 0.4814,
     "judge_notes": "benign FPR at the val max-F1 threshold 0.0778 vs 0.0509 (seed 0): the val max-F1 threshold fell lower (0.2556 vs 0.3507), val benign FPR there already 0.081; the FPR-5% threshold gives 0.0487 on test"
    }
+  },
+  "seed_reruns": {
+   "seed1": {
+    "run_id": "seed1",
+    "seed": 1,
+    "date": "2026-11-17",
+    "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 6b08c39, git_dirty True (dirty = package.json npm lines only, per judge)",
+    "sources": {
+     "run_folder": "task/autoencoder_st/runs/seed1/ (gitignored; EC2)",
+     "hf": "bibekgupta3333/roadfm-lite-timesnet: baselines/autoencoder_st/seed1/",
+     "judge_verdict": "baselines/autoencoder_st/seed1/judge/verdict.md (HF); test numbers below = judge CPU recompute (baselines/autoencoder_st/seed1/judge/recompute.json or verdict table)"
+    },
+    "judge": "PASS-WITH-NOTES",
+    "training": {
+     "best_epoch": 39,
+     "best_val_auroc": 0.924925646048326,
+     "epochs_run": 49,
+     "stop_reason": "early_stopping",
+     "train_seconds": 397.9,
+     "wall_seconds": 450.8,
+     "device": "cuda",
+     "lr_halvings": 2
+    },
+    "test": {
+     "auroc": 0.9295865779299111,
+     "pr_auc": 0.9712234762983585,
+     "window/max_f1": {
+      "t": 0.23729068040847778,
+      "precision": 0.9628348449694157,
+      "recall": 0.843334318652084,
+      "f1": 0.8991313596879986,
+      "fpr": 0.06572174561730698,
+      "tn": 12524,
+      "fp": 881,
+      "fn": 4240,
+      "tp": 22824
+     },
+     "window/benign_fpr_5pct": {
+      "t": 0.28030759096145613,
+      "precision": 0.9746315743982021,
+      "recall": 0.8332840673958025,
+      "f1": 0.8984323645997252,
+      "fpr": 0.043789630734800446,
+      "tn": 12818,
+      "fp": 587,
+      "fn": 4512,
+      "tp": 22552
+     },
+     "track_auroc_max_mean": [
+      0.927937,
+      0.928748
+     ]
+    },
+    "note": "test metrics exist only in the executed notebook copy (RUN pinned to the seed folder; task/encoder results.json set aside during execution, restored, sha256 equal)"
+   },
+   "seed2": {
+    "run_id": "seed2",
+    "seed": 2,
+    "date": "2026-11-17",
+    "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 6b08c39, git_dirty True (dirty = package.json npm lines only, per judge)",
+    "sources": {
+     "run_folder": "task/autoencoder_st/runs/seed2/ (gitignored; EC2)",
+     "hf": "bibekgupta3333/roadfm-lite-timesnet: baselines/autoencoder_st/seed2/",
+     "judge_verdict": "baselines/autoencoder_st/seed2/judge/verdict.md (HF); test numbers below = judge CPU recompute (baselines/autoencoder_st/seed2/judge/recompute.json or verdict table)"
+    },
+    "judge": "PASS-WITH-NOTES",
+    "training": {
+     "best_epoch": 37,
+     "best_val_auroc": 0.9245487542184254,
+     "epochs_run": 47,
+     "stop_reason": "early_stopping",
+     "train_seconds": 371.5,
+     "wall_seconds": 426.3,
+     "device": "cuda",
+     "lr_halvings": 2
+    },
+    "test": {
+     "auroc": 0.9273442836205292,
+     "pr_auc": 0.9703225910955366,
+     "window/max_f1": {
+      "t": 0.35380372405052185,
+      "precision": 0.9778030236826007,
+      "recall": 0.8268548625480343,
+      "f1": 0.8960160160160161,
+      "fpr": 0.03789630734800448,
+      "tn": 12897,
+      "fp": 508,
+      "fn": 4686,
+      "tp": 22378
+     },
+     "window/benign_fpr_5pct": {
+      "t": 0.35132463127374636,
+      "precision": 0.9771745297429407,
+      "recall": 0.8272982559858114,
+      "f1": 0.8960121655961742,
+      "fpr": 0.039015292801193584,
+      "tn": 12882,
+      "fp": 523,
+      "fn": 4674,
+      "tp": 22390
+     },
+     "track_auroc_max_mean": [
+      0.925957,
+      0.926648
+     ]
+    },
+    "note": "test metrics exist only in the executed notebook copy (RUN pinned to the seed folder; task/encoder results.json set aside during execution, restored, sha256 equal)"
+   }
+  },
+  "seed_summary": {
+   "note": "seeds 0-3 (seed 3 from seed3_rerun / its verdict table: 0.925294); judge: report the val FPR-5% operating point as headline, max-F1 with its spread (val max-F1 θ swings 0.24-0.35, test benign FPR 0.038-0.078)",
+   "auroc": {
+    "n": 4,
+    "values": [
+     0.9289,
+     0.9295865779299111,
+     0.9273442836205292,
+     0.925294
+    ],
+    "mean": 0.9278,
+    "sd_sample": 0.0019,
+    "min": 0.925294,
+    "max": 0.9295865779299111
+   },
+   "f1_at_val_fpr5": {
+    "n": 4,
+    "values": [
+     0.8984,
+     0.8984323645997252,
+     0.8960121655961742,
+     0.894
+    ],
+    "mean": 0.8967,
+    "sd_sample": 0.0021,
+    "min": 0.894,
+    "max": 0.8984323645997252
+   },
+   "recall_at_val_fpr5": {
+    "n": 4,
+    "values": [
+     0.8334,
+     0.8332840673958025,
+     0.8272982559858114,
+     0.8278
+    ],
+    "mean": 0.8304,
+    "sd_sample": 0.0034,
+    "min": 0.8272982559858114,
+    "max": 0.8334
+   },
+   "benign_fpr_at_val_fpr5": {
+    "n": 4,
+    "values": [
+     0.044,
+     0.043789630734800446,
+     0.039015292801193584,
+     0.0487
+    ],
+    "mean": 0.0439,
+    "sd_sample": 0.004,
+    "min": 0.039015292801193584,
+    "max": 0.0487
+   },
+   "benign_fpr_at_val_maxf1": {
+    "n": 4,
+    "values": [
+     0.0509,
+     0.06572174561730698,
+     0.03789630734800448,
+     0.0778
+    ],
+    "mean": 0.0581,
+    "sd_sample": 0.0174,
+    "min": 0.03789630734800448,
+    "max": 0.0778
+   }
   }
  },
  "task/autoencoder_benign_t32": {
@@ -4522,6 +4990,303 @@
     },
     "judge_notes": "reconstruction within 0.02 AUROC of seed 0 everywhere; Mahalanobis on z is seed-sensitive outside GridSybil (DoSRandom 0.918 vs 0.837, DoSDisruptive 0.595 vs 0.556, DataReplay 0.365 vs 0.336; DoSRandom recall @ p95 0.555 vs 0.223), all still at or below the length-only reference"
    }
+  },
+  "seed_reruns": {
+   "seed1": {
+    "run_id": "seed1",
+    "seed": 1,
+    "date": "2026-11-17",
+    "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 6b08c39, git_dirty True (dirty = package.json npm lines only, per judge)",
+    "sources": {
+     "run_folder": "task/autoencoder_benign_t32/runs/seed1/ (gitignored; EC2)",
+     "hf": "bibekgupta3333/roadfm-lite-timesnet: baselines/autoencoder_benign_t32/seed1/",
+     "judge_verdict": "baselines/autoencoder_benign_t32/seed1/judge/verdict.md (HF); test numbers below = judge CPU recompute (baselines/autoencoder_benign_t32/seed1/judge/recompute.json or verdict table)"
+    },
+    "judge": "PASS-WITH-NOTES",
+    "training": {
+     "best_epoch": 181,
+     "best_val_loss": 0.10501518917119115,
+     "epochs_run": 191,
+     "stop_reason": "early_stopping",
+     "train_seconds": 2027.5,
+     "wall_seconds": 2050.5,
+     "device": "cuda",
+     "lr_halvings": 8
+    },
+    "test": {
+     "per_attack_vs_benign_test": {
+      "test_gridsybil": {
+       "n": 28087,
+       "src": "raw",
+       "auroc_recon": 0.7321896955880198,
+       "auroc_maha": 0.487260417017805,
+       "auroc_len": 0.5586360565086337,
+       "recall_p95_recon": 0.2997472140136006,
+       "recall_p95_maha": 0.10549364474667997,
+       "recall_p99_recon": 0.18093780040588173,
+       "auroc4_recon": 0.7753877367696413,
+       "auroc4_maha": 0.5151090862612693,
+       "n4_attack": 22365
+      },
+      "test_datareplay": {
+       "n": 76283,
+       "src": "cache",
+       "auroc_recon": 0.37458204212111135,
+       "auroc_maha": 0.32674258082630236,
+       "auroc_len": 0.9515067811234938,
+       "recall_p95_recon": 0.03320530131221897,
+       "recall_p95_maha": 0.010303737398896215,
+       "recall_p99_recon": 0.01869354902140713,
+       "auroc4_recon": 0.34163169427998696,
+       "auroc4_maha": 0.24035582608460868,
+       "n4_attack": 3883
+      },
+      "test_dosrandom": {
+       "n": 199834,
+       "src": "cache",
+       "auroc_recon": 0.9598859577392569,
+       "auroc_maha": 0.8736197632941596,
+       "auroc_len": 0.9674642102940453,
+       "recall_p95_recon": 0.8298838035569522,
+       "recall_p95_maha": 0.31601229020086674,
+       "recall_p99_recon": 0.6885514977431269,
+       "auroc4_recon": 1.0,
+       "auroc4_maha": 0.9861258215790442,
+       "n4_attack": 523
+      },
+      "test_dosdisruptive": {
+       "n": 199826,
+       "src": "cache",
+       "auroc_recon": 0.5835549868677059,
+       "auroc_maha": 0.5782944178544842,
+       "auroc_len": 0.9674619784098601,
+       "recall_p95_recon": 0.23503948435138572,
+       "recall_p95_maha": 0.07113188473972355,
+       "recall_p99_recon": 0.15925355058901244,
+       "auroc4_recon": 0.9999994470872039,
+       "auroc4_maha": 0.9695206083869058,
+       "n4_attack": 524
+      }
+     },
+     "benign_fpr_p95_recon": 0.04865152472481793,
+     "benign_fpr_p95_maha": 0.047288084865817565
+    },
+    "note": "test metrics exist only in the executed notebook copy in the run folder"
+   },
+   "seed2": {
+    "run_id": "seed2",
+    "seed": 2,
+    "date": "2026-11-17",
+    "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 6b08c39, git_dirty True (dirty = package.json npm lines only, per judge)",
+    "sources": {
+     "run_folder": "task/autoencoder_benign_t32/runs/seed2/ (gitignored; EC2)",
+     "hf": "bibekgupta3333/roadfm-lite-timesnet: baselines/autoencoder_benign_t32/seed2/",
+     "judge_verdict": "baselines/autoencoder_benign_t32/seed2/judge/verdict.md (HF); test numbers below = judge CPU recompute (baselines/autoencoder_benign_t32/seed2/judge/recompute.json or verdict table)"
+    },
+    "judge": "PASS-WITH-NOTES",
+    "training": {
+     "best_epoch": 178,
+     "best_val_loss": 0.10898377555620928,
+     "epochs_run": 188,
+     "stop_reason": "early_stopping",
+     "train_seconds": 1737.1,
+     "wall_seconds": 1759.8,
+     "device": "cuda",
+     "lr_halvings": 10
+    },
+    "test": {
+     "per_attack_vs_benign_test": {
+      "test_gridsybil": {
+       "n": 28087,
+       "src": "raw",
+       "auroc_recon": 0.7358595457194855,
+       "auroc_maha": 0.5138792481960458,
+       "auroc_len": 0.5586360565086337,
+       "recall_p95_recon": 0.30142058603624455,
+       "recall_p95_maha": 0.1734966354541247,
+       "recall_p99_recon": 0.18805853241713247,
+       "auroc4_recon": 0.7768792427798441,
+       "auroc4_maha": 0.5450758871546203,
+       "n4_attack": 22365
+      },
+      "test_datareplay": {
+       "n": 76283,
+       "src": "cache",
+       "auroc_recon": 0.39733167446623985,
+       "auroc_maha": 0.3394256163650201,
+       "auroc_len": 0.9515067811234938,
+       "recall_p95_recon": 0.03930102381919956,
+       "recall_p95_maha": 0.035315863298506875,
+       "recall_p99_recon": 0.019952020764783765,
+       "auroc4_recon": 0.3471710901208782,
+       "auroc4_maha": 0.29671934416012524,
+       "n4_attack": 3883
+      },
+      "test_dosrandom": {
+       "n": 199834,
+       "src": "cache",
+       "auroc_recon": 0.9669037940744584,
+       "auroc_maha": 0.9066867473998297,
+       "auroc_len": 0.9674642102940453,
+       "recall_p95_recon": 0.8599787823893832,
+       "recall_p95_maha": 0.5782199225357046,
+       "recall_p99_recon": 0.7045197513936567,
+       "auroc4_recon": 0.9999454154902345,
+       "auroc4_maha": 0.998725093463047,
+       "n4_attack": 523
+      },
+      "test_dosdisruptive": {
+       "n": 199826,
+       "src": "cache",
+       "auroc_recon": 0.605128786126934,
+       "auroc_maha": 0.6169240275769658,
+       "auroc_len": 0.9674619784098601,
+       "recall_p95_recon": 0.25940067859037363,
+       "recall_p95_maha": 0.22968482579844465,
+       "recall_p99_recon": 0.15781229669812738,
+       "auroc4_recon": 0.9994552703131685,
+       "auroc4_maha": 0.9971052066249864,
+       "n4_attack": 524
+      }
+     },
+     "benign_fpr_p95_recon": 0.04905058029330584,
+     "benign_fpr_p95_maha": 0.04795317747996408
+    },
+    "note": "test metrics exist only in the executed notebook copy in the run folder"
+   }
+  },
+  "seed_summary": {
+   "note": "seeds 0-3 (seed 0 rounded notebook values; seed 3 = judge recompute aeb32_seed3); judge: Mahalanobis on z is seed-sensitive outside GridSybil, report its spread; every DataReplay / DoS score stays at or below length-only (0.952 / 0.967)",
+   "GridSybil_recon_auroc": {
+    "n": 4,
+    "values": [
+     0.736,
+     0.7321896955880198,
+     0.7358595457194855,
+     0.7300475560518096
+    ],
+    "mean": 0.7335,
+    "sd_sample": 0.0029,
+    "min": 0.7300475560518096,
+    "max": 0.736
+   },
+   "GridSybil_maha_auroc": {
+    "n": 4,
+    "values": [
+     0.51,
+     0.487260417017805,
+     0.5138792481960458,
+     0.5080527946524707
+    ],
+    "mean": 0.5048,
+    "sd_sample": 0.0119,
+    "min": 0.487260417017805,
+    "max": 0.5138792481960458
+   },
+   "GridSybil_recon_recall_p95": {
+    "n": 4,
+    "values": [
+     0.298,
+     0.2997472140136006,
+     0.30142058603624455,
+     0.29753978709011286
+    ],
+    "mean": 0.2992,
+    "sd_sample": 0.0018,
+    "min": 0.29753978709011286,
+    "max": 0.30142058603624455
+   },
+   "DataReplay_recon_auroc": {
+    "n": 4,
+    "values": [
+     0.391,
+     0.37458204212111135,
+     0.39733167446623985,
+     0.3862854471043946
+    ],
+    "mean": 0.3873,
+    "sd_sample": 0.0096,
+    "min": 0.37458204212111135,
+    "max": 0.39733167446623985
+   },
+   "DataReplay_maha_auroc": {
+    "n": 4,
+    "values": [
+     0.336,
+     0.32674258082630236,
+     0.3394256163650201,
+     0.3652767284401646
+    ],
+    "mean": 0.3419,
+    "sd_sample": 0.0165,
+    "min": 0.32674258082630236,
+    "max": 0.3652767284401646
+   },
+   "DoSRandom_recon_auroc": {
+    "n": 4,
+    "values": [
+     0.973,
+     0.9598859577392569,
+     0.9669037940744584,
+     0.9666573118513013
+    ],
+    "mean": 0.9666,
+    "sd_sample": 0.0054,
+    "min": 0.9598859577392569,
+    "max": 0.973
+   },
+   "DoSRandom_maha_auroc": {
+    "n": 4,
+    "values": [
+     0.837,
+     0.8736197632941596,
+     0.9066867473998297,
+     0.9178455175093057
+    ],
+    "mean": 0.8838,
+    "sd_sample": 0.0364,
+    "min": 0.837,
+    "max": 0.9178455175093057
+   },
+   "DoSRandom_maha_recall_p95": {
+    "n": 4,
+    "values": [
+     0.223,
+     0.31601229020086674,
+     0.5782199225357046,
+     0.5545752974969225
+    ],
+    "mean": 0.418,
+    "sd_sample": 0.1758,
+    "min": 0.223,
+    "max": 0.5782199225357046
+   },
+   "DoSDisruptive_recon_auroc": {
+    "n": 4,
+    "values": [
+     0.611,
+     0.5835549868677059,
+     0.605128786126934,
+     0.5934153499933822
+    ],
+    "mean": 0.5983,
+    "sd_sample": 0.0122,
+    "min": 0.5835549868677059,
+    "max": 0.611
+   },
+   "DoSDisruptive_maha_auroc": {
+    "n": 4,
+    "values": [
+     0.556,
+     0.5782944178544842,
+     0.6169240275769658,
+     0.5946021161602374
+    ],
+    "mean": 0.5865,
+    "sd_sample": 0.0257,
+    "min": 0.556,
+    "max": 0.6169240275769658
+   }
   }
  },
  "task/autoencoder_st_t32": {
@@ -5221,6 +5986,236 @@
     1.7467342576978602,
     0.5082537494257707
    ]
+  },
+  "seed_reruns": {
+   "seed1": {
+    "run_id": "seed1",
+    "seed": 1,
+    "date": "2026-11-17",
+    "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 6b08c39, git_dirty True (dirty = package.json npm lines only, per judge)",
+    "sources": {
+     "run_folder": "task/autoencoder_st_t32/runs/seed1/ (gitignored; EC2)",
+     "hf": "bibekgupta3333/roadfm-lite-timesnet: baselines/autoencoder_st_t32/seed1/",
+     "judge_verdict": "baselines/autoencoder_st_t32/seed1/judge/verdict.md (HF); test numbers below = judge CPU recompute (baselines/autoencoder_st_t32/seed1/judge/recompute.json or verdict table)"
+    },
+    "judge": "PASS-WITH-NOTES",
+    "training": {
+     "best_epoch": 14,
+     "best_val_auroc": 0.9210190507526992,
+     "epochs_run": 24,
+     "stop_reason": "early_stopping",
+     "train_seconds": 426.0,
+     "wall_seconds": 447.7,
+     "device": "cuda",
+     "lr_halvings": 1
+    },
+    "test": {
+     "auroc": 0.9293833276891189,
+     "pr_auc": 0.9267318247624228,
+     "window/max_f1": {
+      "t": 0.7415006160736084,
+      "precision": 0.9794482605805451,
+      "recall": 0.8165989285054498,
+      "f1": 0.8906407414870038,
+      "fpr": 0.008163175497271608,
+      "tn": 45077,
+      "fp": 371,
+      "fn": 3971,
+      "tp": 17681
+     },
+     "window/benign_fpr_5pct": {
+      "t": 0.3397908151149748,
+      "precision": 0.88893779342723,
+      "recall": 0.8395067430260484,
+      "f1": 0.8635154394299287,
+      "fpr": 0.04996919556416124,
+      "tn": 43177,
+      "fp": 2271,
+      "fn": 3475,
+      "tp": 18177
+     }
+    },
+    "note": "trained on the EC2 rebuild of all/T32_benign_grid (verified equal to the Mac build); test metrics exist only in the executed notebook copy in the run folder"
+   },
+   "seed2": {
+    "run_id": "seed2",
+    "seed": 2,
+    "date": "2026-11-17",
+    "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 6b08c39, git_dirty True (dirty = package.json npm lines only, per judge)",
+    "sources": {
+     "run_folder": "task/autoencoder_st_t32/runs/seed2/ (gitignored; EC2)",
+     "hf": "bibekgupta3333/roadfm-lite-timesnet: baselines/autoencoder_st_t32/seed2/",
+     "judge_verdict": "baselines/autoencoder_st_t32/seed2/judge/verdict.md (HF); test numbers below = judge CPU recompute (baselines/autoencoder_st_t32/seed2/judge/recompute.json or verdict table)"
+    },
+    "judge": "PASS-WITH-NOTES",
+    "training": {
+     "best_epoch": 22,
+     "best_val_auroc": 0.9221085157674218,
+     "epochs_run": 32,
+     "stop_reason": "early_stopping",
+     "train_seconds": 547.8,
+     "wall_seconds": 567.6,
+     "device": "cuda",
+     "lr_halvings": 1
+    },
+    "test": {
+     "auroc": 0.9302076477582881,
+     "pr_auc": 0.9275295241238005,
+     "window/max_f1": {
+      "t": 0.6978065967559814,
+      "precision": 0.974156378600823,
+      "recall": 0.8199704415296508,
+      "f1": 0.8904380971487323,
+      "fpr": 0.010363492342897377,
+      "tn": 44977,
+      "fp": 471,
+      "fn": 3898,
+      "tp": 17754
+     },
+     "window/benign_fpr_5pct": {
+      "t": 0.33259403407573673,
+      "precision": 0.8901398839986353,
+      "recall": 0.8434786624792167,
+      "f1": 0.8661813180298323,
+      "fpr": 0.04959514170040486,
+      "tn": 43194,
+      "fp": 2254,
+      "fn": 3389,
+      "tp": 18263
+     }
+    },
+    "note": "trained on the EC2 rebuild of all/T32_benign_grid (verified equal to the Mac build); test metrics exist only in the executed notebook copy in the run folder"
+   },
+   "seed3": {
+    "run_id": "seed3",
+    "seed": 3,
+    "date": "2026-11-17",
+    "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 6b08c39, git_dirty True (dirty = package.json npm lines only, per judge)",
+    "sources": {
+     "run_folder": "task/autoencoder_st_t32/runs/seed3/ (gitignored; EC2)",
+     "hf": "bibekgupta3333/roadfm-lite-timesnet: baselines/autoencoder_st_t32/seed3/",
+     "judge_verdict": "baselines/autoencoder_st_t32/seed3/judge/verdict.md (HF); test numbers below = judge CPU recompute (baselines/autoencoder_st_t32/seed3/judge/recompute.json or verdict table)"
+    },
+    "judge": "PASS-WITH-NOTES",
+    "training": {
+     "best_epoch": 18,
+     "best_val_auroc": 0.9219107437026901,
+     "epochs_run": 28,
+     "stop_reason": "early_stopping",
+     "train_seconds": 492.9,
+     "wall_seconds": 587.0,
+     "device": "cuda",
+     "lr_halvings": 1
+    },
+    "test": {
+     "auroc": 0.9298486684835248,
+     "pr_auc": 0.9274282129848213,
+     "window/max_f1": {
+      "t": 0.6891229748725891,
+      "precision": 0.9806448045125256,
+      "recall": 0.819000554221319,
+      "f1": 0.8925632314080785,
+      "fpr": 0.007701108959690195,
+      "tn": 45098,
+      "fp": 350,
+      "fn": 3919,
+      "tp": 17733
+     },
+     "window/benign_fpr_5pct": {
+      "t": 0.3175666153430938,
+      "precision": 0.8848167539267016,
+      "recall": 0.8429706262700906,
+      "f1": 0.8633869441816463,
+      "fpr": 0.052279528252068296,
+      "tn": 43072,
+      "fp": 2376,
+      "fn": 3400,
+      "tp": 18252
+     }
+    },
+    "note": "trained on the EC2 rebuild of all/T32_benign_grid (verified equal to the Mac build); test metrics exist only in the executed notebook copy in the run folder"
+   }
+  },
+  "seed_summary": {
+   "note": "seeds 0-3 (seed 0 notebook values, 4 dp); mean / sd computed from the per-seed values (judge gives band 0.926-0.930); val max-F1 θ 0.596 (seed 0) vs 0.74 / 0.70 / 0.69 sits on a flat F1 plateau",
+   "auroc": {
+    "n": 4,
+    "values": [
+     0.9263,
+     0.9293833276891189,
+     0.9302076477582881,
+     0.9298486684835248
+    ],
+    "mean": 0.9289,
+    "sd_sample": 0.0018,
+    "min": 0.9263,
+    "max": 0.9302076477582881
+   },
+   "pr_auc": {
+    "n": 4,
+    "values": [
+     0.9248,
+     0.9267318247624228,
+     0.9275295241238005,
+     0.9274282129848213
+    ],
+    "mean": 0.9266,
+    "sd_sample": 0.0013,
+    "min": 0.9248,
+    "max": 0.9275295241238005
+   },
+   "f1_at_val_maxf1": {
+    "n": 4,
+    "values": [
+     0.8891,
+     0.8906407414870038,
+     0.8904380971487323,
+     0.8925632314080785
+    ],
+    "mean": 0.8907,
+    "sd_sample": 0.0014,
+    "min": 0.8891,
+    "max": 0.8925632314080785
+   },
+   "benign_fpr_at_val_maxf1": {
+    "n": 4,
+    "values": [
+     0.0112,
+     0.008163175497271608,
+     0.010363492342897377,
+     0.007701108959690195
+    ],
+    "mean": 0.0094,
+    "sd_sample": 0.0017,
+    "min": 0.007701108959690195,
+    "max": 0.0112
+   },
+   "recall_at_val_fpr5": {
+    "n": 4,
+    "values": [
+     0.8389,
+     0.8395067430260484,
+     0.8434786624792167,
+     0.8429706262700906
+    ],
+    "mean": 0.8412,
+    "sd_sample": 0.0023,
+    "min": 0.8389,
+    "max": 0.8434786624792167
+   },
+   "benign_fpr_at_val_fpr5": {
+    "n": 4,
+    "values": [
+     0.0476,
+     0.04996919556416124,
+     0.04959514170040486,
+     0.052279528252068296
+    ],
+    "mean": 0.0499,
+    "sd_sample": 0.0019,
+    "min": 0.0476,
+    "max": 0.052279528252068296
+   }
   }
  },
  "src/baselines/plausibility": {
@@ -6580,6 +7575,129 @@
     "note": "copied in full from the test-metrics file written by the study's evaluation script (full stored precision)",
     "judge_notes": "all headline metrics within 0.02 of seed 0; Mahalanobis recall @ val p95 0.111 vs 0.062 (latent score seed-sensitive), Mahalanobis AUROC still below 0.5"
    }
+  },
+  "seed_reruns": {
+   "seed1": {
+    "run_id": "seed1",
+    "seed": 1,
+    "date": "2026-11-17",
+    "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 6b08c39, git_dirty True (dirty = package.json npm lines only, per judge)",
+    "sources": {
+     "run_folder": "task/autoencoder_benign_t48/runs/seed1/ (gitignored; EC2)",
+     "hf": "bibekgupta3333/roadfm-lite-timesnet: baselines/autoencoder_benign_t48/seed1/",
+     "judge_verdict": "baselines/autoencoder_benign_t48/seed1/judge/verdict.md (HF); test numbers below = judge CPU recompute (baselines/autoencoder_benign_t48/seed1/judge/recompute.json or verdict table)"
+    },
+    "judge": "PASS-WITH-NOTES",
+    "training": {
+     "best_epoch": 96,
+     "best_val_loss": 0.15301321247925712,
+     "epochs_run": 106,
+     "stop_reason": "early_stopping",
+     "train_seconds": 266.8,
+     "wall_seconds": 271.1,
+     "device": "cuda",
+     "lr_halvings": 6
+    },
+    "test": {
+     "n_benign": 13405,
+     "n_attack": 27064,
+     "auroc_recon": 0.677453055037568,
+     "auroc_maha": 0.43122592910578295,
+     "auroc_len": 0.5304102406408593,
+     "recall_p95_recon": 0.23477682530298552,
+     "fpr_p95_recon": 0.04617679970160388,
+     "recall_p95_maha": 0.05963641738102276,
+     "fpr_p95_maha": 0.04759418127564342,
+     "auroc4_recon": 0.7071095810486602,
+     "auroc4_maha": 0.44559800035998776,
+     "auroc13_recon": 0.5947935030964087,
+     "shared_tracks": 0,
+     "track_recon_max": 0.6652433560953623,
+     "track_recon_mean": 0.667980760398823,
+     "n_tracks": [
+      12053,
+      23904
+     ],
+     "track_maha_max": 0.4265430766735184,
+     "track_maha_mean": 0.4234018925060012
+    },
+    "note": "test metrics also in runs/seed1/test_metrics.json (equal to the judge recompute, max |Δ| 2.8e-8 seed 1)"
+   },
+   "seed2": {
+    "run_id": "seed2",
+    "seed": 2,
+    "date": "2026-11-17",
+    "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 6b08c39, git_dirty True (dirty = package.json npm lines only, per judge)",
+    "sources": {
+     "run_folder": "task/autoencoder_benign_t48/runs/seed2/ (gitignored; EC2)",
+     "hf": "bibekgupta3333/roadfm-lite-timesnet: baselines/autoencoder_benign_t48/seed2/",
+     "judge_verdict": "baselines/autoencoder_benign_t48/seed2/judge/verdict.md (HF); test numbers below = judge CPU recompute (baselines/autoencoder_benign_t48/seed2/judge/recompute.json or verdict table)"
+    },
+    "judge": "PASS-WITH-NOTES",
+    "training": {
+     "best_epoch": 107,
+     "best_val_loss": 0.15341025217844007,
+     "epochs_run": 117,
+     "stop_reason": "early_stopping",
+     "train_seconds": 312.2,
+     "wall_seconds": 320.3,
+     "device": "cuda",
+     "lr_halvings": 5
+    },
+    "test": {
+     "n_benign": 13405,
+     "n_attack": 27064,
+     "auroc_recon": 0.6763808538490773,
+     "auroc_maha": 0.46285675310312013,
+     "auroc_len": 0.5304102406408593,
+     "recall_p95_recon": 0.23791752882057346,
+     "fpr_p95_recon": 0.04610220067139127,
+     "recall_p95_maha": 0.10109370381318357,
+     "fpr_p95_maha": 0.04960835509138381,
+     "auroc4_recon": 0.7107959656600095,
+     "auroc4_maha": 0.48688159668208586,
+     "auroc13_recon": 0.5630759139315977,
+     "shared_tracks": 0,
+     "track_recon_max": 0.6634859566033152,
+     "track_recon_mean": 0.6660826462186031,
+     "n_tracks": [
+      12053,
+      23904
+     ],
+     "track_maha_max": 0.4445549420225774,
+     "track_maha_mean": 0.4437838017908632
+    },
+    "note": "test metrics also in runs/seed2/test_metrics.json (equal to the judge recompute, max |Δ| 2.8e-8 seed 1)"
+   }
+  },
+  "seed_summary": {
+   "note": "seeds 0-3; seed 0 (0.689) is the best of four, quote 0.682 ± 0.006 (judge); Mahalanobis below chance and below length (0.530) in every seed",
+   "auroc_recon": {
+    "n": 4,
+    "values": [
+     0.689352446569244,
+     0.677453055037568,
+     0.6763808538490773,
+     0.6845120461556967
+    ],
+    "mean": 0.6819,
+    "sd_sample": 0.0061,
+    "min": 0.6763808538490773,
+    "max": 0.689352446569244
+   },
+   "auroc_maha": {
+    "n": 4,
+    "values": [
+     0.43736600482721655,
+     0.43122592910578295,
+     0.46285675310312013,
+     0.4535549122623452
+    ],
+    "mean": 0.4463,
+    "sd_sample": 0.0145,
+    "min": 0.43122592910578295,
+    "max": 0.46285675310312013
+   }
   }
  },
  "task/autoencoder_t64": {
@@ -7904,6 +9022,121 @@
     "note": "copied in full from the test-metrics file written by the study's evaluation script (full stored precision)",
     "judge_notes": "every metric within 0.02 of seed 0; reading unchanged (reconstruction about chance, Mahalanobis below chance, both below the length rule)"
    }
+  },
+  "seed_reruns": {
+   "seed1": {
+    "run_id": "seed1",
+    "seed": 1,
+    "date": "2026-11-17",
+    "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 6b08c39, git_dirty True (dirty = package.json npm lines only, per judge)",
+    "sources": {
+     "run_folder": "task/autoencoder_t64/runs/seed1/ (gitignored; EC2)",
+     "hf": "bibekgupta3333/roadfm-lite-timesnet: baselines/autoencoder_t64/seed1/",
+     "judge_verdict": "baselines/autoencoder_t64/seed1/judge/verdict.md (HF); test numbers below = judge CPU recompute (baselines/autoencoder_t64/seed1/judge/recompute.json or verdict table)"
+    },
+    "judge": "PASS-WITH-NOTES",
+    "training": {
+     "best_epoch": 100,
+     "best_val_loss": 0.15114480596711116,
+     "epochs_run": 110,
+     "stop_reason": "early_stopping",
+     "train_seconds": 486.1,
+     "wall_seconds": 490.6,
+     "device": "cuda",
+     "lr_halvings": 7
+    },
+    "test": {
+     "n_benign": 12741,
+     "n_attack": 25685,
+     "auroc_recon": 0.48103001844889937,
+     "auroc_maha": 0.3429797078608256,
+     "auroc_len": 0.5348474970793584,
+     "recall_p95_recon": 0.04492894685614172,
+     "fpr_p95_recon": 0.05046699631112157,
+     "recall_p95_maha": 0.0443449484134709,
+     "fpr_p95_maha": 0.059414488658661016,
+     "auroc4_recon": 0.5066989236833117,
+     "auroc13_recon": 0.38693832783738874,
+     "auroc4_maha": 0.3614740632016231,
+     "n_tracks": 35957,
+     "track_recon_max": 0.48002400167333237,
+     "track_recon_mean": 0.4790583730702561,
+     "track_maha_max": 0.331714690977189,
+     "track_maha_mean": 0.32651219385687336
+    },
+    "note": "evaluate re-run with task/encoder/runs/evaluation/results.json set aside (context lookup expects a seed-0 entry the EC2 file lacks; context_task_encoder_benign_only_T64 = null); file restored, sha256 equal; test metrics in runs/seed1/results.json"
+   },
+   "seed2": {
+    "run_id": "seed2",
+    "seed": 2,
+    "date": "2026-11-17",
+    "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 6b08c39, git_dirty True (dirty = package.json npm lines only, per judge)",
+    "sources": {
+     "run_folder": "task/autoencoder_t64/runs/seed2/ (gitignored; EC2)",
+     "hf": "bibekgupta3333/roadfm-lite-timesnet: baselines/autoencoder_t64/seed2/",
+     "judge_verdict": "baselines/autoencoder_t64/seed2/judge/verdict.md (HF); test numbers below = judge CPU recompute (baselines/autoencoder_t64/seed2/judge/recompute.json or verdict table)"
+    },
+    "judge": "PASS-WITH-NOTES",
+    "training": {
+     "best_epoch": 114,
+     "best_val_loss": 0.1441881088262341,
+     "epochs_run": 124,
+     "stop_reason": "early_stopping",
+     "train_seconds": 669.4,
+     "wall_seconds": 676.3,
+     "device": "cuda",
+     "lr_halvings": 5
+    },
+    "test": {
+     "n_benign": 12741,
+     "n_attack": 25685,
+     "auroc_recon": 0.4835028499469301,
+     "auroc_maha": 0.32822802912313126,
+     "auroc_len": 0.5348474970793584,
+     "recall_p95_recon": 0.042904418921549545,
+     "fpr_p95_recon": 0.04905423436151009,
+     "recall_p95_maha": 0.03340471092077088,
+     "fpr_p95_maha": 0.05910054155874735,
+     "auroc4_recon": 0.5097851463581923,
+     "auroc13_recon": 0.38993962006042926,
+     "auroc4_maha": 0.3398821490213211,
+     "n_tracks": 35957,
+     "track_recon_max": 0.48230322420798544,
+     "track_recon_mean": 0.4811657648598209,
+     "track_maha_max": 0.3190992696691798,
+     "track_maha_mean": 0.3131138522951564
+    },
+    "note": "evaluate re-run with task/encoder/runs/evaluation/results.json set aside (context lookup expects a seed-0 entry the EC2 file lacks; context_task_encoder_benign_only_T64 = null); file restored, sha256 equal; test metrics in runs/seed2/results.json"
+   }
+  },
+  "seed_summary": {
+   "note": "seeds 0-3",
+   "auroc_recon": {
+    "n": 4,
+    "values": [
+     0.4818590646121252,
+     0.48103001844889937,
+     0.4835028499469301,
+     0.4800187200965884
+    ],
+    "mean": 0.4816,
+    "sd_sample": 0.0015,
+    "min": 0.4800187200965884,
+    "max": 0.4835028499469301
+   },
+   "auroc_maha": {
+    "n": 4,
+    "values": [
+     0.35153698633121566,
+     0.3429797078608256,
+     0.32822802912313126,
+     0.33699420281126274
+    ],
+    "mean": 0.3399,
+    "sd_sample": 0.0098,
+    "min": 0.32822802912313126,
+    "max": 0.35153698633121566
+   }
   }
  },
  "task/autoencoder_t32": {
@@ -8843,6 +10076,323 @@
     1.7467342576978602,
     0.5082537494257707
    ]
+  },
+  "seed_reruns": {
+   "seed1": {
+    "run_id": "seed1",
+    "seed": 1,
+    "date": "2026-11-17",
+    "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 6b08c39, git_dirty True (dirty = package.json npm lines only, per judge)",
+    "sources": {
+     "run_folder": "task/autoencoder_t32/runs/seed1/ (gitignored; EC2)",
+     "hf": "bibekgupta3333/roadfm-lite-timesnet: baselines/autoencoder_t32/seed1/",
+     "judge_verdict": "baselines/autoencoder_t32/seed1/judge/verdict.md (HF); test numbers below = judge CPU recompute (baselines/autoencoder_t32/seed1/judge/recompute.json or verdict table)"
+    },
+    "judge": "PASS-WITH-NOTES",
+    "training": {
+     "best_epoch": 223,
+     "best_val_loss": 0.10634646940803154,
+     "epochs_run": 233,
+     "stop_reason": "early_stopping",
+     "train_seconds": 3147.6,
+     "wall_seconds": 3177.6,
+     "device": "cuda",
+     "lr_halvings": 8
+    },
+    "test": {
+     "test_all": {
+      "windows": 67100,
+      "gridsybil": 21652,
+      "auroc_recon": 0.6171003742310923,
+      "prauc_recon": 0.43852933435894503,
+      "auroc_ge4_recon": 0.6513639556879711,
+      "auroc_1_3_recon": 0.5142809494856582,
+      "p95_recon": {
+       "recall": 0.1065952336966562,
+       "benign_fpr": 0.03971571906354515
+      },
+      "p99_recon": {
+       "recall": 0.02604840199519675,
+       "benign_fpr": 0.008581235697940504
+      },
+      "track_max_recon": 0.6006072108009226,
+      "track_mean_recon": 0.6056773547416607,
+      "auroc_maha": 0.429465133298796,
+      "prauc_maha": 0.34770600124626444,
+      "auroc_ge4_maha": 0.44706843353066467,
+      "auroc_1_3_maha": 0.4370779057979143,
+      "p95_maha": {
+       "recall": 0.09925180121928691,
+       "benign_fpr": 0.04341225136419644
+      },
+      "p99_maha": {
+       "recall": 0.04184370958802882,
+       "benign_fpr": 0.004466643196620313
+      },
+      "track_max_maha": 0.3949238097657397,
+      "track_mean_maha": 0.39616141424474427,
+      "auroc_length": 0.5599491715223767
+     },
+     "test_gridsybil_folders": {
+      "windows": 33614,
+      "gridsybil": 21652,
+      "auroc_recon": 0.6195165278446715,
+      "prauc_recon": 0.7443270442890917,
+      "auroc_ge4_recon": 0.6566924916625367,
+      "auroc_1_3_recon": 0.5027064084328857,
+      "p95_recon": {
+       "recall": 0.1065952336966562,
+       "benign_fpr": 0.04121384383882294
+      },
+      "p99_recon": {
+       "recall": 0.02604840199519675,
+       "benign_fpr": 0.007356629326199632
+      },
+      "track_max_recon": 0.604489424961286,
+      "track_mean_recon": 0.6103539047148026,
+      "auroc_maha": 0.4281631039705048,
+      "prauc_maha": 0.6458656069331874,
+      "auroc_ge4_maha": 0.4473847298976411,
+      "auroc_1_3_maha": 0.4303469677624985,
+      "p95_maha": {
+       "recall": 0.09925180121928691,
+       "benign_fpr": 0.048236080922922586
+      },
+      "p99_maha": {
+       "recall": 0.04184370958802882,
+       "benign_fpr": 0.005015883631499749
+      },
+      "track_max_maha": 0.3945015036538071,
+      "track_mean_maha": 0.39460316783470917,
+      "auroc_length": 0.5635822497116847
+     }
+    },
+    "note": "trained on the EC2 rebuild of all/T32_benign_grid; test metrics in runs/seed1/evaluation.json (= judge recompute, max |Δ| ≤ 4.3e-7)"
+   },
+   "seed2": {
+    "run_id": "seed2",
+    "seed": 2,
+    "date": "2026-11-17",
+    "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 6b08c39, git_dirty True (dirty = package.json npm lines only, per judge)",
+    "sources": {
+     "run_folder": "task/autoencoder_t32/runs/seed2/ (gitignored; EC2)",
+     "hf": "bibekgupta3333/roadfm-lite-timesnet: baselines/autoencoder_t32/seed2/",
+     "judge_verdict": "baselines/autoencoder_t32/seed2/judge/verdict.md (HF); test numbers below = judge CPU recompute (baselines/autoencoder_t32/seed2/judge/recompute.json or verdict table)"
+    },
+    "judge": "PASS-WITH-NOTES",
+    "training": {
+     "best_epoch": 197,
+     "best_val_loss": 0.11074677442320853,
+     "epochs_run": 207,
+     "stop_reason": "early_stopping",
+     "train_seconds": 2805.2,
+     "wall_seconds": 2835.8,
+     "device": "cuda",
+     "lr_halvings": 9
+    },
+    "test": {
+     "test_all": {
+      "windows": 67100,
+      "gridsybil": 21652,
+      "auroc_recon": 0.6069827301020873,
+      "prauc_recon": 0.4286601045824529,
+      "auroc_ge4_recon": 0.6438532561077885,
+      "auroc_1_3_recon": 0.5021805086128391,
+      "p95_recon": {
+       "recall": 0.10197672270460004,
+       "benign_fpr": 0.04096989966555184
+      },
+      "p99_recon": {
+       "recall": 0.025540365786070572,
+       "benign_fpr": 0.007899137475796516
+      },
+      "track_max_recon": 0.5903865340302195,
+      "track_mean_recon": 0.5956316820491945,
+      "auroc_maha": 0.40563326090322244,
+      "prauc_maha": 0.3319575104975331,
+      "auroc_ge4_maha": 0.4220342326023427,
+      "auroc_1_3_maha": 0.4105820862554004,
+      "p95_maha": {
+       "recall": 0.08996859412525401,
+       "benign_fpr": 0.04768086604471044
+      },
+      "p99_maha": {
+       "recall": 0.04281359689636061,
+       "benign_fpr": 0.0041145925013201905
+      },
+      "track_max_maha": 0.3713773452927597,
+      "track_mean_maha": 0.3726226396216962,
+      "auroc_length": 0.5599491715223767
+     },
+     "test_gridsybil_folders": {
+      "windows": 33614,
+      "gridsybil": 21652,
+      "auroc_recon": 0.6093667283209442,
+      "prauc_recon": 0.7372787147327353,
+      "auroc_ge4_recon": 0.6486137522236802,
+      "auroc_1_3_recon": 0.4968152179296313,
+      "p95_recon": {
+       "recall": 0.10197672270460004,
+       "benign_fpr": 0.04121384383882294
+      },
+      "p99_recon": {
+       "recall": 0.025540365786070572,
+       "benign_fpr": 0.006855040963049657
+      },
+      "track_max_recon": 0.5939055692755487,
+      "track_mean_recon": 0.599778401485339,
+      "auroc_maha": 0.4025622442618264,
+      "prauc_maha": 0.6287090277464703,
+      "auroc_ge4_maha": 0.4202378563900211,
+      "auroc_1_3_maha": 0.40059272352685826,
+      "p95_maha": {
+       "recall": 0.08996859412525401,
+       "benign_fpr": 0.051747199464972415
+      },
+      "p99_maha": {
+       "recall": 0.04281359689636061,
+       "benign_fpr": 0.004347099147299783
+      },
+      "track_max_maha": 0.36948540613917125,
+      "track_mean_maha": 0.3697336984102497,
+      "auroc_length": 0.5635822497116847
+     }
+    },
+    "note": "trained on the EC2 rebuild of all/T32_benign_grid; test metrics in runs/seed2/evaluation.json (= judge recompute, max |Δ| ≤ 4.3e-7)"
+   },
+   "seed3": {
+    "run_id": "seed3",
+    "seed": 3,
+    "date": "2026-11-17",
+    "host": "EC2 g4dn (Tesla T4, CUDA), torch 2.14.1+cu126, git 6b08c39, git_dirty True (dirty = package.json npm lines only, per judge)",
+    "sources": {
+     "run_folder": "task/autoencoder_t32/runs/seed3/ (gitignored; EC2)",
+     "hf": "bibekgupta3333/roadfm-lite-timesnet: baselines/autoencoder_t32/seed3/",
+     "judge_verdict": "baselines/autoencoder_t32/seed3/judge/verdict.md (HF); test numbers below = judge CPU recompute (baselines/autoencoder_t32/seed3/judge/recompute.json or verdict table)"
+    },
+    "judge": "PASS-WITH-NOTES",
+    "training": {
+     "best_epoch": 210,
+     "best_val_loss": 0.10539863216181924,
+     "epochs_run": 220,
+     "stop_reason": "early_stopping",
+     "train_seconds": 2951.2,
+     "wall_seconds": 3047.2,
+     "device": "cuda",
+     "lr_halvings": 8
+    },
+    "test": {
+     "test_all": {
+      "windows": 67100,
+      "gridsybil": 21652,
+      "auroc_recon": 0.6128808302136501,
+      "prauc_recon": 0.4331524138421604,
+      "auroc_ge4_recon": 0.6466004620567751,
+      "auroc_1_3_recon": 0.5217056607388273,
+      "p95_recon": {
+       "recall": 0.10793460188435249,
+       "benign_fpr": 0.041585988382327056
+      },
+      "p99_recon": {
+       "recall": 0.024570478477738775,
+       "benign_fpr": 0.007965146981165287
+      },
+      "track_max_recon": 0.5963348349910855,
+      "track_mean_recon": 0.6016132388629825,
+      "auroc_maha": 0.4501357910115077,
+      "prauc_maha": 0.3493051044838391,
+      "auroc_ge4_maha": 0.4735611322997266,
+      "auroc_1_3_maha": 0.4164004732751385,
+      "p95_maha": {
+       "recall": 0.10253094402364678,
+       "benign_fpr": 0.04281816581587749
+      },
+      "p99_maha": {
+       "recall": 0.03186772584518751,
+       "benign_fpr": 0.00688699172680866
+      },
+      "track_max_maha": 0.4173701829166815,
+      "track_mean_maha": 0.41999161049293476,
+      "auroc_length": 0.5599491715223767
+     },
+     "test_gridsybil_folders": {
+      "windows": 33614,
+      "gridsybil": 21652,
+      "auroc_recon": 0.6140609628933645,
+      "prauc_recon": 0.7409001854963555,
+      "auroc_ge4_recon": 0.6506472709533468,
+      "auroc_1_3_recon": 0.5073188612181456,
+      "p95_recon": {
+       "recall": 0.10793460188435249,
+       "benign_fpr": 0.04104664771777295
+      },
+      "p99_recon": {
+       "recall": 0.024570478477738775,
+       "benign_fpr": 0.006019060357799699
+      },
+      "track_max_recon": 0.5989430500190358,
+      "track_mean_recon": 0.6048755077711301,
+      "auroc_maha": 0.44660834884703093,
+      "prauc_maha": 0.6540380639331199,
+      "auroc_ge4_maha": 0.4711034895737609,
+      "auroc_1_3_maha": 0.4098644589105995,
+      "p95_maha": {
+       "recall": 0.10253094402364678,
+       "benign_fpr": 0.045310148804547735
+      },
+      "p99_maha": {
+       "recall": 0.03186772584518751,
+       "benign_fpr": 0.007022237084099649
+      },
+      "track_max_maha": 0.41364379288843706,
+      "track_mean_maha": 0.4156304662137058,
+      "auroc_length": 0.5635822497116847
+     }
+    },
+    "note": "trained on the EC2 rebuild of all/T32_benign_grid; test metrics in runs/seed3/evaluation.json (= judge recompute, max |Δ| ≤ 4.3e-7)"
+   }
+  },
+  "seed_summary": {
+   "note": "seeds 0-3, all 8 folders test (67,100 windows); Mahalanobis below chance in every seed and least stable",
+   "auroc_recon": {
+    "n": 4,
+    "values": [
+     0.6102027960454164,
+     0.6171003742310923,
+     0.6069827301020873,
+     0.6128808302136501
+    ],
+    "mean": 0.6118,
+    "sd_sample": 0.0043,
+    "min": 0.6069827301020873,
+    "max": 0.6171003742310923
+   },
+   "auroc_maha": {
+    "n": 4,
+    "values": [
+     0.3977241599106547,
+     0.429465133298796,
+     0.40563326090322244,
+     0.4501357910115077
+    ],
+    "mean": 0.4207,
+    "sd_sample": 0.0238,
+    "min": 0.3977241599106547,
+    "max": 0.4501357910115077
+   },
+   "gridsybil_folders_auroc_recon": {
+    "n": 4,
+    "values": [
+     0.613,
+     0.6195165278446715,
+     0.6093667283209442,
+     0.6140609628933645
+    ],
+    "mean": 0.614,
+    "sd_sample": 0.0042,
+    "min": 0.6093667283209442,
+    "max": 0.6195165278446715
+   }
   }
  }
 }

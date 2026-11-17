@@ -316,14 +316,23 @@ npm run hf:download:grid
 into a temp dir, `hf_hub.py verify`, then copy; skips a non-empty local folder unless `FORCE=1`):
 
 ```bash
-npm run hf:download:baselines     # all 5 seed-3 baseline cells -> task/<package>/runs/seed3 (encoder: ae-seed3)
-npm run hf:download:baselines:st  # one cell: :st  :benign-t32  :benign-t48  :t64  :encoder  (SEED=k, default 3)
+npm run hf:download:baselines:all-seeds  # all 26 EC2 baseline folders: seeds 1, 2, 3 of the 7 task/autoencoder*
+                                         # packages + encoder ae-seed0..4 -> task/<package>/runs/ (a folder not yet
+                                         # on HF is reported and skipped; non-empty local folders are skipped)
+npm run hf:download:baselines     # seed 3 (SEED=k) of all 8 cells -> task/<package>/runs/seed3 (encoder: ae-seed3)
+SEED=2 npm run hf:download:baselines:st  # one cell, one seed (SEED=k, default 3):
+                                  #   :st (autoencoder_st)  :benign-t32  :benign-t48  :t64  :encoder (ae-seed<k>)
+                                  #   :ae48 (autoencoder, T48)  :ae32 (autoencoder_t32)  :st-t32 (autoencoder_st_t32)
 npm run hf:download:t32b          # runs/model-t32b-seed0 + evaluations/model-t32b-seed0{,-random-init} (SEED=k, default 0)
 ```
 
-Each baseline folder holds the run files plus `console/` (runner logs), `judge/` (independent verdict) and
-`SHA256SUMS`; the encoder folder also has `evaluation_seed3_only/` (n = 1, not the multi-seed table) and
-`README_seed3.txt`. The package notebooks read the newest run folder, so after the download they show seed 3.
+Each baseline folder holds the run files plus `console/` (runner logs), `judge/` (independent verdict + CPU recompute)
+and `SHA256SUMS`; the encoder folders also have `evaluation_seed3_only/` (`ae-seed3`, n = 1) and
+`evaluation_ae_seed34/` (`ae-seed4`, seeds 3 + 4 only, n = 2) — neither is the Mac's seeds 0–2 table, do not copy
+them over `task/encoder/runs/evaluation/`. A non-empty local folder is skipped (`FORCE=1` to overwrite), so a re-run
+of `all-seeds` only fetches what is missing. The package notebooks read the newest run folder (by mtime), so after a
+download they may show a downloaded seed instead of seed 0; for `task/autoencoder`, `_st`, `_benign_t32`, `_st_t32`
+the test metrics of seeds 1–3 live only in the executed notebook copy inside each run folder.
 
 - `hf_hub.py sums <run_dir>` writes `SHA256SUMS` for the files above; `hf_hub.py verify <dir> [--install-to <run_dir>]
   [--force]` checks a downloaded folder against it and only then copies it into the run folder.

@@ -18,6 +18,20 @@ cross-study table. Run folders (gitignored, on the EC2 host): `task/encoder/runs
 `bibekgupta3333/roadfm-lite-timesnet` under `baselines/<study>/seed3` (`baselines/encoder/ae-seed3`). A, E and H
 seed 3 are pending (their inputs are not on HF yet). Not an exact reproduction of seed 0 (different device and seed).
 
+**Updated 2026-11-17 (four seeds per cell):** seeds 1 and 2 for all eight grid cells (S0 AE, A, C, D, E, F, G, H),
+seed 3 for A, E, H, and an extra seed 4 for S0 AE, so every cell now has seeds 0–3 (S0 AE: 0–4). Seed 0 = the Mac
+(MPS) runs above; seeds 1–3 / 4 = EC2 g4dn (Tesla T4, CUDA, torch 2.14.1+cu126, git 6b08c39, `git_dirty: true` =
+`package.json` npm lines only; `git diff 0c104ef 6b08c39` is empty for `task/` and `src/data/encoder_input/`). Same
+configs, only the seed changed. A, E and H seeds 1–3 trained on inputs rebuilt on EC2 from the raw HF data
+(`benign_gridsybil/T48`, `all/T32_benign_grid`), verified equal to the Mac builds (same window ids and counts,
+values within 1e-4 rounding); no split change. Every run was judged by an independent CPU recompute from `best.pt`
+(own data reader): all PASS or PASS-WITH-NOTES, no FAIL. Sources per run: HF `bibekgupta3333/roadfm-lite-timesnet`
+`baselines/<package>/seed<k>/` (run files, console logs, `judge/verdict.md`, `judge/recompute.{py,log,json}`,
+SHA256SUMS; `baselines/encoder/ae-seed4`) and `task/<package>/runs/seed<k>/summary.json` (training record). Each
+section gets a "Seeds 1–2" / "Seeds 1–3" block below; the 4-seed summary table follows the seed-3 table. Mean ± sd =
+sample sd over the per-seed values (n = 4), computed from the sourced per-seed numbers (seed 0 at the precision
+stored in this file). Machine-readable: `seed_reruns` and `seed_summary` per study in `results.json`.
+
 **Where the numbers live (important for the paper):**
 
 - `task/encoder/` stores its test metrics in a file: `task/encoder/runs/evaluation/results.json`.
@@ -69,7 +83,7 @@ Sources: `task/encoder/README.md`; `task/encoder/runs/{ae,supervised}-seed{0,1,2
 | Training | max epochs 300 (AE; reported runs) / 50 (supervised); early stopping patience 5 on val loss; plateau patience 3; no gradient clipping |
 | Val used for | early stopping, LR schedule; AE thresholds = p95 / p99 of **val-benign** scores. Supervised threshold fixed at 0.5 (not tuned) |
 | Scores | AE reconstruction error (masked MSE); Mahalanobis of z to the benign-fit z (ridge 1e-6); supervised P(GridSybil); Mahalanobis of the supervised z to benign z |
-| Seeds | **3** (0, 1, 2) for AE and supervised; baselines deterministic |
+| Seeds | **3** (0, 1, 2) for AE and supervised; baselines deterministic (AE seeds 3, 4 added 2026-11-16 / 17, blocks below) |
 | Epochs / best val | AE: 121 / 103 / 123 epochs, best val loss 0.12086 / 0.12138 / 0.12312. Supervised: 19 / 16 / 16, best val loss 0.19700 / 0.19488 / 0.19286 |
 | Runtime | AE 249.9 / 211.9 / 248.7 s; supervised 59.8 / 49.5 / 48.3 s; baselines 28.3 s (MPS / CPU) |
 
@@ -121,6 +135,16 @@ stats-LR 0.8549 unchanged (deterministic). Pooled over seeds 0–3 (judge, for i
 `runs/evaluation/results.json` holds seed 3 only, so its "mean ± std" has n = 1; it is not the 3-seed table above
 (that file is on the Mac).
 
+**Seed 4 (AE only, 2026-11-17, EC2 T4)** — sources: `task/encoder/runs/ae-seed4/summary.json`;
+`task/encoder/runs/evaluation_ae_seed34/results.json` (per_seed seed 4); judge verdict + recompute
+`baselines/encoder/ae-seed4/judge/` (HF). 114 epochs, best val loss 0.12119 at epoch 109, early stopping (patience 5),
+184.1 s wall, CUDA. Test: reconstruction AUROC **0.6532**, PR-AUC 0.801; val p95 precision / recall / F1 / FPR 0.888
+/ 0.197 / 0.323 / 0.050; Mahalanobis AUROC 0.3269, PR-AUC 0.594. Reconstruction AUROC by length bin ≤ 3 / 4–16 /
+17–48 / 49–64: 0.533 / 0.650 / 0.713 / 0.755. Judge: PASS-WITH-NOTES. Pooled per-seed values: seeds 0–3
+reconstruction 0.6569 ± 0.0036, Mahalanobis 0.3224 ± 0.0146; seeds 0–4 0.6562 ± 0.0035 / 0.3233 ± 0.0128 (seeds 0–2
+MPS, 3–4 CUDA). **Caution:** `evaluation_ae_seed34/` (on HF under `ae-seed4`) is a 2-seed evaluation (seeds 3 + 4,
+n = 2: 0.657 ± 0.006 / 0.330 ± 0.004), not the 0–2 table and not a 5-seed mean.
+
 ---
 
 ## A. `task/autoencoder/` — unsupervised AE, benign + GridSybil both "normal", T = 48
@@ -139,7 +163,7 @@ Sources: `task/autoencoder/README.md`; `task/autoencoder/runs/seed0/{config,env,
 | Training | max 300 epochs, early stopping patience 10 (`min_delta` 0.0), plateau patience 5, no gradient clipping |
 | Val used for | early stopping, LR schedule, threshold = p95 of **all** val errors (val holds both classes; labels unused) |
 | Score | reconstruction error per window only (no Mahalanobis, no track level) |
-| Seeds | **1** (seed 0) |
+| Seeds | **1** (seed 0) in this table; seeds 1–3 added 2026-11-17 (block at the end of this section) |
 | Training record | best val masked MSE 0.13979 at epoch 170; stop at 180; 9 LR halvings; 911.9 s train / 918.0 s wall, MPS |
 
 **Test** (notebook cells 22–30): AUROC **0.484**, PR-AUC 0.661 (chance 0.669). At val p95 (θ 0.3724): precision
@@ -153,6 +177,21 @@ claimed_vel_x 0.280, claimed_vel_y 0.269 (GridSybil rebuilt better on claimed ve
 
 **Caveats:** GridSybil is 64% of train windows and is treated as normal; one seed, no CI; `runs/seed0_featlog/` is a
 re-run of the same seed (identical best epoch and val loss), not a second seed.
+
+**Seeds 1–3 (2026-11-17, EC2 T4, on the EC2 rebuild of T48)** — sources: `runs/seed{1,2,3}/summary.json`; executed
+notebook copies `runs/seed{k}/autoencoder_T48.executed.ipynb` (the only place the test metrics live); judge verdict +
+recompute `baselines/autoencoder/seed{k}/judge/` (HF). Val vehicles are drawn with the run seed, so val differs across
+seeds (518 vehicles each; 34,975 / 33,185 / 34,881 windows); test fixed.
+
+| Seed | best val MSE (epoch) / stop / LR halvings | AUROC | PR-AUC | θ val p95 | recall / F1 / benign FPR @ θ | AUROC ≤ 3 / 4–16 / 17–32 / 33–48 rows | Judge |
+|---|---|---|---|---|---|---|---|
+| 1 | 0.13049 (169) / 179 / 9 | 0.4859 | 0.6619 | 0.3744 | 0.0457 / 0.0853 / 0.0517 | 0.388 / 0.478 / 0.551 / 0.533 | PASS-WITH-NOTES |
+| 2 | 0.13924 (157) / 167 / 6 | 0.4850 | 0.6621 | 0.3777 | 0.0425 / 0.0798 / 0.0454 | 0.370 / 0.476 / 0.556 / 0.537 | PASS-WITH-NOTES |
+| 3 | 0.12886 (152) / 162 / 7 | 0.4856 | 0.6618 | 0.3694 | 0.0488 / 0.0907 / 0.0531 | 0.380 / 0.476 / 0.552 / 0.538 | PASS-WITH-NOTES |
+
+Length-only 0.5304 in every seed. Seeds 0–3: AUROC 0.485 ± 0.001. Judge notes: the executed copies' markdown prose
+describes the Mac seed-0 run (quote code-cell outputs only); test metrics exist only in the notebooks (no JSON, no
+score files).
 
 ---
 
@@ -209,7 +248,7 @@ Sources: `task/autoencoder_st/README.md`; `runs/seed0/{config,env,summary}.json`
 | Training | max 100 epochs, grad clip 1.0, early stopping on **val AUROC** (patience 10, min_delta 1e-4 absolute), plateau patience 5 |
 | Val used for | LR schedule, early stopping, `best.pt`, both thresholds (max F1 on val; benign FPR 5% on val) |
 | Score | P(GridSybil) per window; per track max / mean; reconstruction error reported as a secondary score |
-| Seeds | **1** (seed 0) |
+| Seeds | **1** (seed 0) in this table; seeds 1–3 added 2026-11-17 (block at the end of this section) |
 | Training record | best val AUROC 0.9268 at epoch 44 (val PR-AUC 0.9684, val F1 0.8921); stop at 54; 3 LR halvings; 329.5 s train / 338.8 s wall, MPS |
 
 **Test** (notebook cell 20 / 36; chance PR-AUC 0.669):
@@ -240,6 +279,21 @@ Track max / mean AUROC 0.9245 / 0.9250. Length-only 0.5304; reconstruction error
 (benign FPR at the val max-F1 θ is 0.078 vs 0.051 for seed 0 because the val max-F1 θ fell lower; the FPR-5% θ gives
 0.049 on test).
 
+**Seeds 1–2 (2026-11-17, EC2 T4)** — sources: `runs/seed{1,2}/summary.json`; executed notebook copies (RUN pinned to
+the seed folder) `runs/seed{k}/autoencoder_st_T48.executed.ipynb`; judge verdict + recompute
+`baselines/autoencoder_st/seed{k}/judge/` (HF). Test window, judge recompute = notebook:
+
+| Seed | best val AUROC (epoch) / stop | AUROC | PR-AUC | val max-F1 θ: P / R / F1 / benign FPR | val FPR-5% θ: P / R / F1 / benign FPR | track max / mean | Judge |
+|---|---|---|---|---|---|---|---|
+| 1 | 0.9249 (39) / 49 | 0.9296 | 0.9712 | (0.2373) 0.9628 / 0.8433 / 0.8991 / 0.0657 | (0.2803) 0.9746 / 0.8333 / 0.8984 / 0.0438 | 0.9279 / 0.9287 | PASS-WITH-NOTES |
+| 2 | 0.9245 (37) / 47 | 0.9273 | 0.9703 | (0.3538) 0.9778 / 0.8269 / 0.8960 / 0.0379 | (0.3513) 0.9772 / 0.8273 / 0.8960 / 0.0390 | 0.9260 / 0.9266 | PASS-WITH-NOTES |
+
+Seeds 0–3: AUROC 0.9278 ± 0.0019. **Threshold drift (judge):** the val max-F1 θ swings 0.24–0.35 across seeds and
+moves the test benign FPR 0.038–0.078; the val FPR-5% θ is stable (test FPR 0.039–0.049, F1 0.8967 ± 0.0021, recall
+0.8304 ± 0.0034 over seeds 0–3). Report the FPR-5% operating point as the headline and max-F1 with its spread. The
+notebooks' context-only task/encoder row shows the README fallback (0.928) because
+`task/encoder/runs/evaluation/results.json` was set aside during execution (restored, sha256 equal).
+
 ---
 
 ## D. `task/autoencoder_benign_t32/` — one-class AE (benign only), all 8 folders, T = 32, four attacks tested
@@ -258,7 +312,7 @@ Sources: `task/autoencoder_benign_t32/README.md`; `runs/seed0/{config,env,summar
 | Training | max 300, grad clip 1.0, early stopping patience 10 (`min_delta` 1e-4 relative), plateau patience 5; `train.py` never opens the test splits |
 | Val used for | early stopping, LR schedule, thresholds p95 / p99 of **benign val** scores |
 | Scores | reconstruction error; Mahalanobis on z fitted on benign train z (cond 30.2, shrinkage 0); per window and per track (max / mean) |
-| Seeds | **1** (seed 0) |
+| Seeds | **1** (seed 0) in this table; seeds 1–3 added 2026-11-17 (block at the end of this section) |
 | Training record | best benign val masked MSE 0.10503 at epoch 151; stop at 161; 7 LR halvings; 1,165.2 s train / 1,168.4 s wall (19.4 min), MPS |
 
 **Test, window level, each attack split vs the same 60,142 benign test windows** (notebook cells 27 / 43):
@@ -308,6 +362,23 @@ test FPR @ val p95 0.048. Length-only unchanged (0.559 / 0.952 / 0.967 / 0.967).
 DoSRandom recall @ p95 0.555 vs 0.223; all values stay at or below the length-only reference, so only GridSybil beats
 the length shortcut, as before).
 
+**Seeds 1–2 (2026-11-17, EC2 T4)** — sources: `runs/seed{1,2}/summary.json`; executed notebook copies
+`runs/seed{k}/autoencoder_benign_T32.executed.ipynb` (the only place the test metrics live); judge verdict + recompute
+`baselines/autoencoder_benign_t32/seed{k}/judge/` (HF). Window AUROC reconstruction / Mahalanobis, each attack split vs
+the 60,142 benign test windows:
+
+| Seed | best val MSE (epoch) / stop / LR halvings | GridSybil | DataReplay | DoSRandom | DoSDisruptive | GridSybil recall @ p95 (recon) | DoSRandom recall @ p95 recon / Maha | Judge |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 0.10502 (181) / 191 / 8 | 0.732 / 0.487 | 0.375 / 0.327 | 0.960 / 0.874 | 0.584 / 0.578 | 0.300 | 0.830 / 0.316 | PASS-WITH-NOTES |
+| 2 | 0.10898 (178) / 188 / 10 | 0.736 / 0.514 | 0.397 / 0.339 | 0.967 / 0.907 | 0.605 / 0.617 | 0.301 | 0.860 / 0.578 | PASS-WITH-NOTES |
+
+GridSybil ≥ 4 rows (recon) 0.775 / 0.777; benign test FPR @ val p95 0.049 / 0.049. Seeds 0–3: GridSybil
+reconstruction 0.7335 ± 0.0029, Mahalanobis 0.505 ± 0.012; DataReplay 0.387 ± 0.010; DoSRandom 0.967 ± 0.005 (Maha
+0.884 ± 0.036, Maha recall @ p95 0.22–0.58); DoSDisruptive 0.598 ± 0.012 (Maha 0.587 ± 0.026). Judge notes:
+Mahalanobis on z is seed-sensitive outside GridSybil (report its spread, not one seed); seed 2's per-feature mean
+reconstruction errors on GridSybil are outlier-driven (do not quote mean errors over attack windows); every DataReplay
+/ DoS score stays at or below length-only (0.952 / 0.967), so only GridSybil beats length.
+
 ---
 
 ## E. `task/autoencoder_st_t32/` — supervised AE, benign of all 8 folders + GridSybil, T = 32
@@ -325,7 +396,7 @@ Sources: `task/autoencoder_st_t32/README.md`; `runs/seed0/{config,env,summary}.j
 | Training | max 100, grad clip 1.0, early stopping on val AUROC (patience 10, min_delta 1e-4), plateau patience 5 |
 | Val used for | LR schedule, early stopping, `best.pt`, both thresholds (val max F1; val benign FPR 5%) |
 | Score | P(GridSybil) per window; per track max / mean |
-| Seeds | **1** (seed 0) |
+| Seeds | **1** (seed 0) in this table; seeds 1–3 added 2026-11-17 (block at the end of this section) |
 | Training record | val AUROC 0.8941 at epoch 1; best 0.9220 at epoch 17 (val PR-AUC 0.9151, val F1 0.8748); stop at 27; 1 LR halving; 335.2 s train / 350.3 s wall, MPS |
 
 **Test** (notebook cell 24 / 42; chance PR-AUC 0.323 window, 0.329 track):
@@ -352,6 +423,21 @@ folder's benign vs same-period GridSybil: 0.9249–0.9268.
 copies of the same benign traffic; DoSRandom and DoSDisruptive benign counts are identical); F14 (**stated, not
 measured** for this split); F13.
 
+**Seeds 1–3 (2026-11-17, EC2 T4, on the EC2 rebuild of all/T32_benign_grid)** — sources: `runs/seed{1,2,3}/summary.json`;
+executed notebook copies `runs/seed{k}/autoencoder_st_T32.executed.ipynb` (the only place the test metrics live); judge
+verdict + recompute `baselines/autoencoder_st_t32/seed{k}/judge/` (HF). Test window, judge recompute = notebook:
+
+| Seed | best val AUROC (epoch) / stop | AUROC | PR-AUC | val max-F1 θ: P / R / F1 / benign FPR | val FPR-5% θ: R / F1 / benign FPR | track max / mean | recon alone | Judge |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 0.9210 (14) / 24 | 0.9294 | 0.9267 | (0.7415) 0.9794 / 0.8166 / 0.8906 / 0.0082 | (0.3398) 0.8395 / 0.8635 / 0.0500 | 0.9274 / 0.9294 | 0.5955 | PASS-WITH-NOTES |
+| 2 | 0.9221 (22) / 32 | 0.9302 | 0.9275 | (0.6978) 0.9742 / 0.8200 / 0.8904 / 0.0104 | (0.3326) 0.8435 / 0.8662 / 0.0496 | 0.9281 / 0.9305 | 0.6000 | PASS-WITH-NOTES |
+| 3 | 0.9219 (18) / 28 | 0.9298 | 0.9274 | (0.6891) 0.9806 / 0.8190 / 0.8926 / 0.0077 | (0.3176) 0.8430 / 0.8634 / 0.0523 | 0.9286 / 0.9305 | 0.5966 | PASS-WITH-NOTES |
+
+Length-only 0.5599 in every seed. Seeds 0–3: AUROC 0.9289 ± 0.0018, PR-AUC 0.9266 ± 0.0013, F1 at val max-F1 0.8907
+± 0.0014 (benign FPR 0.0094 ± 0.0017), recall at val FPR-5% 0.8412 ± 0.0023 (benign FPR 0.0499 ± 0.0019). Judge
+notes: the val max-F1 θ moved from 0.596 (seed 0) to 0.69–0.74 but sits on a flat F1 plateau (test F1 0.889–0.893);
+seed 0 used the Mac copy of the input, seeds 1–3 the EC2 rebuild (counts identical, not byte for byte).
+
 ---
 
 ## F. `task/autoencoder_benign_t48/` — one-class AE (benign only), benign + GridSybil folders, T = 48
@@ -369,7 +455,7 @@ Sources: `task/autoencoder_benign_t48/runs/seed0/{config,env,summary}.json`;
 | Training | max 300, grad clip 1.0, early stopping patience 10 (`min_delta` 1e-4), plateau patience 5 |
 | Val used for | early stopping, LR schedule, thresholds p95 / p99 of **benign val** scores |
 | Scores | reconstruction error; Mahalanobis on z fitted on benign train z (cond 14.0, shrinkage 0); per window and per track |
-| Seeds | **1** (seed 0) |
+| Seeds | **1** (seed 0) in this table; seeds 1–3 added 2026-11-17 (block at the end of this section) |
 | Training record | best benign val masked MSE 0.14770 at epoch 143; stop at 153; 6 LR halvings; 1,259.4 s train / 1,265.4 s wall, MPS |
 
 **Test, window level, GridSybil (27,064) vs benign test (13,405)** (`test_metrics.json`):
@@ -395,6 +481,17 @@ reconstruction AUROC **0.685** (1–3 rows 0.590, ≥ 4 rows 0.716), PR-AUC 0.82
 within 0.02 of seed 0; Mahalanobis recall @ p95 0.111 vs 0.062, the latent score is seed-sensitive, AUROC still
 below 0.5).
 
+**Seeds 1–2 (2026-11-17, EC2 T4)** — sources: `runs/seed{1,2}/{summary,test_metrics}.json`; judge verdict + recompute
+`baselines/autoencoder_benign_t48/seed{k}/judge/` (HF; recompute = test_metrics.json, max |Δ| ≤ 3e-8).
+
+| Seed | best val MSE (epoch) / stop / LR halvings | recon AUROC | Maha AUROC | recall @ val p95 recon / Maha (benign FPR recon) | recon AUROC ≥ 4 rows | Judge |
+|---|---|---|---|---|---|---|
+| 1 | 0.15301 (96) / 106 / 6 | 0.6775 | 0.4312 | 0.235 / 0.060 (0.046) | 0.707 | PASS-WITH-NOTES |
+| 2 | 0.15341 (107) / 117 / 5 | 0.6764 | 0.4629 | 0.238 / 0.101 (0.046) | 0.711 | PASS-WITH-NOTES |
+
+Seeds 0–3: reconstruction **0.682 ± 0.006**, Mahalanobis 0.446 ± 0.015. Judge: seed 0's 0.689 is the best of four, so
+quote the multi-seed 0.682 ± 0.006, not 0.689; Mahalanobis stays below chance and below length (0.530) in every seed.
+
 ---
 
 ## G. `task/autoencoder_t64/` — unlabelled AE (benign + GridSybil pooled), T = 64
@@ -413,7 +510,7 @@ Sources: `task/autoencoder_t64/runs/seed0/{config,env,summary}.json`; `task/auto
 | Training | max 300, early stopping patience 10 (`min_delta` 0.0), plateau patience 5, no gradient clipping in the config; labels never read in training (`label_reads: []`) |
 | Val used for | early stopping, LR schedule, thresholds p95 / p99 of **all** val scores (both classes, labels unused) |
 | Scores | reconstruction error; Mahalanobis on z of the fit windows (both classes; ridge 1e-6); per window and per track |
-| Seeds | **1** (seed 0) |
+| Seeds | **1** (seed 0) in this table; seeds 1–3 added 2026-11-17 (block at the end of this section) |
 | Training record | best val masked MSE 0.14518 at epoch 161; stop at 171; 7 LR halvings; 7,460.2 s train / 7,465.3 s wall, MPS |
 
 **Test, window level** (`results.json`; chance PR-AUC 0.668):
@@ -438,6 +535,20 @@ verdict `baselines/autoencoder_t64/seed3/judge/verdict.md` (HF). Best val masked
 0.479 / 0.477, Mahalanobis 0.327 / 0.321. Length-only 0.535 (unchanged). Judge: PASS (every metric within 0.02 of
 seed 0; reading unchanged).
 
+**Seeds 1–2 (2026-11-17, EC2 T4)** — sources: `runs/seed{1,2}/{summary,results}.json`; judge verdict + recompute
+`baselines/autoencoder_t64/seed{k}/judge/` (HF; recompute = results.json, max |Δ| ≤ 2.2e-7). Evaluate was re-run with
+`task/encoder/runs/evaluation/results.json` set aside (its context lookup expects a seed-0 entry the EC2 file lacks;
+`context_task_encoder_benign_only_T64` is null; file restored, sha256 equal); `label_reads: []`.
+
+| Seed | best val MSE (epoch) / stop / LR halvings | recon AUROC | Maha AUROC | recall @ val p95 recon / Maha | recon AUROC 1–3 / ≥ 4 rows | Judge |
+|---|---|---|---|---|---|---|
+| 1 | 0.15114 (100) / 110 / 7 | 0.4810 | 0.3430 | 0.045 / 0.044 | 0.387 / 0.507 | PASS-WITH-NOTES |
+| 2 | 0.14419 (114) / 124 / 5 | 0.4835 | 0.3282 | 0.043 / 0.033 | 0.390 / 0.510 | PASS-WITH-NOTES |
+
+Seeds 0–3: reconstruction 0.482 ± 0.002, Mahalanobis 0.340 ± 0.010; both below the length rule (0.535) in every seed.
+Judge notes: seed 1's best val MSE is ~4% above the other seeds (weaker optimum, test in line); seed 2's Mahalanobis is
+0.024 below seed 0, within the spread of a below-chance score.
+
 ---
 
 ## H. `task/autoencoder_t32/` — unlabelled AE (benign of 8 folders + GridSybil pooled), T = 32
@@ -455,7 +566,7 @@ Sources: `task/autoencoder_t32/runs/seed0/{config,env,summary}.json`;
 | Training | max 300, grad clip 1.0, early stopping patience 10 (`min_delta` 1e-4), plateau patience 5; label files never opened in training (`labels_read: false`, guard in process and workers) |
 | Val used for | early stopping, LR schedule, thresholds p95 / p99 of the **mixed** val scores (labels unused) |
 | Scores | reconstruction error; Mahalanobis on z (cond 46.9, shrinkage 0); per window and per track |
-| Seeds | **1** (seed 0) |
+| Seeds | **1** (seed 0) in this table; seeds 1–3 added 2026-11-17 (block at the end of this section) |
 | Training record | best val masked MSE 0.10781 at epoch 206; stop at 216; 9 LR halvings; 9,137.7 s train / 9,157.8 s wall, MPS |
 
 **Test, window level** (`evaluation.json`):
@@ -474,6 +585,22 @@ max / mean: reconstruction 0.594 / 0.599, Mahalanobis 0.362 / 0.362.
 
 **Caveats:** one seed, no CI; F1 (benign repeated per family), F14 (**stated, not measured** for this split), F13;
 F1 score at the thresholds is not in the file.
+
+**Seeds 1–3 (2026-11-17, EC2 T4, on the EC2 rebuild of all/T32_benign_grid)** — sources:
+`runs/seed{1,2,3}/{summary,evaluation}.json`; judge verdict + recompute `baselines/autoencoder_t32/seed{k}/judge/` (HF;
+recompute = evaluation.json over 42 values per seed, max |Δ| ≤ 4.3e-7; label-file guard on in process and workers).
+
+| Seed | best val MSE (epoch) / stop / LR halvings | recon AUROC | Maha AUROC | recon 1–3 / ≥ 4 rows | recall / benign FPR @ val p95 (recon) | track max / mean (recon) | GridSybil folders recon / Maha | Judge |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 0.10635 (223) / 233 / 8 | 0.6171 | 0.4295 | 0.514 / 0.651 | 0.107 / 0.040 | 0.601 / 0.606 | 0.620 / 0.428 | PASS-WITH-NOTES |
+| 2 | 0.11075 (197) / 207 / 9 | 0.6070 | 0.4056 | 0.502 / 0.644 | 0.102 / 0.041 | 0.590 / 0.596 | 0.609 / 0.403 | PASS-WITH-NOTES |
+| 3 | 0.10540 (210) / 220 / 8 | 0.6129 | 0.4501 | 0.522 / 0.647 | 0.108 / 0.042 | 0.596 / 0.602 | 0.614 / 0.447 | PASS-WITH-NOTES |
+
+Length-only 0.5599 (GridSybil folders 0.5636) in every seed. Seeds 0–3: reconstruction 0.612 ± 0.004 (GridSybil
+folders 0.614 ± 0.004), Mahalanobis 0.421 ± 0.024 (below chance in every seed, the least stable score).
+Reconstruction is ~0.05 above length and at chance on 1–3-row windows. Judge notes: `labels_read: false` in
+summary.json is a hard-coded literal (the evidence is the label-file guard, tested); `history.jsonl` minimum can sit
+1–2 epochs after `best_epoch` (relative min_delta, by design).
 
 ---
 
@@ -562,7 +689,27 @@ comparison. Sources: the "Seed 3" block of each section; judge verdicts under `b
 | D one-class AE, all/T32_benign | recon / Mahalanobis | 0.736 / 0.510 | 0.730 / 0.508 | PASS-WITH-NOTES |
 | F one-class AE, T48_benign | recon / Mahalanobis | 0.689 / 0.437 | 0.685 / 0.454 | PASS-WITH-NOTES |
 | G unlabelled AE, T64 | recon / Mahalanobis | 0.482 / 0.352 | 0.480 / 0.337 | PASS |
-| A, E, H | — | — | pending (inputs not on HF yet) | — |
+| A, E, H | — | — | pending on 2026-11-16; done 2026-11-17, see the 4-seed table below | — |
+
+**Four seeds per cell (seeds 0–3, 2026-11-17)**, GridSybil vs benign, test, window AUROC, mean ± sample sd (n = 4;
+S0 AE also n = 5). Seed 0 = Mac MPS, seeds 1–3 (4) = EC2 CUDA. Sources: the per-section seed blocks above; judge
+verdicts + recomputes under `baselines/<package>/seed<k>/judge/` (HF); `seed_summary` in `results.json`. The columns
+are still not directly comparable (different inputs, splits, test vehicles; see below).
+
+| Cell | Training signal | Input | Headline score | Seeds 0 / 1 / 2 / 3 | Mean ± sd | Secondary (mean ± sd) | Judges |
+|---|---|---|---|---|---|---|---|
+| S0 AE | one-class | T64 | recon | 0.6546 / 0.6580 / 0.6536 / 0.6615 (seed 4: 0.6532) | 0.6569 ± 0.0036 (0–4: 0.6562 ± 0.0035) | Maha 0.3224 ± 0.0146 (0–4: 0.3233 ± 0.0128) | 3, 4: PASS-WITH-NOTES |
+| A | unlabelled mix | T48 | recon | 0.484 / 0.4859 / 0.4850 / 0.4856 | 0.485 ± 0.001 | length-only 0.530 | PASS-WITH-NOTES ×3 |
+| C | supervised | T48_tvt | head | 0.9289 / 0.9296 / 0.9273 / 0.9253 | 0.9278 ± 0.0019 | at val FPR-5% θ: F1 0.8967 ± 0.0021, recall 0.8304 ± 0.0034, benign FPR 0.039–0.049; at val max-F1 θ benign FPR 0.038–0.078 | PASS-WITH-NOTES ×3 |
+| D | one-class | all/T32_benign | recon | 0.736 / 0.732 / 0.736 / 0.730 | 0.7335 ± 0.0029 | Maha 0.505 ± 0.012; DataReplay 0.387 ± 0.010, DoSRandom 0.967 ± 0.005, DoSDisruptive 0.598 ± 0.012 (all ≤ length-only 0.952 / 0.967) | PASS-WITH-NOTES ×3 |
+| E | supervised | all/T32_benign_grid | head | 0.9263 / 0.9294 / 0.9302 / 0.9298 | 0.9289 ± 0.0018 | F1 at val max-F1 0.8907 ± 0.0014 (benign FPR 0.0094 ± 0.0017) | PASS-WITH-NOTES ×3 |
+| F | one-class | T48_benign | recon | 0.6894 / 0.6775 / 0.6764 / 0.6845 | 0.682 ± 0.006 | Maha 0.446 ± 0.015 | PASS-WITH-NOTES ×3 |
+| G | unlabelled mix | T64 | recon | 0.4819 / 0.4810 / 0.4835 / 0.4800 | 0.482 ± 0.002 | Maha 0.340 ± 0.010 | seed 3 PASS, 1–2 PASS-WITH-NOTES |
+| H | unlabelled mix | all/T32_benign_grid | recon | 0.6102 / 0.6171 / 0.6070 / 0.6129 | 0.612 ± 0.004 | Maha 0.421 ± 0.024; GridSybil folders recon 0.614 ± 0.004 | PASS-WITH-NOTES ×3 |
+
+Readings unchanged by the extra seeds: reconstruction is stable (sd ≤ 0.006); Mahalanobis on z is the least stable
+score in every cell that has it and below chance in every seed of S0, F, G and H (D: 0.487–0.514); the single-seed F number 0.689 was the best
+of four. Seed 0 of A, D (3 dp) and C, E (4 dp) are rounded notebook values.
 
 ---
 

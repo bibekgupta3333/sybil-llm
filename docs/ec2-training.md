@@ -317,7 +317,7 @@ into a temp dir, `hf_hub.py verify`, then copy; skips a non-empty local folder u
 
 ```bash
 npm run hf:download:baselines:all-seeds  # all 26 EC2 baseline folders: seeds 1, 2, 3 of the 7 task/autoencoder*
-                                         # packages + encoder ae-seed0..4 -> task/<package>/runs/ (a folder not yet
+                                         # packages + encoder ae-seed0..4 (+ evaluation_ec2_seeds0to4) -> task/<package>/runs/ (a folder not yet
                                          # on HF is reported and skipped; non-empty local folders are skipped)
 npm run hf:download:baselines     # seed 3 (SEED=k) of all 8 cells -> task/<package>/runs/seed3 (encoder: ae-seed3)
 SEED=2 npm run hf:download:baselines:st  # one cell, one seed (SEED=k, default 3):

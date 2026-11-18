@@ -55,6 +55,9 @@ simulation/.cache/
 /task/autoencoder_t32/runs/
 /task/autoencoder_t32/cache/
 
+# One-class masked autoencoder (widedeep re-implementation) runs: checkpoints + per-window score files
+/task/masked_autoencoder/runs/
+
 # Baseline paper experiments: window cache and run folders (score files are large); results/ stays tracked
 /baselinepaper/experiments/cache/
 /baselinepaper/experiments/runs/

@@ -244,6 +244,29 @@ def test_unexpected_attack_code_raises(fake_setup, tmp_path):
         evaluate.Evaluation(_settings(data_dir, run_dir, tmp_path / "eval"), access).run()
 
 
+def _mix_val(data_dir: Path, code: int) -> None:
+    info_path = data_dir / "val" / "b32" / "part-00000_info.json"
+    info = json.loads(info_path.read_text())
+    info["windows"][0]["label"], info["windows"][0]["is_attack"] = code, 1
+    info_path.write_text(json.dumps(info))
+
+
+def test_attack_in_val_raises_by_default(fake_setup, tmp_path):
+    data_dir, run_dir, access = fake_setup
+    _mix_val(data_dir, 16)
+    with pytest.raises(evaluate.AlignmentError):
+        evaluate.Evaluation(_settings(data_dir, run_dir, tmp_path / "eval"), access).run()
+
+
+def test_allowed_val_attack_code_passes_and_other_codes_still_raise(fake_setup, tmp_path):
+    data_dir, run_dir, access = fake_setup
+    _mix_val(data_dir, 16)
+    summary = evaluate.Evaluation(_settings(data_dir, run_dir, tmp_path / "eval", val_attack_codes=(16,)), access).run()
+    assert summary["eval_settings"]["val_attack_codes"] == [16] or summary["eval_settings"]["val_attack_codes"] == (16,)
+    with pytest.raises(evaluate.AlignmentError):
+        evaluate.Evaluation(_settings(data_dir, run_dir, tmp_path / "eval2", val_attack_codes=(17,)), access).run()
+
+
 def test_label_reader_refuses_before_scores_exist(tmp_path):
     reader = evaluate.LabelReader(tmp_path, tmp_path / "scores", ("val",))
     with pytest.raises(RuntimeError):

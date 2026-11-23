@@ -16,6 +16,7 @@
     "docker: docker:build, docker:build:cpu, docker:shell, docker:shell:cpu, docker:check:cpu, docker:train",
     "timesnet all/T32_benign (SEED=0|1|2, default 0): t32b:data:download, t32b:cache, t32b:cache:verify, t32b:check, t32b:smoke, t32b:train, t32b:train:no-guard, t32b:train:seeds, t32b:resume, t32b:eval, t32b:eval:random-init, t32b:eval:seeds, t32b:test, t32b:upload, t32b:download, t32b:ec2, t32b:short, t32b:eval:short, t32b:notebook",
     "benign (TimesNet, all/T32_benign; SEED=0|1|2): benign:download (HF input + cache + verify), benign:train (full data, no memory cap, 72 h), benign:pause, benign:resume, benign:eval (eval + random-init + notebook), benign:upload (run + evaluations, every file, to HF)",
+    "contamination mix10 (ATTACK=gridsybil|datareplay|dosrandom|dosdisruptive): pipeline:encoder-input:all-t32-mix10 (build all/T32_mix10_<attack>, executed copy saved as build.executed.ipynb in it), mix10:cache (npy cache + verify)",
     "npm run <name> -- <args> passes <args> through; Python is ${PY:-.venv-train/bin/python}"
   ],
   "scripts": {
@@ -42,6 +43,15 @@
     "pipeline:encoder-input:t46": "${PY:-.venv-train/bin/python} scripts/run_notebook.py src/pipeline/benign_gridsybil/encoder_input_T46.ipynb",
     "pipeline:encoder-input:all-t32-benign": "${PY:-.venv-train/bin/python} scripts/run_notebook.py src/pipeline/all/encoder_input_T32_benign.ipynb",
     "pipeline:encoder-input:all-t32-benign-grid": "${PY:-.venv-train/bin/python} scripts/run_notebook.py src/pipeline/all/encoder_input_T32_benign_grid.ipynb",
+    "pipeline:encoder-input:all-t32-mix10": "A=${ATTACK:?set ATTACK=gridsybil|datareplay|dosrandom|dosdisruptive}; O=src/data/encoder_input/all/T32_mix10_$A; T=src/data/encoder_input/all/.T32_mix10_$A.build.ipynb; cp src/pipeline/all/encoder_input_T32_mix10.ipynb $T && ATTACK=$A nice -n 15 ${PY:-.venv-train/bin/python} scripts/run_notebook.py $T; r=$?; mkdir -p $O && mv $T $O/build.executed.ipynb; exit $r",
+    "mix10:cache": "A=${ATTACK:?set ATTACK=gridsybil|datareplay|dosrandom|dosdisruptive}; nice -n 15 ${PY:-.venv-train/bin/python} -m src.pipeline.all_t32_benign.cache --workers 3 --data-dir src/data/encoder_input/all/T32_mix10_$A --cache-dir src/data/cache/all/T32_mix10_$A && ${PY:-.venv-train/bin/python} -m src.pipeline.all_t32_benign.cache --verify --data-dir src/data/encoder_input/all/T32_mix10_$A --cache-dir src/data/cache/all/T32_mix10_$A",
+    "mix10:train": "bash src/model/all_t32_benign/experiments/mix10_train.sh",
+    "mix10:sync": "bash src/model/all_t32_benign/experiments/mix10_sync.sh",
+    "mix10:eval": "bash src/model/all_t32_benign/experiments/mix10_eval.sh",
+    "mix10:upload": "bash src/model/all_t32_benign/experiments/mix10_upload.sh",
+    "mix10:notebooks": "for a in gridsybil datareplay dosrandom dosdisruptive; do NOTEBOOK_ONLY=1 bash src/model/all_t32_benign/experiments/mix10_eval.sh $a || exit 1; done && ${PY:-.venv-train/bin/python} scripts/run_notebook.py src/model/all_t32_benign/experiments/mix10_compare.ipynb --timeout 3600",
+    "hf:download:mix10": "a=${ATTACK:?set ATTACK=gridsybil|datareplay|dosrandom|dosdisruptive}; s=${SEED:-0}; bash scripts/hf_fetch.sh runs/model-t32m10-$a-seed$s src/runs/pretraining/all/T32_mix10_$a/model-t32m10-$a-seed$s evaluations/model-t32m10-$a-seed$s src/runs/evaluation/all/T32_mix10_$a/model-t32m10-$a-seed$s evaluations/model-t32m10-$a-seed$s-random-init src/runs/evaluation/all/T32_mix10_$a/model-t32m10-$a-seed$s-random-init",
+    "hf:download:mix10:all": "for a in gridsybil datareplay dosrandom dosdisruptive; do ATTACK=$a npm run hf:download:mix10 || true; done",
     "train": "${PY:-.venv-train/bin/python} -m src.model.benign_gridsybil.timesnet.train",
     "train:check": "${PY:-.venv-train/bin/python} -m src.model.benign_gridsybil.timesnet.train --check",
     "train:smoke": "${PY:-.venv-train/bin/python} -m src.model.benign_gridsybil.timesnet.train --smoke",

@@ -86,6 +86,9 @@ class EvalSettings:
         quantiles: benign val quantiles used as alarm thresholds.
         smoke_windows: windows per split in smoke mode.
         allow_metadata_mismatch: continue when metadata.json differs from the run's or the cache's (off by default).
+        val_attack_codes: attack codes allowed in the val split besides 0 (contamination experiments with a mixed,
+            unlabelled-in-use val, e.g. `all/T32_mix10_*`; the alarm thresholds then come from that mixed val).
+            Empty (default) = val must be benign only, as for `all/T32_benign`.
     """
 
     run_dir: str
@@ -104,6 +107,7 @@ class EvalSettings:
     quantiles: tuple[float, ...] = (0.95, 0.99)
     smoke_windows: int = 2048
     allow_metadata_mismatch: bool = False
+    val_attack_codes: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
         if self.batch_size < 1:
@@ -232,8 +236,11 @@ class FrozenScorer:
 class LabelReader:
     """Reads `_info` label shards only after every score file exists; aligns them to the score ids."""
 
-    def __init__(self, data_dir: Path, scores_dir: Path, splits: Sequence[str]) -> None:
+    def __init__(
+        self, data_dir: Path, scores_dir: Path, splits: Sequence[str], val_attack_codes: Sequence[int] = ()
+    ) -> None:
         self.data_dir, self.scores_dir, self.splits = data_dir, scores_dir, tuple(splits)
+        self.val_attack_codes = frozenset(int(c) for c in val_attack_codes)
         self.opened: list[str] = []
 
     def _guard(self) -> None:
@@ -287,9 +294,10 @@ class LabelReader:
         if complete and len(info_ids) != len(ids):
             raise AlignmentError(f"{split}: {len(info_ids)} info windows but {len(ids)} scored windows")
         expected = ATTACK_CODES.get(split, 0)
-        if not (labels == expected).all():
-            bad = sorted(set(labels.tolist()) - {expected})
-            raise AlignmentError(f"{split}: expected label {expected} only, found {bad}")
+        allowed = {expected} | (set(self.val_attack_codes) if split == "val" else set())
+        bad = sorted(set(labels.tolist()) - allowed)
+        if bad:
+            raise AlignmentError(f"{split}: expected labels {sorted(allowed)} only, found {bad}")
         same_order = info_ids[: len(ids)] == [str(i) for i in ids]
         return labels, same_order
 
@@ -519,7 +527,7 @@ class Evaluation:
         """Reads labels (after every score file exists) and computes every metric."""
         scored = {s: self.load_scores(self.out / "scores" / f"{s}.npz") for s in SCORED_SPLITS}
         self.events["labels_first_read_utc"] = now_utc()
-        reader = LabelReader(Path(self.s.data_dir), self.out / "scores", SCORED_SPLITS)
+        reader = LabelReader(Path(self.s.data_dir), self.out / "scores", SCORED_SPLITS, self.s.val_attack_codes)
         labels, order = {}, {}
         for split in SCORED_SPLITS:
             labels[split], order[split] = reader.read(
@@ -702,6 +710,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="continue although metadata.json differs from the run's / the cache's (recorded; off by default)",
     )
+    p.add_argument(
+        "--allow-val-attack",
+        type=int,
+        action="append",
+        default=[],
+        metavar="CODE",
+        help="attack code allowed in val besides 0 (repeatable; mixed-val contamination runs; thresholds then come "
+        "from the mixed val; off by default)",
+    )
     return p.parse_args(argv)
 
 
@@ -726,6 +743,7 @@ def settings_from_args(args: argparse.Namespace) -> EvalSettings:
         smoke=args.smoke,
         random_init=args.random_init,
         allow_metadata_mismatch=args.allow_metadata_mismatch,
+        val_attack_codes=tuple(args.allow_val_attack),
     )
 
 

@@ -105,3 +105,30 @@ DoSRandom\,/\,DoSDisruptive. The supervised model had been evaluated on a differ
 training settings of both are frozen as they were. The reference detectors (LSTM autoencoder, PCA, Isolation
 Forest, one-class SVM, kNN, logistic regression) had no exposure to any test result. Any advantage from this
 exposure therefore favors the convolutional autoencoder in comparison C5.
+
+\subsection{Masked Autoencoder of the Earlier Studies}\label{sec:det-mae}
+
+\todo{This detector belongs to the earlier studies of Section~\ref{sec:res-prelim}; it is not part of the
+protocol, the sweep or Table~\ref{tab:detectors}, and is removed with that subsection unless it is added to the
+protocol before the sweep.}
+One earlier study replaced the convolutional autoencoder by a masked autoencoder that follows the encoder--decoder
+self-supervised pretraining of the pytorch-widedeep library~\cite{zaurin2023widedeep,widedeepdocs},
+re-implemented in PyTorch from the source of version 1.7.0. A window is flattened to $13T$ continuous columns, and
+its $T$ row-mask values are appended as extra inputs. In every training step each real cell is hidden with
+probability 0.2 and set to zero; the encoder (TabMlp, $14T{\to}64{\to}16$, ReLU and dropout 0.1 per layer) reads
+the masked input, and a mirrored decoder ($16{\to}64{\to}13T$, linear output) reconstructs the window. The loss is
+the squared error on the hidden cells divided by the batch variance of the cell's feature, averaged per window
+(the library's encoder--decoder loss). Padding cells are never hidden, in the loss or scored. Training uses AdamW
+(learning rate $10^{-3}$, weight decay 0.01, the library default), batch size 256, and learning-rate halving and
+early stopping on the benign validation masked-reconstruction error; the model has 113{,}616, 85{,}760 and
+57{,}904 parameters at $T=64$, 48 and 32. It deviates from the library in four respects: the encoder reads the
+masked input (in version 1.7.0 the TabMlp path passes the clean input to the encoder and restricts only the loss
+to the hidden cells), the decoder output is linear, the loss variance is pooled per feature rather than per
+flattened column, and the layers are narrower, with a latent of 16 as in the convolutional model. Three scores are
+computed per window: the \emph{masked reconstruction} error, where the cells are split once into five fixed
+groups, each group is hidden in turn, and every real cell is scored while hidden; the full reconstruction error
+with nothing hidden; and the Mahalanobis distance of the latent to the benign training latents. It was trained on
+benign windows only, on exactly the windows of the benign-only convolutional autoencoder at each $T$, with
+seeds 0--3. A second encoder, TabResnet (dense residual blocks of widths 64, 32 and 16, dropout 0.1, with a
+mirrored decoder and a linear output layer; 128{,}224, 100{,}576 and 72{,}928 parameters at $T=64$, 48 and 32),
+was trained in the same way on the same windows, also reading the masked input, with the same scores and seeds.

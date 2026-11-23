@@ -5,7 +5,7 @@ alarm thresholds; no test split is opened. After training, a Mahalanobis model o
 the benign val p95 / p99 thresholds of the three scores (masked_recon, full_recon, mahalanobis) are stored per window
 and per track (max / mean of a link's windows).
 
-Writes `task/masked_autoencoder/runs/T<w>-<encoder>-seed<k>/`: config.json, env.json, history.jsonl, train.log, best.pt,
+Writes `task/masked_autoencoder/runs/<encoder>/T<w>-seed<k>/` (`config.run_path`): config.json, env.json, history.jsonl, train.log, best.pt,
 mahalanobis.npz, summary.json, loss_curve.png (and, with --evaluate, the evaluate.py outputs).
 
 Usage (repo root):
@@ -19,7 +19,6 @@ from __future__ import annotations
 import argparse
 import json
 import time
-from pathlib import Path
 
 import numpy as np
 
@@ -38,7 +37,7 @@ class Experiment:
     def __init__(self, settings: MAEConfig, source: OneClassSource | None = None) -> None:
         self.settings = settings
         self.source = source or make_source(settings)
-        self.run_dir = Path(settings.runs_dir) / settings.run_id
+        self.run_dir = settings.run_dir
 
     def run(self) -> dict:
         s = self.settings
@@ -141,8 +140,10 @@ def parse_args(argv: list[str] | None = None) -> tuple[MAEConfig, bool]:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--epochs", type=int, default=None, help="max epochs (default from the config)")
     p.add_argument("--device", default="auto")
-    p.add_argument("--runs-dir", default=None)
-    p.add_argument("--max-windows", type=int, default=0, help="cap per split (quick checks; run id gets -check)")
+    p.add_argument(
+        "--runs-dir", default=None, help="root of the run tree (default runs/; the run goes to <encoder>/T<w>-seed<k>)"
+    )
+    p.add_argument("--max-windows", type=int, default=0, help="cap per split (quick checks; run folder gets -check)")
     p.add_argument("--evaluate", action="store_true", help="run evaluate.py on the finished run")
     a = p.parse_args(argv)
     changes = {"encoder": a.encoder, "seed": a.seed, "device": a.device, "max_windows": a.max_windows}

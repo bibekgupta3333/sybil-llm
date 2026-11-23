@@ -11,8 +11,12 @@ test labels). Metrics come from `task.autoencoder_benign_t48.evaluate.DetectionM
 T = 64: the on-disk `test` split holds benign and GridSybil windows together; they are separated by label after scoring.
 
 Usage (repo root):
-    .venv-train/bin/python -m task.masked_autoencoder.evaluate --run-dir task/masked_autoencoder/runs/T32-mlp-seed0
-    .venv-train/bin/python -m task.masked_autoencoder.evaluate --run-dir <run> --from-scores
+    .venv-train/bin/python -m task.masked_autoencoder.evaluate --window 32 --encoder mlp --seed 0
+    .venv-train/bin/python -m task.masked_autoencoder.evaluate --run-dir task/masked_autoencoder/runs/mlp/T32-seed0
+    .venv-train/bin/python -m task.masked_autoencoder.evaluate --window 32 --encoder resnet --seed 0 --from-scores
+
+The run folder is the one given (`--run-dir`) or `config.run_path(encoder, window, seed, runs_dir)`; no path stored
+inside the run files is used to find it (`config.json` holds only the runs root, `runs_dir`).
 """
 
 from __future__ import annotations
@@ -24,7 +28,7 @@ from pathlib import Path
 import numpy as np
 
 from task.autoencoder_benign_t48.evaluate import DetectionMetrics, SplitScores
-from task.masked_autoencoder.config import MAEConfig
+from task.masked_autoencoder.config import ENCODERS, PROTOCOLS, RUNS_DIR, MAEConfig, run_path
 from task.masked_autoencoder.data import OneClassSource, make_source
 from task.masked_autoencoder.scoring import SCORE_NAMES, Mahalanobis
 from task.masked_autoencoder.trainer import MaskedTrainer
@@ -212,11 +216,17 @@ class Evaluation:
 
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--run-dir", required=True)
+    where = p.add_mutually_exclusive_group(required=True)
+    where.add_argument("--run-dir", help="run folder")
+    where.add_argument("--window", type=int, choices=sorted(PROTOCOLS), help="with --encoder / --seed: the run folder")
+    p.add_argument("--encoder", choices=ENCODERS, default="mlp")
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--runs-dir", default=RUNS_DIR, help="root of the run tree (with --window)")
     p.add_argument("--device", default="auto")
     p.add_argument("--from-scores", action="store_true", help="rebuild test_metrics.json from the score files")
     a = p.parse_args(argv)
-    Evaluation(a.run_dir, a.device).run(a.from_scores)
+    run_dir = a.run_dir or run_path(a.encoder, a.window, a.seed, a.runs_dir)
+    Evaluation(run_dir, a.device).run(a.from_scores)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-% references.bib -- RoadFM-Lite baseline paper (IEEEtran). 76 entries; keys are fixed (see citation-keys.md).
+% references.bib -- RoadFM-Lite baseline paper (IEEEtran). 79 entries (76 + 3 added 2026-11-18); keys are fixed (see citation-keys.md).
 % Metadata from Crossref (DOI records), arXiv API, PMLR / NeurIPS / USENIX / IFIP proceedings pages; looked up 2026-11-10.
 % Entries with a "% CHECK:" line have a field that could not be confirmed; see references-check.md.
 
@@ -812,4 +812,38 @@
   pages         = {20578--20589},
   year          = {2020},
   url           = {https://papers.nips.cc/paper/2020/hash/ecb9fe2fbb99c31f567e9823e884dbec-Abstract.html},
+}
+
+% Added 2026-11-18 (masked autoencoder of the earlier studies; TimesNet context). JOSS metadata checked on
+% joss.theoj.org (DOI 10.21105/joss.05027) and on the library documentation's citation section, 2026-11-18.
+@article{zaurin2023widedeep,
+  author        = {Rodriguez Zaurin, Javier and Mulinka, Pavol},
+  title         = {pytorch-widedeep: A flexible package for multimodal deep learning},
+  journal       = {Journal of Open Source Software},
+  volume        = {8},
+  number        = {86},
+  pages         = {5027},
+  year          = {2023},
+  doi           = {10.21105/joss.05027},
+}
+
+% Documentation page of the encoder-decoder self-supervised pretraining (EncoderDecoderTrainer); page exists,
+% checked 2026-11-18. Source code read: pytorch-widedeep 1.7.0 wheel (task/masked_autoencoder/README.md).
+@misc{widedeepdocs,
+  author        = {Rodriguez Zaurin, Javier and Mulinka, Pavol},
+  title         = {Self Supervised Pre-training for tabular data -- pytorch-widedeep documentation (version 1.7.0)},
+  howpublished  = {\url{https://pytorch-widedeep.readthedocs.io/en/latest/pytorch-widedeep/self_supervised_pretraining.html}},
+  note          = {Accessed 2026-11-18},
+  year          = {2026},
+}
+
+% CHECK: venue (ICLR 2023) not confirmed online (OpenReview page blocked); title and authors from arXiv 2210.02186.
+@inproceedings{wu2023timesnet,
+  author        = {Wu, Haixu and Hu, Tengge and Liu, Yong and Zhou, Hang and Wang, Jianmin and Long, Mingsheng},
+  title         = {{TimesNet}: Temporal {2D}-Variation Modeling for General Time Series Analysis},
+  booktitle     = {Proc. International Conference on Learning Representations (ICLR)},
+  year          = {2023},
+  eprint        = {2210.02186},
+  archivePrefix = {arXiv},
+  url           = {https://arxiv.org/abs/2210.02186},
 }

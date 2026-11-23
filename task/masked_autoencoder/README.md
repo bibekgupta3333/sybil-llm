@@ -85,23 +85,50 @@ used at every T.
 npm run mae:test                                  # CPU tests (synthetic windows)
 WINDOW=32 ENCODER=mlp SEED=0 npm run mae:train    # train + evaluate one run
 WINDOW=32 ENCODER=mlp SEED=0 npm run mae:eval     # re-score / re-evaluate one run
-npm run mae:all                                   # TabMlp, T = 64 / 48 / 32, seeds 0-3 (ENCODER=resnet for TabResnet)
-npm run mae:plots                                 # runs/<run>/loss_curve.png for every finished run
+npm run mae:all                                   # grid of one encoder (ENCODER, default mlp): T = 64 / 48 / 32 x seeds 0-3
+npm run mae:all:resnet                            # the same grid for TabResnet
+npm run mae:plots                                 # loss_curve.png for every finished run of every encoder
 npm run mae:notebook                              # execute masked_autoencoder.ipynb (reads the run files only)
-.venv-train/bin/python -m task.masked_autoencoder.evaluate --run-dir task/masked_autoencoder/runs/T32-mlp-seed0 --from-scores
+npm run hf:download:baselines:mae                 # TabMlp grid from HF (baselines/masked_autoencoder/mlp/T<w>-seed<k>)
+npm run hf:download:baselines:mae:resnet          # TabResnet grid from HF (baselines/masked_autoencoder/resnet/T<w>-seed<k>)
+.venv-train/bin/python -m task.masked_autoencoder.run_all --encoder resnet --dry-run   # plan only: skip / evaluate / train
+.venv-train/bin/python -m task.masked_autoencoder.evaluate --window 32 --encoder mlp --seed 0 --from-scores
+.venv-train/bin/python -m task.masked_autoencoder.plots --all --encoder resnet
 ```
 
-Run folder `runs/T<w>-<encoder>-seed<k>/` (gitignored): config.json, env.json, history.jsonl, train.log, best.pt,
-mahalanobis.npz, loss_curve.png, summary.json (val thresholds, label reads), `scores/<split>.npz` (val and every test split),
-test_metrics.json (per attack vs benign test: AUROC, PR-AUC, recall / benign FPR at val p95 / p99, AUROC on 1-3-row and
->= 4-row windows, per-track max / mean, length-only AUROC with score = −n_messages).
+`mae:all` (`run_all.py`) is safe to rerun: a run whose folder holds `summary.json` + `test_metrics.json` is skipped, a
+run with `summary.json` only is evaluated, every other run is trained + evaluated (`train.py --evaluate`, one process per
+run); it stops at the first failure. Its output is appended to `runs/<encoder>/logs/mae_all_<encoder>.log`.
+
+## Run layout
+
+```
+runs/                              (gitignored)
+  mlp/                             TabMlp
+    T64-seed0/ ... T32-seed3/      12 run folders
+    logs/mae_all_mlp.log           grid log
+  resnet/                          TabResnet (same layout)
+```
+
+The folder of a run is `config.run_path(encoder, window, seed, runs_dir)` (`MAEConfig.run_dir`); train, evaluate, plots,
+run_all and the notebook all use it. A capped quick-check run (`--max-windows`) gets a `-check` suffix. The `run_id` stored
+inside the run files stays `T<w>-<encoder>-seed<k>` (e.g. `T32-mlp-seed0`): an identifier, not a path. No path to the run
+folder is stored in the run files (`config.json` holds only the runs root `runs_dir`, the sibling data / cache folders and
+`run_id`), and the code never reads one to find a run. The 12 TabMlp runs were moved on 2026-11-18 from the flat
+`runs/T<w>-mlp-seed<k>/` to `runs/mlp/T<w>-seed<k>/` (`mv`, all 165 files sha256-identical before / after, nothing
+re-run); their `run_id` and `SHA256SUMS` (paths relative to the run folder) are unchanged.
+
+Run folder contents: config.json, env.json, history.jsonl, train.log, best.pt, mahalanobis.npz, loss_curve.png,
+summary.json (val thresholds, label reads), `scores/<split>.npz` (val and every test split), test_metrics.json (per attack
+vs benign test: AUROC, PR-AUC, recall / benign FPR at val p95 / p99, AUROC on 1-3-row and >= 4-row windows, per-track
+max / mean, length-only AUROC with score = −n_messages).
 
 ## Results (TabMlp, seeds 0-3)
 
-12 finished runs `runs/T{64,48,32}-mlp-seed{0,1,2,3}/` (MPS, 2026-11-17; every run stopped early). Analysis, all tables,
+12 finished runs `runs/mlp/T{64,48,32}-seed{0,1,2,3}/` (MPS, 2026-11-17; every run stopped early). Analysis, all tables,
 loss curves and ROC curves: notebook [`masked_autoencoder.ipynb`](masked_autoencoder.ipynb) (`npm run mae:notebook`; reads
 the run files only, recomputes every AUROC from the saved score files and asserts it equal to `test_metrics.json`).
-Loss curve of each run: `runs/<run>/loss_curve.png` (`npm run mae:plots`; written automatically by `train.py` for new
+Loss curve of each run: `runs/<encoder>/<run>/loss_curve.png` (`npm run mae:plots`; written automatically by `train.py` for new
 runs). Training minimises the variance-normalised `EncoderDecoderLoss`; early stopping, the LR schedule and all test
 scores use the plain MSE on the z-scored features, so the training curve sits above the val curves by construction.
 
@@ -130,5 +157,33 @@ Length-matched = AUROC inside each exact window length (real rows), weighted by 
 - Mahalanobis on z is below chance in every case and the least stable across seeds.
 - Training: best epochs 41-68 / 80-110 / 43-58 at T = 64 / 48 / 32, 0.7-5.4 min per run; 68-85% of the val decrease by
   epoch 10, 1-3% after the first LR halving.
+
+## Results (TabResnet, seeds 0-3)
+
+12 finished runs `runs/resnet/T{64,48,32}-seed{0,1,2,3}/` (`npm run mae:all:resnet`, MPS, 2026-11-18; every run
+stopped early), same windows, protocol and scores as TabMlp. Notebook section 7 compares the two encoders. On HF:
+`baselines/masked_autoencoder/resnet/T<w>-seed<k>` (`npm run hf:download:baselines:mae:resnet`).
+
+Window AUROC vs benign test, mean ± sample sd over seeds 0-3 (from `test_metrics.json`; length-matched from the score
+files, same method as above):
+
+| Case | masked_recon | full_recon | mahalanobis | length only | length-matched masked_recon | TabMlp masked_recon | ConvAE recon |
+|---|---|---|---|---|---|---|---|
+| T64 GridSybil | 0.595 ± 0.003 | 0.605 ± 0.003 | 0.368 ± 0.009 | 0.535 | 0.578 ± 0.004 | 0.531 ± 0.002 | 0.657 ± 0.004 |
+| T48 GridSybil | 0.650 ± 0.002 | 0.648 ± 0.001 | 0.381 ± 0.007 | 0.530 | 0.640 ± 0.002 | 0.607 ± 0.001 | 0.682 ± 0.006 |
+| T32 GridSybil | 0.696 ± 0.001 | 0.685 ± 0.002 | 0.378 ± 0.004 | 0.559 | 0.678 ± 0.001 | 0.657 ± 0.002 | 0.734 ± 0.003 |
+| T32 DataReplay | 0.695 ± 0.008 * | 0.460 ± 0.011 | 0.271 ± 0.023 | 0.952 | 0.559 ± 0.007 | 0.693 ± 0.003 | 0.387 ± 0.010 |
+| T32 DoSRandom | 0.994 ± 0.000 | 0.964 ± 0.002 | 0.629 ± 0.165 | 0.967 | 0.988 ± 0.000 | 0.988 ± 0.001 | 0.967 ± 0.005 |
+| T32 DoSDisruptive | 0.859 ± 0.004 | 0.672 ± 0.009 | 0.281 ± 0.033 | 0.967 | 0.734 ± 0.001 | 0.851 ± 0.006 | 0.598 ± 0.012 |
+
+- GridSybil: TabResnet is above TabMlp at every T (+0.04-0.06 pooled, +0.05-0.07 length-matched) and still below the
+  ConvAE (by 0.03-0.06). Recall at val p95 0.14 / 0.21 / 0.25 at benign test FPR 0.045-0.052; >= 4-row AUROC 0.604 /
+  0.654 / 0.706.
+- \* The same length effect as TabMlp: on benign test windows the masked score separates 1-3-row from longer windows
+  with AUROC 0.630-0.659. DataReplay pooled 0.695 drops to 0.559 length-matched (>= 4 rows 0.375), far below length
+  only (0.952): not detection. DoSDisruptive 0.859 → 0.734 length-matched, also below length only. DoSRandom 0.994 /
+  0.988 length-matched is the one case above length only (0.967); DoS >= 4-row AUROC 1.000 again rests on ~520 windows.
+- Mahalanobis on z is below chance on GridSybil (0.37-0.38) and very seed-sensitive on DoSRandom (0.629 ± 0.165).
+- Training: best epochs 129-174 / 193-214 / 108-154 at T = 64 / 48 / 32, 5-7 / 9 / 22-34 min per run, 5-8 LR halvings.
 
 Side experiment, one-class (benign windows selected with labels, no label in the loss); not the thesis TimesNet model.

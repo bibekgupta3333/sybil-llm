@@ -228,26 +228,75 @@ are in the released results file.}
 \end{tabular}
 \end{table}
 
-\subsection{Preliminary Evidence From Earlier Single-Seed Runs}\label{sec:res-prelim}
+\subsection{Preliminary Evidence From Earlier Studies}\label{sec:res-prelim}
 
-\todo{This subsection and Table~\ref{tab:prelim} exist only so that the draft shows the expected shape of the
-results. They will be removed from the final paper. Source: 01-our-studies/inventory.md.}
-Before this protocol we ran nine small studies with the same family of convolutional autoencoder. They are
-\emph{not} results of this paper: they use different window lengths (32, 48, 64), different splits and test
-vehicles, different normalizations, and, except for one study with three seeds, a single seed without intervals
-(Table~\ref{tab:prelim}, blue). Their numbers cannot be compared across rows. They motivated the regimes and the
-length control: reconstruction trained on benign data scored \prelim{0.655--0.736} on GridSybil across the three
-window lengths, an unlabeled mix scored \prelim{0.482--0.484} where the attack is the majority of the training
-windows and \prelim{0.610} where it is 31\%, GridSybil labels gave \prelim{0.926--0.929}, and on DataReplay and
-DoSDisruptive the benign-only autoencoder (\prelim{0.391}, \prelim{0.611}) scored below window length alone
-(0.952, 0.967). The contrast between the 31\% and the 64\% mix is suggestive only: these runs also differ in
-window length, input, split and test vehicles. The controlled version is the mix-all and mix-gridfolders regimes
-of this protocol (C2, C3), which are themselves two confounded points; a sweep over the attack share is out of
-scope (Section~\ref{sec:scope}).
+\todo{This subsection and Tables~\ref{tab:prelim} and~\ref{tab:lmprelim} exist only so that the draft shows the
+expected shape of the results. They will be removed from the final paper. Sources:
+01-our-studies/inventory.md (``Four seeds per cell'', 2026-11-17) and the run and judge files under
+task/*/runs/seed\{0..3\}/; masked autoencoder: task/masked\_autoencoder/README.md and masked\_autoencoder.ipynb
+(TabMlp and TabResnet, runs/\{mlp,resnet\}/T\{64,48,32\}-seed\{0..3\}/); TimesNet: src/runs/evaluation/all/T32\_benign/model-t32b-seed0\{,-random-init\}/
+(summary.md and the score files).}
+Before this protocol we ran nine small studies with the same family of convolutional autoencoder and one with a
+masked autoencoder (Section~\ref{sec:det-mae}). They are \emph{not} results of this paper: they use different
+window lengths (32, 48, 64), different splits and test vehicles, and different normalizations
+(Table~\ref{tab:prelim}, blue). Their numbers cannot be compared across rows, except between rows on the same
+windows (the masked and the convolutional autoencoder at each $T$). Each autoencoder cell has been trained with
+four seeds (0--3); we report the mean and sample standard deviation over seeds, without intervals. Seed~0 ran on
+an Apple GPU (MPS) and seeds 1--3 on an NVIDIA T4 (CUDA), except for the benign-only autoencoder at $T=64$
+(seeds 0--2 on MPS, seed~3 on CUDA) and the masked autoencoder (all seeds on MPS), so the seed spread also
+contains a device change. The single-seed value 0.689 that an earlier draft gave for the benign-only autoencoder
+at $T=48$ was the best of the four seeds; the four-seed mean is \prelim{0.682 $\pm$ 0.006}.
+
+These studies motivated the regimes and the length control. Reconstruction trained on benign data scored
+\prelim{0.657--0.734} on GridSybil across the three window lengths, an unlabeled mix scored
+\prelim{0.482--0.485} where the attack is the majority of the training windows and \prelim{0.612} where it is
+31\%, and GridSybil labels gave \prelim{0.928--0.929}. Reconstruction is stable across seeds (standard deviation
+at most 0.006); the Mahalanobis score of the latent is the least stable score and near or below 0.5 on GridSybil in every cell (from \prelim{0.322 $\pm$ 0.015} for the
+benign-only model at $T=64$ to \prelim{0.505 $\pm$ 0.012} at $T=32$). On
+DataReplay and DoSDisruptive the benign-only autoencoder (\prelim{0.387 $\pm$ 0.010}, \prelim{0.598 $\pm$
+0.012}) scored below window length alone (0.952, 0.967), and on DoSRandom it matched it (\prelim{0.967 $\pm$
+0.005}). The contrast between the 31\% and the 64\% mix is suggestive only: these runs also differ in window
+length, input, split and test vehicles. The controlled version is the mix-all and mix-gridfolders regimes of this
+protocol (C2, C3), which are themselves two confounded points; a sweep over the attack share is out of scope
+(Section~\ref{sec:scope}).
+
+\textbf{Masked autoencoder.} Trained on the same benign windows as the benign-only convolutional autoencoder at
+each $T$, the masked autoencoder (TabMlp encoder) scores lower on GridSybil at every window length:
+\prelim{0.531 $\pm$ 0.002}, \prelim{0.607 $\pm$ 0.001} and \prelim{0.657 $\pm$ 0.002} at $T=64$, 48 and 32,
+against \prelim{0.657}, \prelim{0.682} and \prelim{0.734} for the convolutional model, and at $T=64$ it is at
+the level of length alone (0.535). Its full-reconstruction score gives \prelim{0.539}, \prelim{0.603} and
+\prelim{0.650}; its Mahalanobis score is below 0.5 in every case (GridSybil \prelim{0.398--0.408}). On the
+pseudonym-rotating attacks at $T=32$ its pooled masked-reconstruction AUROC is \prelim{0.693 $\pm$ 0.003}
+(DataReplay), \prelim{0.988 $\pm$ 0.001} (DoSRandom) and \prelim{0.851 $\pm$ 0.006} (DoSDisruptive). The first
+and third of these mostly measure window length (Table~\ref{tab:lmprelim}, Section~\ref{sec:disc-length}).
+With the TabResnet encoder the masked autoencoder scores higher than with TabMlp at every window length,
+\prelim{0.595 $\pm$ 0.003}, \prelim{0.650 $\pm$ 0.002} and \prelim{0.696 $\pm$ 0.001} on GridSybil
+(length-matched \prelim{0.578}, \prelim{0.640} and \prelim{0.678}), but stays below the convolutional model at
+each $T$; its full-reconstruction score gives \prelim{0.605}, \prelim{0.648} and \prelim{0.685}, and its
+Mahalanobis score is again below 0.5 (\prelim{0.368--0.381}). At $T=32$ it scores \prelim{0.695 $\pm$ 0.008}
+on DataReplay, \prelim{0.994 $\pm$ $<$0.001} on DoSRandom and \prelim{0.859 $\pm$ 0.004} on DoSDisruptive;
+matched on length these become \prelim{0.559}, \prelim{0.988} and \prelim{0.734}, so DataReplay is again close
+to chance, and DataReplay and DoSDisruptive stay below length alone in the pooled AUROC.
+
+\textbf{Length-matched AUROC.} Table~\ref{tab:lmprelim} gives the pooled and the attack-weighted length-matched
+AUROC (Section~\ref{sec:evaluation}) for the two studies whose per-window test scores were saved with the window
+length: the masked autoencoder (both encoders, four seeds each) and, as context only, one seed of a TimesNet
+encoder~\cite{wu2023timesnet} that we pretrained self-supervised (no label in the loss) on the same benign
+$T=32$ windows (the
+self-supervised encoder of the thesis this paper comes from; scores: Mahalanobis distance and mean cosine distance
+to the five nearest benign training latents, ``kNN''), next to the same encoder with random weights. On GridSybil
+matching changes little: \prelim{0.657 $\to$ 0.631} for the masked autoencoder, \prelim{0.886 $\to$ 0.875} for
+the TimesNet kNN score against \prelim{0.839 $\to$ 0.836} with random weights. On the pseudonym-rotating attacks
+it changes the reading: the masked autoencoder's DataReplay score falls from \prelim{0.693} to
+\prelim{0.490} (TabResnet: \prelim{0.695} to \prelim{0.559}), and the TimesNet Mahalanobis score falls from \prelim{0.946--0.960} to \prelim{0.477--0.579},
+where the random-weight encoder scores as high or higher (\prelim{0.620--0.951}). The TimesNet numbers are one
+seed and not a result of this paper. The per-window scores of the convolutional autoencoder cells were not all
+saved, so its length-matched AUROC is not in the table.
 
 \begin{table}[t]
-\caption{Earlier single-seed studies (blue; different inputs and splits, not comparable across rows, to be
-removed). Window AUROC on each study's own test set; ``Len.'': length-only AUROC on that test set.}
+\caption{Earlier studies (blue; different inputs and splits, not comparable across rows, to be removed). Window
+AUROC on each study's own test set, mean $\pm$ sample standard deviation over seeds 0--3 unless marked;
+``Len.'': length-only AUROC on that test set.}
 \label{tab:prelim}
 \centering
 \footnotesize
@@ -256,21 +305,83 @@ removed). Window AUROC on each study's own test set; ``Len.'': length-only AUROC
 \toprule
 Study (training data) & $T$ & Attack & AUROC & Len. \\
 \midrule
-Autoencoder, benign only$^{b}$ & 64 & GridSybil & \prelim{0.655 $\pm$ 0.002} & \prelim{0.535} \\
-Autoencoder, benign only & 48 & GridSybil & \prelim{0.689} & \prelim{0.530} \\
-Autoencoder, benign only & 32 & GridSybil & \prelim{0.736} & \prelim{0.559} \\
- & & DataReplay & \prelim{0.391} & \prelim{0.952} \\
- & & DoSRandom & \prelim{0.973} & \prelim{0.967} \\
- & & DoSDisruptive & \prelim{0.611} & \prelim{0.967} \\
-Autoencoder, unlabeled mix (64.6\% attack) & 64 & GridSybil & \prelim{0.482} & \prelim{0.535} \\
-Autoencoder, unlabeled mix (64\% attack) & 48 & GridSybil & \prelim{0.484} & \prelim{0.530} \\
-Same, overlapping windows & 48 & GridSybil & \prelim{0.484} & -- \\
-Autoencoder, unlabeled mix (31.3\% attack) & 32 & GridSybil & \prelim{0.610} & \prelim{0.560} \\
-Encoder + head, labels$^{b}$ & 64 & GridSybil & \prelim{0.928 $\pm$ 0.002} & \prelim{0.535} \\
-Autoencoder + head, labels & 48 & GridSybil & \prelim{0.929} & \prelim{0.530} \\
-Autoencoder + head, labels & 32 & GridSybil & \prelim{0.926} & \prelim{0.560} \\
-Statistics + logistic regr. & 64 & GridSybil & \prelim{0.855} & \prelim{0.535} \\
+Autoencoder, benign only$^{a}$ & 64 & GridSybil & \prelim{0.657 $\pm$ 0.004} & \prelim{0.535} \\
+Autoencoder, benign only & 48 & GridSybil & \prelim{0.682 $\pm$ 0.006} & \prelim{0.530} \\
+Autoencoder, benign only & 32 & GridSybil & \prelim{0.734 $\pm$ 0.003} & \prelim{0.559} \\
+ & & DataReplay & \prelim{0.387 $\pm$ 0.010} & \prelim{0.952} \\
+ & & DoSRandom & \prelim{0.967 $\pm$ 0.005} & \prelim{0.967} \\
+ & & DoSDisruptive & \prelim{0.598 $\pm$ 0.012} & \prelim{0.967} \\
+\midrule
+Masked AE, benign only$^{b}$ & 64 & GridSybil & \prelim{0.531 $\pm$ 0.002} & \prelim{0.535} \\
+Masked AE, benign only & 48 & GridSybil & \prelim{0.607 $\pm$ 0.001} & \prelim{0.530} \\
+Masked AE, benign only & 32 & GridSybil & \prelim{0.657 $\pm$ 0.002} & \prelim{0.559} \\
+ & & DataReplay & \prelim{0.693 $\pm$ 0.003}$^{c}$ & \prelim{0.952} \\
+ & & DoSRandom & \prelim{0.988 $\pm$ 0.001} & \prelim{0.967} \\
+ & & DoSDisruptive & \prelim{0.851 $\pm$ 0.006}$^{c}$ & \prelim{0.967} \\
+Masked AE (TabResnet)$^{f}$ & 64 & GridSybil & \prelim{0.595 $\pm$ 0.003} & \prelim{0.535} \\
+Masked AE (TabResnet) & 48 & GridSybil & \prelim{0.650 $\pm$ 0.002} & \prelim{0.530} \\
+Masked AE (TabResnet) & 32 & GridSybil & \prelim{0.696 $\pm$ 0.001} & \prelim{0.559} \\
+ & & DataReplay & \prelim{0.695 $\pm$ 0.008}$^{c}$ & \prelim{0.952} \\
+ & & DoSRandom & \prelim{0.994 $\pm$ $<$0.001} & \prelim{0.967} \\
+ & & DoSDisruptive & \prelim{0.859 $\pm$ 0.004}$^{c}$ & \prelim{0.967} \\
+\midrule
+Autoencoder, unlabeled mix (64.6\% attack) & 64 & GridSybil & \prelim{0.482 $\pm$ 0.002} & \prelim{0.535} \\
+Autoencoder, unlabeled mix (64\% attack) & 48 & GridSybil & \prelim{0.485 $\pm$ 0.001} & \prelim{0.530} \\
+Same, overlapping windows$^{d}$ & 48 & GridSybil & \prelim{0.484} & -- \\
+Autoencoder, unlabeled mix (31.3\% attack) & 32 & GridSybil & \prelim{0.612 $\pm$ 0.004} & \prelim{0.560} \\
+\midrule
+Encoder + head, labels$^{e}$ & 64 & GridSybil & \prelim{0.928 $\pm$ 0.002} & \prelim{0.535} \\
+Autoencoder + head, labels & 48 & GridSybil & \prelim{0.928 $\pm$ 0.002} & \prelim{0.530} \\
+Autoencoder + head, labels & 32 & GridSybil & \prelim{0.929 $\pm$ 0.002} & \prelim{0.560} \\
+Statistics + logistic regr.$^{d}$ & 64 & GridSybil & \prelim{0.855} & \prelim{0.535} \\
 \bottomrule
-\multicolumn{5}{@{}l}{$^{b}$Three seeds; all other rows one seed.}
+\multicolumn{5}{@{}p{0.95\columnwidth}@{}}{$^{a}$Seeds 0--2 on MPS, seed 3 on CUDA; all other convolutional
+cells: seed 0 on MPS, seeds 1--3 on CUDA. $^{b}$TabMlp encoder; same windows as the autoencoder row of the same $T$; all seeds
+on MPS. $^{c}$Mostly window length: length-matched 0.490 and 0.679 (TabMlp), 0.559 and 0.734 (TabResnet)
+(Table~\ref{tab:lmprelim}).
+$^{d}$One run. $^{e}$Three seeds (0--2). $^{f}$Same windows, scores and seeds as the TabMlp rows; all seeds on
+MPS.}
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\caption{Pooled and attack-weighted length-matched (LM) window AUROC in two earlier studies on the benign-only
+$T=32$ windows (blue, to be removed). MAE: masked autoencoder with the TabMlp (Mlp) or TabResnet (Resnet) encoder,
+masked-reconstruction score, mean $\pm$ sd over seeds 0--3.
+TimesNet: one seed, context only; ``rand.'': the same encoder with random weights. Length only: 0.559, 0.952,
+0.967, 0.967 pooled and 0.5 LM.}
+\label{tab:lmprelim}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{@{}llcc@{}}
+\toprule
+Model (score) & Attack & Pooled & LM \\
+\midrule
+MAE (Mlp), $T=64$ & GridSybil & \prelim{0.531 $\pm$ 0.002} & \prelim{0.510 $\pm$ 0.002} \\
+MAE (Mlp), $T=48$ & GridSybil & \prelim{0.607 $\pm$ 0.001} & \prelim{0.589 $\pm$ 0.001} \\
+MAE (Mlp), $T=32$ & GridSybil & \prelim{0.657 $\pm$ 0.002} & \prelim{0.631 $\pm$ 0.001} \\
+ & DataReplay & \prelim{0.693 $\pm$ 0.003} & \prelim{0.490 $\pm$ 0.009} \\
+ & DoSRandom & \prelim{0.988 $\pm$ 0.001} & \prelim{0.970 $\pm$ 0.001} \\
+ & DoSDisruptive & \prelim{0.851 $\pm$ 0.006} & \prelim{0.679 $\pm$ 0.005} \\
+\midrule
+MAE (Resnet), $T=64$ & GridSybil & \prelim{0.595 $\pm$ 0.003} & \prelim{0.578 $\pm$ 0.004} \\
+MAE (Resnet), $T=48$ & GridSybil & \prelim{0.650 $\pm$ 0.002} & \prelim{0.640 $\pm$ 0.002} \\
+MAE (Resnet), $T=32$ & GridSybil & \prelim{0.696 $\pm$ 0.001} & \prelim{0.678 $\pm$ 0.001} \\
+ & DataReplay & \prelim{0.695 $\pm$ 0.008} & \prelim{0.559 $\pm$ 0.007} \\
+ & DoSRandom & \prelim{0.994 $\pm$ $<$0.001} & \prelim{0.988 $\pm$ $<$0.001} \\
+ & DoSDisruptive & \prelim{0.859 $\pm$ 0.004} & \prelim{0.734 $\pm$ 0.001} \\
+\midrule
+TimesNet (kNN) & GridSybil & \prelim{0.886} & \prelim{0.875} \\
+\quad rand.\ (kNN) & GridSybil & \prelim{0.839} & \prelim{0.836} \\
+TimesNet (Mahal.) & GridSybil & \prelim{0.880} & \prelim{0.846} \\
+ & DataReplay & \prelim{0.946} & \prelim{0.579} \\
+ & DoSRandom & \prelim{0.960} & \prelim{0.523} \\
+ & DoSDisruptive & \prelim{0.954} & \prelim{0.477} \\
+\quad rand.\ (Mahal.) & GridSybil & \prelim{0.673} & \prelim{0.642} \\
+ & DataReplay & \prelim{0.944} & \prelim{0.620} \\
+ & DoSRandom & \prelim{0.995} & \prelim{0.951} \\
+ & DoSDisruptive & \prelim{0.982} & \prelim{0.764} \\
+\bottomrule
 \end{tabular}
 \end{table}

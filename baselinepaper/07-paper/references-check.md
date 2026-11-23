@@ -60,3 +60,9 @@ No other title, year or venue differs.
 - `eprint` + `archivePrefix` on every entry with a known arXiv id; `url` only where there is no DOI.
 - Acronyms and proper nouns in titles are brace-protected; conference ordinals (35th ICML etc.) come from the
   Crossref / proceedings titles. DOIs are as Crossref returns them (lower case; DOIs are case-insensitive).
+
+## Added 2026-11-18
+
+- `zaurin2023widedeep`: checked on joss.theoj.org (DOI 10.21105/joss.05027) and the library docs citation section.
+- `widedeepdocs`: docs page exists (checked 2026-11-18); the code read was the 1.7.0 wheel.
+- `wu2023timesnet`: title / authors from arXiv 2210.02186; ICLR 2023 venue not confirmed online (OpenReview blocked), `% CHECK:` line.

@@ -9,8 +9,9 @@ vs pooled raw MSE), so their gap is not a train / val generalisation gap.
 Uses `matplotlib.figure.Figure` directly (no pyplot), so it works under any backend, also inside a notebook.
 
 Usage (repo root):
-    .venv-train/bin/python -m task.masked_autoencoder.plots --all
-    .venv-train/bin/python -m task.masked_autoencoder.plots --run-dir task/masked_autoencoder/runs/T32-mlp-seed0
+    .venv-train/bin/python -m task.masked_autoencoder.plots --all                     # every encoder
+    .venv-train/bin/python -m task.masked_autoencoder.plots --all --encoder resnet
+    .venv-train/bin/python -m task.masked_autoencoder.plots --run-dir task/masked_autoencoder/runs/mlp/T32-seed0
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from pathlib import Path
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-from task.masked_autoencoder.config import RUNS_DIR
+from task.masked_autoencoder.config import ENCODERS, RUNS_DIR, encoder_path
 
 PNG_NAME = "loss_curve.png"
 
@@ -110,9 +111,14 @@ class LossCurvePlot:
         return path
 
 
-def finished_runs(runs_dir: str | Path = RUNS_DIR) -> list[Path]:
-    """Run folders holding both history.jsonl and summary.json, sorted by name."""
-    return sorted(p.parent for p in Path(runs_dir).glob("*/summary.json") if (p.parent / "history.jsonl").is_file())
+def finished_runs(runs_dir: str | Path = RUNS_DIR, encoders: tuple[str, ...] = ENCODERS) -> list[Path]:
+    """Run folders `<runs_dir>/<encoder>/T<w>-seed<k>` holding both history.jsonl and summary.json, sorted by path."""
+    runs = []
+    for encoder in encoders:
+        for summary in encoder_path(encoder, runs_dir).glob("T*-seed*/summary.json"):
+            if (summary.parent / "history.jsonl").is_file():
+                runs.append(summary.parent)
+    return sorted(runs)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -121,8 +127,10 @@ def main(argv: list[str] | None = None) -> None:
     group.add_argument("--run-dir", help="one run folder")
     group.add_argument("--all", action="store_true", help="every finished run under --runs-dir")
     p.add_argument("--runs-dir", default=RUNS_DIR)
+    p.add_argument("--encoder", choices=ENCODERS, default=None, help="with --all: one encoder only")
     a = p.parse_args(argv)
-    runs = finished_runs(a.runs_dir) if a.all else [Path(a.run_dir)]
+    encoders = (a.encoder,) if a.encoder else ENCODERS
+    runs = finished_runs(a.runs_dir, encoders) if a.all else [Path(a.run_dir)]
     if not runs:
         raise SystemExit(f"no finished run under {a.runs_dir}")
     for run in runs:

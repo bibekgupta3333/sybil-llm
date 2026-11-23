@@ -78,3 +78,6 @@
 | `flood2024bad` | C26  | 2024 | Bad Design Smells in Benchmark NIDS Datasets |
 | `apruzzese2023sok` | C27  | 2023 | SoK: Pragmatic Assessment of Machine Learning for Network Intrusion Detection |
 | `kirichenko2020normalizing` | C28  | 2020 | Why Normalizing Flows Fail to Detect Out-of-Distribution Data |
+| `zaurin2023widedeep` | added 2026-11-18 | 2023 | pytorch-widedeep: A flexible package for multimodal deep learning |
+| `widedeepdocs` | added 2026-11-18 | -- | pytorch-widedeep documentation: Self Supervised Pre-training for tabular data |
+| `wu2023timesnet` | added 2026-11-18 | 2023 | TimesNet: Temporal 2D-Variation Modeling for General Time Series Analysis |

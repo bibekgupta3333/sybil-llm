@@ -35,7 +35,7 @@ DoSRandomSybil, DoSDisruptiveSybil) the attacker changes pseudonym every one or 
 groups messages by pseudonym, the only identifier it can observe, therefore sees these attacks as very short
 sequences: in the data used here, 95\% to 99.7\% of their windows contain one to three messages, against about
 14\% of benign windows. Sequence length alone then separates the classes (AUROC \prelim{0.95--0.97} in our earlier
-single-seed runs), whatever a model learns about motion.
+studies), whatever a model learns about motion.
 
 This paper asks: \emph{with vehicles held out, how well can each Sybil attack of VeReMi-Extension be separated from
 benign traffic, as a function of what the training data is assumed to be?} We compare three assumptions (benign
@@ -57,7 +57,9 @@ The contributions are as follows.
   supervised models (Sections~\ref{sec:detectors} and~\ref{sec:results}). To our knowledge, no such comparison has
   been reported for these attacks.
   \item A length-only reference score and a length-matched AUROC for every detector, which separate what a detector
-  adds from what the number of messages in a window already gives for the pseudonym-rotating attacks.
+  adds from what the number of messages in a window already gives for the pseudonym-rotating attacks. In our
+  earlier studies, matching on length turned an apparent DataReplay AUROC of \prelim{0.69} into chance
+  (\prelim{0.49}) for a masked autoencoder (Section~\ref{sec:disc-length}).
   \item A measurement, on Sybil attacks, of failure modes that are known in general anomaly detection: training on
   data in which the attack is frequent, and reconstruction of replayed genuine trajectories
   (Section~\ref{sec:discussion}). \pending{Wording to be adjusted to the outcome.}

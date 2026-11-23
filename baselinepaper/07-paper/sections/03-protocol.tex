@@ -156,7 +156,17 @@ $s$ on those windows. Then
 where lengths with $B_nA_n=0$ contribute nothing. It is the probability that an attack window scores higher than
 a benign window \emph{of the same length} (ties count one half), over all same-length pairs. It is 0.5 for the
 length-only score by construction. A stratum with fewer than 200 attack windows or fewer than 20 attack vehicles
-is not reported.
+is not reported. A variant weights each length by $A_n$ alone, the number of attack windows of that length,
+instead of $B_nA_n$; it is also 0.5 for the length-only score. The preliminary numbers of
+Section~\ref{sec:res-prelim} use this attack-weighted variant, because that is what the earlier studies computed.
+
+The length-matched AUROC is a methodological point of this paper, not only a control. A score can carry
+window length without being a length feature: a reconstruction error, for example, is larger when a window has
+few rows, because there is less context to reconstruct from. On the pseudonym-rotating attacks, where the attack
+windows are short, such a score reaches a pooled AUROC well above 0.5 without separating attack from benign
+windows of the same length. A detector can also score below the length-only control and still carry length;
+comparing it with the control alone does not reveal this. Matching on length removes both effects
+(Section~\ref{sec:disc-length} gives two examples from the earlier studies).
 
 \textbf{Headline per attack.} For GridSybil the headline is the pooled AUROC, with the length-matched AUROC next
 to it. For DataReplay and the DoS attacks a short pseudonym life is itself the observable signature of the

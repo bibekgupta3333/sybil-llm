@@ -1,0 +1,1000 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Masked Autoencoder Animated</title>
+<meta name="description" content="Step-by-step animation of the one-class masked autoencoder in task/masked_autoencoder: window, flatten, hide 20%, TabMlp encoder and decoder, loss, test scores, decision, and the window-length caveat.">
+<style>
+:root {
+  --bg: #ffffff; --stage-bg: #eef0f3; --text: #1b1d21; --muted: #5b616c; --border: #d9dce1; --surface: #f5f6f8;
+  --accent: #2c5bc9; --val: #d9730d; --warm-text: #b35c00; --grid: #e6e8ec;
+  --bar-u: #c3c8d0; --bar-s: #6b7280;
+  --mae: #0f8b8d; --mae2: #7cc7c4;
+  --s0: #2c5bc9; --s1: #d9730d; --s2: #1f8a5b; --s3: #8a4bbf;
+  --ok: #1f8a5b; --bad: #c8382f;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17191d; --stage-bg: #0e0f12; --text: #e8eaee; --muted: #a3a9b4; --border: #3a3e46; --surface: #22252b;
+    --accent: #8db0ff; --val: #ffa65a; --warm-text: #ffa65a; --grid: #2c3037;
+    --bar-u: #4a4f58; --bar-s: #9aa1ad;
+    --mae: #4fd1d3; --mae2: #2b6f70;
+    --s0: #8db0ff; --s1: #ffa65a; --s2: #5fd39a; --s3: #c99ae6;
+    --ok: #5fd39a; --bad: #ff7b72;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17191d; --stage-bg: #0e0f12; --text: #e8eaee; --muted: #a3a9b4; --border: #3a3e46; --surface: #22252b;
+  --accent: #8db0ff; --val: #ffa65a; --warm-text: #ffa65a; --grid: #2c3037;
+  --bar-u: #4a4f58; --bar-s: #9aa1ad;
+  --mae: #4fd1d3; --mae2: #2b6f70;
+  --s0: #8db0ff; --s1: #ffa65a; --s2: #5fd39a; --s3: #c99ae6;
+  --ok: #5fd39a; --bad: #ff7b72;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--stage-bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+#app { max-width: 1240px; margin: 0 auto; padding: 10px 16px 12px; display: flex; flex-direction: column; min-height: 100vh; }
+header { display: flex; align-items: center; gap: 12px; }
+header .t { flex: 1; min-width: 0; }
+h1 { font-size: 20px; margin: 0; letter-spacing: -0.2px; line-height: 1.25; }
+.sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+button { font: 600 14px var(--font); color: var(--text); background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 12px; cursor: pointer; min-height: 36px; }
+button:hover { border-color: var(--accent); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed="true"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+#figure { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; margin-top: 10px; padding: 6px;
+  display: flex; justify-content: center; }
+#scene { display: block; width: 100%; height: calc(100vh - 248px); min-height: 300px; }
+#cap { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; margin-top: 8px; padding: 9px 14px;
+  min-height: 80px; }
+#cap .st { font-size: 13px; font-weight: 650; color: var(--accent); text-transform: uppercase; letter-spacing: 0.6px; }
+#cap p { margin: 3px 0 0; font-size: 16.5px; line-height: 1.4; }
+#ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+#ctl .grp { display: flex; gap: 4px; align-items: center; }
+#ctl .lbl { font-size: 13px; color: var(--muted); margin-right: 2px; }
+#play { min-width: 82px; }
+#dots { display: flex; gap: 5px; align-items: center; margin-left: auto; }
+#dots button { width: 14px; height: 14px; min-height: 0; padding: 0; border-radius: 50%; background: var(--bar-u); border: none; }
+#dots button.on { background: var(--accent); }
+#ind { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 92px; text-align: right; }
+.kbd { font-size: 12px; color: var(--muted); }
+svg text { fill: var(--text); font-family: var(--font); }
+svg .mut { fill: var(--muted); }
+svg .mono { font-family: var(--mono); }
+svg .b { font-weight: 650; }
+svg .acc { fill: var(--accent); }
+svg .okt { fill: var(--ok); } svg .badt { fill: var(--bad); } svg .valt { fill: var(--warm-text); } svg .maet { fill: var(--mae); }
+svg .real { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+svg .pad { fill: url(#hatchG); stroke: var(--border); stroke-width: 1; }
+svg .hatch-bg { fill: var(--bar-u); } svg .hatch-ln { stroke: var(--bar-s); stroke-width: 2; }
+svg .v { fill: var(--accent); }
+svg .hidbox { fill: var(--val); stroke: var(--val); stroke-width: 2; }
+svg .err { fill: var(--bad); }
+svg .errok { fill: var(--ok); }
+svg .g0 { fill: var(--s0); } svg .g1 { fill: var(--s1); } svg .g2 { fill: var(--s2); } svg .g3 { fill: var(--s3); } svg .g4 { fill: var(--mae); }
+svg .mk1 { fill: var(--mae); } svg .mk0 { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+svg .barbox { fill: none; stroke: var(--border); stroke-width: 1.2; }
+svg .fan { fill: var(--accent); fill-opacity: 0.09; }
+svg .fanl { stroke: var(--accent); stroke-opacity: 0.35; stroke-width: 0.8; }
+svg .nc { fill: var(--accent); }
+svg .zc { fill: var(--mae); }
+svg .axis { stroke: var(--muted); stroke-width: 1.2; }
+svg .thr { stroke: var(--val); stroke-width: 2.5; stroke-dasharray: 6 4; }
+svg .chance { stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 4 4; }
+svg .hist { fill: var(--ok); fill-opacity: 0.35; }
+svg .dot-ok { fill: var(--ok); stroke: var(--bg); stroke-width: 2; }
+svg .dot-bad { fill: var(--bad); stroke: var(--bg); stroke-width: 2; }
+svg .bpool { fill: var(--mae); } svg .bmatch { fill: var(--mae2); } svg .blen { fill: var(--bar-s); }
+svg .arrow { stroke: var(--accent); stroke-width: 2; fill: none; }
+svg .nbr { fill: none; stroke: var(--accent); stroke-width: 2; }
+svg .box { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+@media (max-width: 700px) {
+  #app { padding: 8px 16px 12px; }
+  h1 { font-size: 17px; }
+  #scene { height: auto; min-height: 0; }
+  #cap p { font-size: 15.5px; }
+  #dots { margin-left: 0; }
+  .kbd { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="t">
+      <h1>How our one-class masked autoencoder works</h1>
+      <div class="sub">task/masked_autoencoder · TabMlp shown (TabResnet = stronger variant), pytorch-widedeep style · toy size T = 8 (real T = 32 / 48 / 64) · cell values are toy values</div>
+    </div>
+    <button id="theme" aria-label="Toggle light or dark theme">Dark</button>
+  </header>
+  <div id="figure"><svg id="scene" role="img" aria-labelledby="capTitle capText" preserveAspectRatio="xMidYMid meet"></svg></div>
+  <div id="cap" aria-live="polite"><div class="st" id="capTitle"></div><p id="capText"></p></div>
+  <div id="ctl">
+    <div class="grp">
+      <button id="restart" aria-label="Restart from stage 1">Restart</button>
+      <button id="prev" aria-label="Previous stage">&larr; Prev</button>
+      <button id="play" aria-label="Play or pause">Play</button>
+      <button id="next" aria-label="Next stage">Next &rarr;</button>
+    </div>
+    <div class="grp" role="group" aria-label="Speed">
+      <span class="lbl">Speed</span>
+      <button class="spd" data-s="0.5" aria-pressed="false">0.5×</button>
+      <button class="spd" data-s="1" aria-pressed="true">1×</button>
+      <button class="spd" data-s="2" aria-pressed="false">2×</button>
+    </div>
+    <span class="kbd">Space play/pause · ← → stage</span>
+    <div id="dots" aria-label="Stages"></div>
+    <span id="ind"></span>
+  </div>
+</div>
+<script>
+(function () {
+  "use strict";
+  var NS = "http://www.w3.org/2000/svg";
+  var svg = document.getElementById("scene");
+  var T = 8, F = 13, NREAL = 5;
+  var FEAT = ["cPx", "cPy", "rPx", "rPy", "cVx", "cVy", "rVx", "rVy", "cAx", "cAy", "rng", "brg", "lΔτ"];
+
+  // ---------- toy data (deterministic; illustration only) ----------
+  function rng(seed) {
+    return function () {
+      seed |= 0; seed = (seed + 0x6d2b79f5) | 0;
+      var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  var R = rng(7);
+  var V = [], G = [];
+  for (var c0 = 0; c0 < F; c0++) {
+    var base = R() * 2.4 - 1.2, slope = R() * 0.5 - 0.25;
+    for (var r0 = 0; r0 < T; r0++) {
+      if (!V[r0]) { V[r0] = []; G[r0] = []; }
+      var v = r0 < NREAL ? Math.max(-2, Math.min(2, base + slope * r0 + (R() - 0.5) * 0.3)) : 0;
+      V[r0][c0] = v;
+    }
+  }
+  // hidden cells of the toy training step: 13 of the 65 real cells (20%)
+  var realIdx = [];
+  for (var i0 = 0; i0 < NREAL * F; i0++) realIdx.push(i0);
+  for (var k0 = realIdx.length - 1; k0 > 0; k0--) { var j0 = Math.floor(R() * (k0 + 1)); var tmp = realIdx[k0]; realIdx[k0] = realIdx[j0]; realIdx[j0] = tmp; }
+  var HID = realIdx.slice(0, 13).sort(function (a, b) { return a - b; });
+  var isHid = {}; HID.forEach(function (x) { isHid[x] = true; });
+  for (var r1 = 0; r1 < T; r1++) for (var c1 = 0; c1 < F; c1++) {
+    var e = isHid[r1 * F + c1] ? (R() - 0.5) * 1.1 : (R() - 0.5) * 0.2;
+    G[r1][c1] = r1 < NREAL ? Math.max(-2, Math.min(2, V[r1][c1] + e)) : (R() - 0.5) * 0.6;
+  }
+  // per-feature variance over real cells (unbiased), as in EncoderDecoderLoss
+  var VAR = [];
+  for (var c2 = 0; c2 < F; c2++) {
+    var m = 0; for (var r2 = 0; r2 < NREAL; r2++) m += V[r2][c2]; m /= NREAL;
+    var s = 0; for (var r3 = 0; r3 < NREAL; r3++) s += (V[r3][c2] - m) * (V[r3][c2] - m);
+    VAR[c2] = Math.max(s / (NREAL - 1), 0.05);
+  }
+  var LOSSE = HID.map(function (x) { var r = Math.floor(x / F), c = x % F; var d = G[r][c] - V[r][c]; return d * d / VAR[c]; });
+  var LOSS = LOSSE.reduce(function (a, b) { return a + b; }, 0) / HID.length;
+  var LMAX = Math.max.apply(null, LOSSE);
+  // fixed scoring partition: every one of the T x 13 cells gets a group 0..4
+  var GRP = [], perm = [];
+  for (var i1 = 0; i1 < T * F; i1++) perm.push(i1);
+  var R2 = rng(20261117);
+  for (var k1 = perm.length - 1; k1 > 0; k1--) { var j1 = Math.floor(R2() * (k1 + 1)); var t1 = perm[k1]; perm[k1] = perm[j1]; perm[j1] = t1; }
+  perm.forEach(function (cell, n) { GRP[cell] = n % 5; });
+  var SERR = [];
+  for (var i2 = 0; i2 < T * F; i2++) { var q = 0.08 + R2() * 0.5; SERR[i2] = q * q; }
+  var SMAX = Math.max.apply(null, SERR);
+  var grpMean = [0, 0, 0, 0, 0], grpCnt = [0, 0, 0, 0, 0], sAll = 0;
+  for (var i3 = 0; i3 < NREAL * F; i3++) { grpMean[GRP[i3]] += SERR[i3]; grpCnt[GRP[i3]]++; sAll += SERR[i3]; }
+  for (var g0 = 0; g0 < 5; g0++) grpMean[g0] /= Math.max(grpCnt[g0], 1);
+  var MSCORE = sAll / (NREAL * F);
+  var NC1 = [], NC2 = [], OUTV = [];
+  for (var i4 = 0; i4 < 64; i4++) { NC1.push(R()); NC2.push(R()); }
+  var ZV = []; for (var i5 = 0; i5 < 16; i5++) ZV.push(R());
+  // decision stage minis
+  var BEN = [], ATT = [];
+  for (var i6 = 0; i6 < T * F; i6++) {
+    var c6 = i6 % F, r6 = Math.floor(i6 / F);
+    BEN.push(r6 < NREAL ? 0.01 + R() * 0.07 : 0);
+    var posCol = (c6 === 0 || c6 === 1 || c6 === 10 || c6 === 11);
+    ATT.push(r6 < NREAL ? (posCol ? 0.45 + R() * 0.4 : 0.05 + R() * 0.2) : 0);
+  }
+  function mean(a) { var s = 0, n = 0; a.forEach(function (x, i) { if (Math.floor(i / F) < NREAL) { s += x; n++; } }); return s / n; }
+  var BSC = mean(BEN), ASC = mean(ATT);
+  var HIST = [];
+  for (var b0 = 0; b0 < 20; b0++) { var xb = (b0 + 0.5) * 0.03; HIST.push(Math.pow(xb / 0.06, 1.6) * Math.exp(-xb / 0.035)); }
+  var hs = HIST.reduce(function (a, b) { return a + b; }, 0), cum = 0, P95 = 0.6;
+  for (var b1 = 0; b1 < 20; b1++) { cum += HIST[b1] / hs; if (cum >= 0.95) { P95 = (b1 + 1) * 0.03; break; } }
+  var HMAX = Math.max.apply(null, HIST);
+
+  // ---------- helpers ----------
+  function el(tag, attrs, parent) {
+    var e = document.createElementNS(NS, tag);
+    if (attrs) for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function txt(parent, x, y, s, cls, extra) {
+    var a = { x: x, y: y }; if (cls) a["class"] = cls;
+    if (extra) for (var k in extra) a[k] = extra[k];
+    var e = el("text", a, parent); e.textContent = s; return e;
+  }
+  function op(e, o) { e.setAttribute("opacity", o <= 0.001 ? 0 : Math.min(1, o).toFixed(3)); }
+  function ease(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; }
+  function P(t, s, d) { return t <= s ? 0 : t >= s + d ? 1 : ease((t - s) / d); }
+  function lerp(a, b, p) { return a + (b - a) * p; }
+  function vop(v) { return 0.12 + 0.72 * (v + 2) / 4; }
+
+  // ---------- layout ----------
+  var L, nodes;
+  function layout() {
+    var narrow = window.innerWidth <= 700;
+    return narrow ? { narrow: true, w: 620, h: 1010, ax: 30, ay: 4, as: 1.4, bx: 10, by: 440 }
+                  : { narrow: false, w: 1060, h: 570, ax: 10, ay: 60, as: 1, bx: 450, by: 6 };
+  }
+  var GX = 40, GY = 72, CS = 24, MX = GX + F * CS + 12;
+  var BAR = { inX: 20, h1X: 165, zX: 290, dhX: 415, outX: 540, w: 30, top: 44, ch: 4.2 };
+
+  function build() {
+    L = layout();
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    svg.setAttribute("viewBox", "0 0 " + L.w + " " + L.h);
+    var defs = el("defs", null, svg);
+    var pat = el("pattern", { id: "hatchG", width: 7, height: 7, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" }, defs);
+    el("rect", { width: 7, height: 7, "class": "hatch-bg" }, pat);
+    el("line", { x1: 0, y1: 0, x2: 0, y2: 7, "class": "hatch-ln" }, pat);
+    var mk = el("marker", { id: "arr", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 5, markerHeight: 5, orient: "auto-start-reverse" }, defs);
+    el("path", { d: "M0,0 L10,5 L0,10 z", fill: "var(--accent)" }, mk);
+
+    var A = el("g", { transform: "translate(" + L.ax + "," + L.ay + ") scale(" + L.as + ")" }, svg);
+    var B = el("g", { transform: "translate(" + L.bx + "," + L.by + ")" }, svg);
+    nodes = { A: A, B: B };
+
+    // ----- panel A: the main window grid -----
+    var gGrid = el("g", null, A); nodes.gGrid = gGrid;
+    nodes.titleA = txt(A, 0, 16, "", "b", { "font-size": 17 });
+    nodes.noteA = txt(A, 0, GY + T * CS + 38, "", "mut", { "font-size": 14 });
+    nodes.heads = el("g", null, gGrid);
+    FEAT.forEach(function (f, c) {
+      var x = GX + c * CS + CS / 2 + 4, y = GY - 6;
+      txt(nodes.heads, x, y, f, "mut", { "font-size": 12, transform: "rotate(-60 " + x + " " + y + ")" });
+    });
+    txt(nodes.heads, MX + CS / 2 + 4, GY - 6, "mask", "maet b", { "font-size": 12, transform: "rotate(-60 " + (MX + CS / 2 + 4) + " " + (GY - 6) + ")" });
+    nodes.rowl = [];
+    nodes.cells = [];
+    for (var r = 0; r < T; r++) {
+      nodes.rowl.push(txt(gGrid, GX - 6, GY + r * CS + CS / 2 + 4, "t" + (r + 1), "mut", { "font-size": 12, "text-anchor": "end" }));
+      for (var c = 0; c < F; c++) {
+        var x = GX + c * CS, y = GY + r * CS, real = r < NREAL, idx = r * F + c;
+        var g = el("g", null, gGrid);
+        var cell = {
+          r: r, c: c, idx: idx, real: real, g: g, x: x, y: y,
+          bg: el("rect", { x: x, y: y, width: CS, height: CS, "class": real ? "real" : "pad" }, g),
+          grp: el("rect", { x: x + 1, y: y + 1, width: CS - 2, height: CS - 2, "class": "g" + GRP[idx], opacity: 0 }, g),
+          v: el("rect", { x: x + 1, y: y + 1, width: CS - 2, height: CS - 2, "class": "v", opacity: 0 }, g),
+          err: el("rect", { x: x + 4, y: y + CS - 1, width: CS - 8, height: 0, "class": "err", opacity: 0 }, g),
+          hb: el("rect", { x: x + 1.5, y: y + 1.5, width: CS - 3, height: CS - 3, "class": "hidbox", "fill-opacity": 0, opacity: 0 }, g),
+          z: txt(g, x + CS / 2, y + CS / 2 + 4, "0", "valt b", { "font-size": 12, "text-anchor": "middle", opacity: 0 })
+        };
+        nodes.cells.push(cell);
+      }
+    }
+    nodes.mask = [];
+    for (var r2 = 0; r2 < T; r2++) {
+      var mg = el("g", null, gGrid);
+      var on = r2 < NREAL;
+      nodes.mask.push({
+        g: mg,
+        bg: el("rect", { x: MX, y: GY + r2 * CS, width: CS, height: CS, "class": on ? "mk1" : "mk0", "fill-opacity": on ? 0.35 : 1 }, mg),
+        t: txt(mg, MX + CS / 2, GY + r2 * CS + CS / 2 + 4, on ? "1" : "0", "b", { "font-size": 12, "text-anchor": "middle" })
+      });
+    }
+    nodes.padBrace = el("g", null, gGrid);
+    el("path", { d: "M" + (MX + CS + 6) + "," + (GY + NREAL * CS + 2) + " h5 v" + (3 * CS - 4) + " h-5", fill: "none", stroke: "var(--muted)", "stroke-width": 1.2 }, nodes.padBrace);
+    // padding label sits under the brace column to stay inside panel A
+    txt(nodes.padBrace, GX + F * CS / 2, GY + T * CS + 14, "rows t6–t8 = padding (mask 0)", "mut", { "font-size": 12, "text-anchor": "middle" });
+
+    // ----- panel A: minis (stages 8, 9) -----
+    nodes.miniL = mini(A, 0, 74, 15);
+    nodes.miniR = mini(A, 205, 74, 15);
+    nodes.miniLab = [txt(A, 0, 58, "", "b", { "font-size": 14 }), txt(A, 205, 58, "", "b", { "font-size": 14 })];
+    nodes.miniSc = [txt(A, 0, 74 + T * 15 + 22, "", "b", { "font-size": 14 }), txt(A, 205, 74 + T * 15 + 22, "", "b", { "font-size": 14 })];
+    nodes.miniSc2 = [txt(A, 0, 74 + T * 15 + 42, "", "mut", { "font-size": 13 }), txt(A, 205, 74 + T * 15 + 42, "", "mut", { "font-size": 13 })];
+    nodes.arrows = el("g", null, A);
+    var hx = 205 + 6 * 15, hy = 74 + 3 * 15;
+    el("rect", { x: hx, y: hy - 15, width: 15, height: 15, "class": "nbr" }, nodes.arrows);
+    el("rect", { x: hx, y: hy + 15, width: 15, height: 15, "class": "nbr" }, nodes.arrows);
+
+    // ----- panel B -----
+    buildIntro(B); buildNet(B); buildFly(); buildLoss(B); buildScore(B); buildDecision(B); buildCaveat(B);
+  }
+
+  function mini(parent, x0, y0, cs) {
+    var g = el("g", null, parent), cells = [];
+    for (var r = 0; r < T; r++) for (var c = 0; c < F; c++) {
+      var x = x0 + c * cs, y = y0 + r * cs;
+      var cg = el("g", null, g);
+      cells.push({
+        r: r, c: c, x: x, y: y, cs: cs,
+        bg: el("rect", { x: x, y: y, width: cs, height: cs, "class": "real" }, cg),
+        v: el("rect", { x: x + 1, y: y + 1, width: cs - 2, height: cs - 2, "class": "v", opacity: 0 }, cg),
+        err: el("rect", { x: x + 3, y: y + cs - 1, width: cs - 6, height: 0, "class": "err", opacity: 0 }, cg),
+        hb: el("rect", { x: x + 1.5, y: y + 1.5, width: cs - 3, height: cs - 3, "class": "hidbox", "fill-opacity": 0.15, opacity: 0 }, cg),
+        q: txt(cg, x + cs / 2, y + cs / 2 + 4.5, "?", "valt b", { "font-size": 12, "text-anchor": "middle", opacity: 0 })
+      });
+    }
+    return { g: g, cells: cells };
+  }
+
+  function buildIntro(B) {
+    var g = el("g", null, B); nodes.intro = g;
+    var lines = [
+      ["The 13 features of each message (z-scored):", "b"],
+      ["cP = claimed position (x, y)", ""],
+      ["rP = receiver position (x, y)", ""],
+      ["cV = claimed velocity (x, y)", ""],
+      ["rV = receiver velocity (x, y)", ""],
+      ["cA = claimed acceleration (x, y)", ""],
+      ["rng = range, brg = bearing", ""],
+      ["lΔτ = log time gap to the last message", ""],
+      ["", ""],
+      ["Row mask: 1 = real message, 0 = padding.", "b"],
+      ["A short link is padded with zero rows up to T.", ""],
+      ["Padding is never used in the loss or the score.", ""]
+    ];
+    nodes.introLines = lines.map(function (l, i) { return txt(g, 20, 60 + i * 30, l[0], l[1] === "b" ? "b" : "", { "font-size": 18 }); });
+  }
+
+  function barCells(parent, x, n, ch, cls, center) {
+    var h = n * ch, top = center - h / 2, out = [];
+    el("rect", { x: x - 1, y: top - 1, width: BAR.w + 2, height: h + 2, "class": "barbox" }, parent);
+    for (var i = 0; i < n; i++) out.push(el("rect", { x: x, y: top + i * ch + 0.4, width: BAR.w, height: Math.max(ch - 0.8, 0.8), "class": cls, "fill-opacity": 0.08 }, parent));
+    return { cells: out, top: top, bot: top + h };
+  }
+
+  function buildNet(B) {
+    var g = el("g", null, B); nodes.net = g;
+    var inTop = BAR.top, inBot = BAR.top + 112 * BAR.ch, mid = (inTop + inBot) / 2;
+    nodes.inBox = el("rect", { x: BAR.inX - 1, y: inTop - 1, width: BAR.w + 2, height: inBot - inTop + 2, "class": "barbox" }, g);
+    nodes.inLab = txt(g, BAR.inX + BAR.w / 2, inTop - 10, "input · 14T = 112", "b", { "font-size": 14, "text-anchor": "start" });
+    nodes.inLab.setAttribute("x", BAR.inX - 1);
+    nodes.seg = el("g", null, g);
+    nodes.segLab = [];
+    for (var r = 0; r < T; r++) {
+      var y = inTop + (r * F + F / 2) * BAR.ch + 4;
+      nodes.segLab.push(txt(nodes.seg, BAR.inX + BAR.w + 6, y, "t" + (r + 1) + (r === 0 ? " (13)" : ""), "mut", { "font-size": 12 }));
+    }
+    nodes.segLab.push(txt(nodes.seg, BAR.inX + BAR.w + 6, inTop + (104 + 4) * BAR.ch + 4, "mask (8)", "maet b", { "font-size": 12 }));
+
+    nodes.encT = txt(g, (BAR.inX + BAR.zX + BAR.w) / 2 + 40, 18, "Encoder (TabMlp)", "b acc", { "font-size": 15, "text-anchor": "middle" });
+    nodes.decT = txt(g, (BAR.zX + BAR.outX + BAR.w) / 2 + 40, 18, "Decoder (mirrored)", "b acc", { "font-size": 15, "text-anchor": "middle" });
+
+    nodes.fans = [];
+    function fan(xa, ta, ba, xb, tb, bb, l1, l2) {
+      var fg = el("g", null, g);
+      var poly = el("polygon", { "class": "fan", points: "" }, fg);
+      var ls = [];
+      for (var i = 0; i < 9; i++) {
+        var fa = (i + 0.5) / 9, fb = ((i * 4) % 9 + 0.5) / 9;
+        ls.push({ e: el("line", { "class": "fanl" }, fg), ya: lerp(ta, ba, fa), yb: lerp(tb, bb, fb) });
+      }
+      var cx = (xa + xb) / 2;
+      var lab1 = txt(fg, cx, inBot + 26, l1, "mut", { "font-size": 12.5, "text-anchor": "middle" });
+      var lab2 = l2 ? txt(fg, cx, inBot + 42, l2, "mut", { "font-size": 12.5, "text-anchor": "middle" }) : null;
+      var f = { g: fg, poly: poly, ls: ls, xa: xa, ta: ta, ba: ba, xb: xb, tb: tb, bb: bb, labs: [lab1, lab2] };
+      nodes.fans.push(f);
+      return f;
+    }
+    nodes.h1 = barCells(g, BAR.h1X, 64, BAR.ch, "nc", mid);
+    nodes.z = barCells(g, BAR.zX, 16, 12, "zc", mid);
+    nodes.dh = barCells(g, BAR.dhX, 64, BAR.ch, "nc", mid);
+    nodes.out = barCells(g, BAR.outX, 104, BAR.ch, "nc", mid);
+    nodes.h1Lab = txt(g, BAR.h1X + BAR.w / 2, nodes.h1.top - 10, "64", "b", { "font-size": 14, "text-anchor": "middle" });
+    nodes.zLab = txt(g, BAR.zX + BAR.w / 2, nodes.z.top - 10, "z · 16", "b maet", { "font-size": 15, "text-anchor": "middle" });
+    nodes.dhLab = txt(g, BAR.dhX + BAR.w / 2, nodes.dh.top - 10, "64", "b", { "font-size": 14, "text-anchor": "middle" });
+    nodes.outLab = txt(g, BAR.outX + BAR.w + 1, nodes.out.top - 10, "output · 13T = 104", "b", { "font-size": 14, "text-anchor": "end" });
+    var R1 = BAR.inX + BAR.w;
+    fan(R1, inTop, inBot, BAR.h1X, nodes.h1.top, nodes.h1.bot, "Linear · ReLU", "Dropout 0.1");
+    fan(BAR.h1X + BAR.w, nodes.h1.top, nodes.h1.bot, BAR.zX, nodes.z.top, nodes.z.bot, "Linear · ReLU", "Dropout 0.1");
+    fan(BAR.zX + BAR.w, nodes.z.top, nodes.z.bot, BAR.dhX, nodes.dh.top, nodes.dh.bot, "Linear · ReLU", "Dropout 0.1");
+    fan(BAR.dhX + BAR.w, nodes.dh.top, nodes.dh.bot, BAR.outX, nodes.out.top, nodes.out.bot, "Linear", "(no ReLU)");
+    nodes.netInfo = el("g", null, g);
+    nodes.flatInfo = [
+      txt(nodes.netInfo, 120, 80, "Flatten row by row (x.flatten):", "b", { "font-size": 17 }),
+      txt(nodes.netInfo, 120, 112, "[ t1: 13 | t2: 13 | … | t8: 13 ]", "mono", { "font-size": 16 }),
+      txt(nodes.netInfo, 120, 138, "+ [ row mask: 8 ]", "mono maet", { "font-size": 16 }),
+      txt(nodes.netInfo, 120, 172, "= 13·T + T = 14·T inputs (112 here)", "", { "font-size": 17 }),
+      txt(nodes.netInfo, 120, 200, "Padding cells are 0 in the input.", "mut", { "font-size": 15 })
+    ];
+    nodes.hideInfo = [
+      txt(nodes.netInfo, 120, 270, "Training: hide cells at random", "b", { "font-size": 17 }),
+      txt(nodes.netInfo, 120, 300, "hidden = Bernoulli(0.2) AND real row", "mono", { "font-size": 15 }),
+      txt(nodes.netInfo, 120, 328, "hidden cells → 0 in the input", "", { "font-size": 16 }),
+      txt(nodes.netInfo, 120, 354, "padding: never hidden · mask: never hidden", "", { "font-size": 16 }),
+      txt(nodes.netInfo, 120, 380, "a new random draw at every training step", "mut", { "font-size": 15 }),
+      txt(nodes.netInfo, 120, 406, "this toy draw: 13 of 65 real cells", "valt", { "font-size": 15 })
+    ];
+  }
+
+  function buildFly() {
+    var g = el("g", null, svg); nodes.fly = [];
+    nodes.flyG = g;
+    for (var i = 0; i < 112; i++) {
+      var r, c, cls, o;
+      if (i < 104) { r = Math.floor(i / F); c = i % F; }
+      else { r = i - 104; c = -1; }
+      var real = r < NREAL;
+      var from, rect;
+      if (c >= 0) {
+        from = { x: L.ax + L.as * (GX + c * CS), y: L.ay + L.as * (GY + r * CS), w: CS * L.as, h: CS * L.as };
+        cls = real ? "v" : "pad"; o = real ? vop(V[r][c]) : 1;
+      } else {
+        from = { x: L.ax + L.as * MX, y: L.ay + L.as * (GY + r * CS), w: CS * L.as, h: CS * L.as };
+        cls = real ? "mk1" : "mk0"; o = real ? 0.8 : 1;
+      }
+      var to = { x: L.bx + BAR.inX, y: L.by + BAR.top + i * BAR.ch + 0.3, w: BAR.w, h: BAR.ch - 0.6 };
+      rect = el("rect", { "class": cls, "stroke-width": 0 }, g);
+      nodes.fly.push({ e: rect, from: from, to: to, r: r, c: c, o: o, real: real, hid: c >= 0 && isHid[r * F + c] });
+    }
+  }
+
+  function buildLoss(B) {
+    var g = el("g", null, B); nodes.loss = g;
+    txt(g, 20, 34, "Training loss: hidden cells only", "b", { "font-size": 19 });
+    txt(g, 20, 64, "Σ over hidden cells of (guess − true)² / var(feature)", "mono", { "font-size": 15 });
+    txt(g, 20, 88, "÷ number of hidden cells, then mean over windows", "mono", { "font-size": 15 });
+    txt(g, 20, 114, "var(feature) = batch variance of that feature over real cells", "mut", { "font-size": 14 });
+    var base = 300, maxH = 150, x0 = 30, bw = 30, gap = 12;
+    el("line", { x1: 20, y1: base, x2: 580, y2: base, "class": "axis" }, g);
+    nodes.lossBars = LOSSE.map(function (e, i) {
+      var r = Math.floor(HID[i] / F), c = HID[i] % F;
+      var b = el("rect", { x: x0 + i * (bw + gap), y: base, width: bw, height: 0, "class": "err" }, g);
+      var lab = txt(g, x0 + i * (bw + gap) + bw / 2, base + 16, FEAT[c], "mut", { "font-size": 11, "text-anchor": "middle" });
+      var lab2 = txt(g, x0 + i * (bw + gap) + bw / 2, base + 30, "t" + (r + 1), "mut", { "font-size": 11, "text-anchor": "middle" });
+      return { b: b, h: maxH * e / LMAX, base: base, labs: [lab, lab2] };
+    });
+    nodes.lossCap = txt(g, 20, 140, "one bar per hidden cell (toy values):", "mut", { "font-size": 14 });
+    nodes.lossTot = txt(g, 20, 362, "loss for this window = " + LOSS.toFixed(2) + " (toy)", "b badt", { "font-size": 18 });
+    nodes.lossNotes = [
+      txt(g, 20, 408, "Visible cells and padding are not in the loss.", "", { "font-size": 16 }),
+      txt(g, 20, 440, "Trained on benign windows only (one-class):", "b", { "font-size": 16 }),
+      txt(g, 20, 466, "the model learns what normal traffic looks like.", "", { "font-size": 16 }),
+      txt(g, 20, 498, "AdamW (lr 1e-3, weight decay 0.01), batch 256,", "mut", { "font-size": 14 }),
+      txt(g, 20, 520, "early stopping on the benign validation error.", "mut", { "font-size": 14 })
+    ];
+  }
+
+  function buildScore(B) {
+    var g = el("g", null, B); nodes.score = g;
+    txt(g, 20, 34, "Test score: 5 fixed draws", "b", { "font-size": 19 });
+    txt(g, 20, 60, "Groups come from one fixed seed (20261117),", "mut", { "font-size": 14 });
+    txt(g, 20, 80, "the same for every window, run and seed.", "mut", { "font-size": 14 });
+    nodes.draws = [];
+    var gmax = Math.max.apply(null, grpMean);
+    for (var k = 0; k < 5; k++) {
+      var y = 112 + k * 40, dg = el("g", null, g);
+      el("rect", { x: 20, y: y, width: 18, height: 18, "class": "g" + k, rx: 3 }, dg);
+      txt(dg, 46, y + 14, "draw " + (k + 1) + ": hide group " + (k + 1), "", { "font-size": 15 });
+      var b = el("rect", { x: 230, y: y + 2, width: 0, height: 14, "class": "err" }, dg);
+      var v = txt(dg, 0, y + 14, "mean error " + grpMean[k].toFixed(2), "mut", { "font-size": 13 });
+      nodes.draws.push({ g: dg, b: b, w: 220 * grpMean[k] / gmax, v: v });
+    }
+    nodes.scoreTot = [
+      txt(g, 20, 344, "masked score = mean error over all 65 real cells", "b", { "font-size": 16 }),
+      txt(g, 20, 368, "(each hidden exactly once) = " + MSCORE.toFixed(2) + " (toy)", "b badt", { "font-size": 16 })
+    ];
+    nodes.scoreOther = [
+      txt(g, 20, 414, "Two more scores, one line each:", "b", { "font-size": 15 }),
+      txt(g, 20, 440, "full score: nothing hidden, mean error over real cells.", "", { "font-size": 15 }),
+      txt(g, 20, 466, "Mahalanobis: distance of z (clean input) to a", "", { "font-size": 15 }),
+      txt(g, 20, 488, "Gaussian fitted on benign train z.", "", { "font-size": 15 }),
+      txt(g, 20, 520, "Scores are saved before any label is read.", "mut", { "font-size": 14 })
+    ];
+  }
+
+  function buildDecision(B) {
+    var g = el("g", null, B); nodes.dec = g;
+    txt(g, 20, 34, "Decision: compare the score with a threshold", "b", { "font-size": 19 });
+    var ax0 = 40, ax1 = 560, base = 300, maxS = 0.6, maxH = 170;
+    function X(s) { return ax0 + (ax1 - ax0) * s / maxS; }
+    nodes.decAxis = el("g", null, g);
+    el("line", { x1: ax0, y1: base, x2: ax1, y2: base, "class": "axis" }, nodes.decAxis);
+    for (var s = 0; s <= 0.6001; s += 0.1) {
+      el("line", { x1: X(s), y1: base, x2: X(s), y2: base + 5, "class": "axis" }, nodes.decAxis);
+      txt(nodes.decAxis, X(s), base + 20, s.toFixed(1), "mut", { "font-size": 12, "text-anchor": "middle" });
+    }
+    txt(nodes.decAxis, ax1, base + 40, "masked score (toy)", "mut", { "font-size": 13, "text-anchor": "end" });
+    txt(nodes.decAxis, ax0, 74, "benign validation scores (toy histogram)", "okt", { "font-size": 14 });
+    nodes.hist = HIST.map(function (h, i) {
+      var w = (X(0.03) - X(0)) - 2;
+      return { e: el("rect", { x: X(i * 0.03) + 1, y: base, width: w, height: 0, "class": "hist" }, g), h: maxH * h / HMAX * 0.9 };
+    });
+    nodes.thr = el("g", null, g);
+    el("line", { x1: X(P95), y1: 96, x2: X(P95), y2: base, "class": "thr" }, nodes.thr);
+    txt(nodes.thr, X(P95) + 6, 104, "threshold = p95 of benign val", "valt b", { "font-size": 13 });
+    nodes.dotB = el("circle", { cx: X(BSC), cy: base, r: 9, "class": "dot-ok" }, g);
+    nodes.dotA = el("circle", { cx: X(ASC), cy: base, r: 9, "class": "dot-bad" }, g);
+    nodes.dotBx = X(BSC); nodes.dotAx = X(ASC); nodes.dotBase = base;
+    nodes.labB = txt(g, X(BSC), base - 20, "benign: no alarm", "okt b", { "font-size": 13, "text-anchor": "middle" });
+    nodes.labA = txt(g, X(ASC), base - 20, "attack: ALARM", "badt b", { "font-size": 14, "text-anchor": "middle" });
+    nodes.decNotes = [
+      txt(g, 20, 376, "score ≤ threshold → no alarm;  score > threshold → alarm.", "", { "font-size": 15.5 }),
+      txt(g, 20, 404, "Per window, and per track (max / mean over its windows).", "mut", { "font-size": 14 }),
+      txt(g, 20, 446, "Real result (T = 32, GridSybil, test, mean of seeds 0–3):", "b", { "font-size": 15 }),
+      txt(g, 20, 472, "TabMlp AUROC 0.657, recall 0.21; TabResnet 0.696, recall 0.25 (val p95).", "", { "font-size": 15 }),
+      txt(g, 20, 498, "The real separation is weak; the toy picture is idealised.", "badt", { "font-size": 15 })
+    ];
+  }
+
+  function buildCaveat(B) {
+    var g = el("g", null, B); nodes.cav = g;
+    txt(g, 20, 34, "Pooled vs length-matched AUROC", "b", { "font-size": 19 });
+    txt(g, 20, 58, "T = 32, test, mean of seeds 0–3 (task/masked_autoencoder/README.md)", "mut", { "font-size": 13 });
+    var base = 330, maxH = 230;
+    function Y(a) { return base - maxH * a; }
+    el("line", { x1: 30, y1: base, x2: 580, y2: base, "class": "axis" }, g);
+    el("line", { x1: 30, y1: Y(0.5), x2: 580, y2: Y(0.5), "class": "chance" }, g);
+    txt(g, 580, Y(0.5) - 6, "chance 0.5", "mut", { "font-size": 12, "text-anchor": "end" });
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (a) { txt(g, 24, Y(a) + 4, a.toFixed(2), "mut", { "font-size": 11, "text-anchor": "end" }); });
+    var data = [
+      { name: "GridSybil", vals: [0.657, 0.631, 0.559] },
+      { name: "DataReplay", vals: [0.693, 0.490, 0.952] }
+    ];
+    var cls = ["bpool", "bmatch", "blen"];
+    nodes.cavBars = [];
+    data.forEach(function (d, gi) {
+      var x0 = 70 + gi * 260;
+      d.vals.forEach(function (v, j) {
+        var x = x0 + j * 62;
+        var b = el("rect", { x: x, y: base, width: 50, height: 0, "class": cls[j] }, g);
+        var t = txt(g, x + 25, Y(v) - 6, v.toFixed(3), "b", { "font-size": 13, "text-anchor": "middle" });
+        nodes.cavBars.push({ b: b, h: maxH * v, t: t, base: base });
+      });
+      txt(g, x0 + 87, base + 20, d.name, "b", { "font-size": 14, "text-anchor": "middle" });
+    });
+    nodes.cavLeg = el("g", null, g);
+    [["pooled", "bpool"], ["length-matched", "bmatch"], ["length only", "blen"]].forEach(function (p, i) {
+      var x = 30 + i * 175;
+      el("rect", { x: x, y: 370, width: 13, height: 13, rx: 3, "class": p[1] }, nodes.cavLeg);
+      txt(nodes.cavLeg, x + 19, 381, p[0], "", { "font-size": 14 });
+    });
+    nodes.cavNotes = [
+      txt(g, 20, 420, "Length-matched = AUROC inside each window length,", "", { "font-size": 15 }),
+      txt(g, 20, 442, "weighted by the attack windows at that length.", "", { "font-size": 15 }),
+      txt(g, 20, 474, "70.2% of DataReplay windows have 1 row (benign 5.2%):", "b", { "font-size": 15 }),
+      txt(g, 20, 496, "the pooled 0.693 measures length, not detection.", "badt b", { "font-size": 15 }),
+      txt(g, 20, 524, "Length alone gives 0.952 on DataReplay. TabResnet: 0.695 → 0.559.", "mut", { "font-size": 14 })
+    ];
+  }
+
+  // ---------- drawing primitives ----------
+  function gridState(o) {
+    // o: { appear(r) 0..1, maskOn, hide 0..1 per hidden (fn), recon 0..1, dimVisible 0..1, err fn, grp fn, blank fn }
+    nodes.cells.forEach(function (cell) {
+      var a = o.appear ? o.appear(cell.r, cell.c) : 1;
+      op(cell.g, a);
+      if (!cell.real) {
+        op(cell.v, 0); op(cell.hb, 0); op(cell.z, 0); op(cell.err, 0); op(cell.grp, 0);
+        return;
+      }
+      var hidden = isHid[cell.idx];
+      var h = (o.hide && hidden) ? o.hide(cell.idx) : 0;          // 0 visible, 1 fully hidden (zeroed)
+      var rc = o.recon || 0;
+      var base = vop(V[cell.r][cell.c]), guess = vop(G[cell.r][cell.c]);
+      var val = lerp(lerp(base, 0, h), lerp(base, guess, 1), rc * (hidden ? 1 : 0.0));
+      if (hidden && rc > 0) val = lerp(lerp(base, 0, h), guess, rc);
+      var blank = o.blank ? o.blank(cell.idx) : 0;
+      val = val * (1 - blank);
+      var dim = (!hidden && o.dimVisible) ? 1 - 0.6 * o.dimVisible : 1;
+      if (o.vScale !== undefined) dim *= o.vScale;
+      op(cell.v, val * dim);
+      var flash = (o.flash && hidden) ? o.flash(cell.idx) : 0;
+      var outline = Math.max(h > 0 ? 1 : 0, blank);
+      cell.hb.setAttribute("fill-opacity", (0.12 * Math.max(h, blank) + 0.75 * flash).toFixed(3));
+      op(cell.hb, Math.max(outline * (h > 0 || blank > 0 ? Math.max(h, blank, flash) : 0), flash));
+      op(cell.z, Math.max(h * (1 - rc), blank) * (o.zeroText === false ? 0 : 1));
+      var gr = o.grp ? o.grp(cell.idx) : 0;
+      op(cell.grp, gr * 0.55 * (1 - blank));
+      var er = o.err ? (o.err(cell.idx) || 0) : 0;
+      var eh = (CS - 4) * er;
+      cell.err.setAttribute("y", cell.y + CS - 2 - eh);
+      cell.err.setAttribute("height", Math.max(eh, 0));
+      op(cell.err, er > 0 ? 0.9 : 0);
+    });
+  }
+  function maskState(a) { nodes.mask.forEach(function (m, r) { op(m.g, typeof a === "function" ? a(r) : a); }); }
+  function rowLabels(a) { nodes.rowl.forEach(function (e, r) { op(e, typeof a === "function" ? a(r) : a); }); }
+
+  function flyState(p, hide) {
+    nodes.fly.forEach(function (f, i) {
+      var q = typeof p === "function" ? p(i) : p;
+      var x = lerp(f.from.x, f.to.x, q), y = lerp(f.from.y, f.to.y, q);
+      var w = lerp(f.from.w, f.to.w, q), h = lerp(f.from.h, f.to.h, q);
+      f.e.setAttribute("x", x.toFixed(2)); f.e.setAttribute("y", y.toFixed(2));
+      f.e.setAttribute("width", w.toFixed(2)); f.e.setAttribute("height", Math.max(h, 0.5).toFixed(2));
+      var hd = (hide && f.hid) ? hide(f.r * F + f.c) : 0;
+      if (hd > 0) {
+        f.e.setAttribute("class", "hidbox"); f.e.setAttribute("fill-opacity", (0.9 * (1 - hd) + 0.1).toFixed(3));
+        f.e.setAttribute("stroke-width", 0); op(f.e, 1);
+      } else {
+        f.e.setAttribute("class", f.c >= 0 ? (f.real ? "v" : "pad") : (f.real ? "mk1" : "mk0"));
+        f.e.removeAttribute("fill-opacity");
+        op(f.e, q <= 0 ? 0 : f.o);
+      }
+    });
+  }
+  function setFan(f, p) {
+    op(f.g, p > 0 ? 1 : 0);
+    var xb = lerp(f.xa, f.xb, p), tb = lerp(f.ta, f.tb, p), bb = lerp(f.ba, f.bb, p);
+    f.poly.setAttribute("points", f.xa + "," + f.ta + " " + xb + "," + tb + " " + xb + "," + bb + " " + f.xa + "," + f.ba);
+    f.ls.forEach(function (l) {
+      l.e.setAttribute("x1", f.xa); l.e.setAttribute("y1", l.ya);
+      l.e.setAttribute("x2", xb); l.e.setAttribute("y2", lerp(l.ya, l.yb, p));
+    });
+    f.labs.forEach(function (l) { if (l) op(l, P(p, 0.5, 0.5)); });
+  }
+  function lightBar(bar, p, vals) {
+    var n = bar.cells.length;
+    bar.cells.forEach(function (c, i) {
+      var lit = Math.max(0, Math.min(1, p * (n + 6) / 6 - i / 6));
+      c.setAttribute("fill-opacity", (0.08 + lit * (0.15 + 0.7 * vals(i))).toFixed(3));
+    });
+  }
+  function netVisible(o) {
+    op(nodes.net, o.net === undefined ? 1 : o.net);
+    op(nodes.encT, o.enc || 0); op(nodes.decT, o.dec || 0);
+    op(nodes.inBox, o.inBox === undefined ? 1 : o.inBox);
+    op(nodes.inLab, o.inLab === undefined ? 1 : o.inLab);
+    [nodes.h1, nodes.z, nodes.dh, nodes.out].forEach(function (b, i) {
+      var v = (o.bars || [0, 0, 0, 0])[i];
+      b.cells.forEach(function (c) { op(c, v); });
+      b.cells[0].previousSibling && op(b.cells[0].previousSibling, v);
+    });
+    op(nodes.h1Lab, (o.bars || [0])[0]); op(nodes.zLab, (o.bars || [0, 0])[1]);
+    op(nodes.dhLab, (o.bars || [0, 0, 0])[2]); op(nodes.outLab, (o.bars || [0, 0, 0, 0])[3]);
+  }
+  function each(arr, f) { arr.forEach(f); }
+  function hideAllB() {
+    op(nodes.intro, 0); op(nodes.net, 0); op(nodes.loss, 0); op(nodes.score, 0); op(nodes.dec, 0); op(nodes.cav, 0);
+    op(nodes.flyG, 0); op(nodes.netInfo, 0);
+    nodes.fans.forEach(function (f) { setFan(f, 0); });
+  }
+  function hideMinis() {
+    [nodes.miniL, nodes.miniR].forEach(function (m) { op(m.g, 0); });
+    nodes.miniLab.concat(nodes.miniSc, nodes.miniSc2).forEach(function (e) { op(e, 0); });
+    op(nodes.arrows, 0);
+  }
+  var hideAt = {}; HID.forEach(function (x, i) { hideAt[x] = i; });
+  function hideFn(t, s0, step, dur) { return function (idx) { return P(t, s0 + hideAt[idx] * step + 250, dur); }; }
+  function flashFn(t, s0, step) { return function (idx) { var s = s0 + hideAt[idx] * step; return P(t, s, 200) * (1 - P(t, s + 300, 400)); }; }
+  var S3_END = 500 + 13 * 200 + 900;
+
+  // ---------- stages ----------
+  var STAGES = [
+    { name: "One window", D: 4200,
+      cap: "One input window is T messages from one sender (1 per second) × 13 features. Here T = 8 is a toy size (real T is 32, 48 or 64); rows t6–t8 are padding, and the row mask says which rows are real (1) and which are padding (0).",
+      draw: function (t) {
+        hideAllB(); hideMinis();
+        op(nodes.gGrid, 1); op(nodes.heads, P(t, 0, 500));
+        nodes.titleA.textContent = "One window (toy: T = 8 rows × 13 features)";
+        nodes.noteA.textContent = "Real T = 32 / 48 / 64. Cell colour = toy value.";
+        gridState({ appear: function (r) { return P(t, 300 + r * 260, 420); } });
+        rowLabels(function (r) { return P(t, 300 + r * 260, 420); });
+        maskState(function (r) { return P(t, 2600 + r * 90, 300); });
+        op(nodes.padBrace, P(t, 3300, 500));
+        op(nodes.intro, 1);
+        nodes.introLines.forEach(function (e, i) { op(e, P(t, 600 + i * 220, 400)); });
+      } },
+    { name: "Flatten", D: 6200,
+      cap: "The code flattens the window row by row into one long vector of 13·T values, then appends the T row-mask values. That gives 14·T inputs (112 in this toy).",
+      draw: function (t) {
+        hideAllB(); hideMinis();
+        nodes.titleA.textContent = "Input window (toy values)";
+        nodes.noteA.textContent = "Copies of the cells move into one input vector.";
+        op(nodes.heads, 1); gridState({}); rowLabels(1); maskState(1); op(nodes.padBrace, 1);
+        op(nodes.flyG, 1);
+        netVisible({ net: 1, inBox: P(t, 0, 400), inLab: P(t, 0, 400) });
+        flyState(function (i) {
+          var s = i < 104 ? 300 + Math.floor(i / F) * 520 + (i % F) * 18 : 300 + 8 * 520 + (i - 104) * 60;
+          return P(t, s, 650);
+        });
+        nodes.segLab.forEach(function (e, r) { op(e, P(t, r < T ? 900 + r * 520 : 300 + 8 * 520 + 500, 300)); });
+        op(nodes.netInfo, 1);
+        nodes.flatInfo.forEach(function (e, i) { op(e, i === 0 ? P(t, 0, 500) : i < 3 ? P(t, 1200 + i * 600, 500) : P(t, 4900 + (i - 3) * 400, 500)); });
+        nodes.hideInfo.forEach(function (e) { op(e, 0); });
+      } },
+    { name: "Hide about 20%", D: S3_END,
+      cap: "During training, each real cell is hidden with probability 0.2 and set to 0, so about 20% of the real cells are blank. Padding cells and the mask values are never hidden.",
+      draw: function (t) {
+        hideAllB(); hideMinis();
+        nodes.titleA.textContent = "Training input: hidden cells set to 0";
+        nodes.noteA.textContent = "Padding rows and the mask column are never hidden.";
+        op(nodes.heads, 1); rowLabels(1); maskState(1); op(nodes.padBrace, 1);
+        var hide = hideFn(t, 500, 200, 400);
+        gridState({ hide: hide, flash: flashFn(t, 500, 200) });
+        op(nodes.flyG, 1); flyState(1, hide);
+        netVisible({ net: 1 }); op(nodes.netInfo, 1);
+        nodes.segLab.forEach(function (e) { op(e, 1); });
+        nodes.flatInfo.forEach(function (e) { op(e, 0.35); });
+        nodes.hideInfo.forEach(function (e, i) { op(e, i < 5 ? P(t, 200 + i * 350, 450) : P(t, 500 + 13 * 200, 500)); });
+      } },
+    { name: "Encoder", D: 4600,
+      cap: "The encoder (TabMlp) reads the 14·T inputs, with the hidden cells set to 0. It maps them to 64 numbers and then to z, a summary of 16 numbers; each layer is Linear, ReLU and Dropout 0.1. The stronger variant, TabResnet, uses residual blocks [64, 32, 16] instead: GridSybil AUROC 0.696 at T = 32 vs 0.657 for TabMlp, still below the ConvAE (0.734).",
+      draw: function (t) {
+        hideAllB(); hideMinis();
+        nodes.titleA.textContent = "Training input: hidden cells set to 0";
+        nodes.noteA.textContent = "The encoder sees this masked input.";
+        op(nodes.heads, 1); rowLabels(1); maskState(1); op(nodes.padBrace, 1);
+        gridState({ hide: function () { return 1; } });
+        op(nodes.flyG, 1); flyState(1, function () { return 1; });
+        nodes.segLab.forEach(function (e) { op(e, 1 - P(t, 0, 500)); });
+        var b1 = P(t, 900, 300), b2 = P(t, 2700, 300);
+        netVisible({ net: 1, enc: P(t, 0, 500), bars: [b1, b2, 0, 0] });
+        setFan(nodes.fans[0], P(t, 200, 1000)); lightBar(nodes.h1, P(t, 1000, 900), function (i) { return NC1[i]; });
+        setFan(nodes.fans[1], P(t, 1900, 1000)); lightBar(nodes.z, P(t, 2800, 900), function (i) { return ZV[i]; });
+        setFan(nodes.fans[2], 0); setFan(nodes.fans[3], 0);
+      } },
+    { name: "Decoder", D: 6000,
+      cap: "The decoder mirrors the encoder: 16 → 64 → 13·T, and the last layer is a plain Linear so it can output negative values. The output is reshaped to T × 13, so the model gives a guess for every cell, also the hidden ones.",
+      draw: function (t) {
+        hideAllB(); hideMinis();
+        var rc = P(t, 3700, 1500);
+        nodes.titleA.textContent = rc < 0.5 ? "Training input: hidden cells set to 0" : "Reconstruction (output reshaped to T × 13)";
+        nodes.noteA.textContent = rc < 0.5 ? "Now the decoder rebuilds the full window." : "Orange boxes: the model's guesses for the hidden cells.";
+        op(nodes.heads, 1); rowLabels(1); maskState(1); op(nodes.padBrace, 1);
+        gridState({ hide: function () { return 1; }, recon: rc });
+        op(nodes.flyG, 1); flyState(1, function () { return 1; });
+        nodes.segLab.forEach(function (e) { op(e, 0); });
+        netVisible({ net: 1, enc: 1, dec: P(t, 0, 500), bars: [1, 1, P(t, 900, 300), P(t, 2700, 300)] });
+        setFan(nodes.fans[0], 1); lightBar(nodes.h1, 1, function (i) { return NC1[i]; });
+        setFan(nodes.fans[1], 1); lightBar(nodes.z, 1, function (i) { return ZV[i]; });
+        setFan(nodes.fans[2], P(t, 200, 1000)); lightBar(nodes.dh, P(t, 1000, 900), function (i) { return NC2[i]; });
+        setFan(nodes.fans[3], P(t, 1900, 1000));
+        lightBar(nodes.out, P(t, 2800, 900), function (i) { var r = Math.floor(i / F), c = i % F; return r < NREAL ? (G[r][c] + 2) / 4 : 0.15; });
+      } },
+    { name: "Training loss", D: 7400,
+      cap: "The loss looks only at the hidden cells: the squared error of each guess, divided by that feature's variance (as in pytorch-widedeep). The model is trained on benign windows only.",
+      draw: function (t) {
+        hideAllB(); hideMinis();
+        nodes.titleA.textContent = "Error on the hidden cells only";
+        nodes.noteA.textContent = "Dim cells (visible) and hatched cells (padding) are ignored.";
+        op(nodes.heads, 1); rowLabels(1); maskState(1); op(nodes.padBrace, 1);
+        gridState({ hide: function () { return 1; }, recon: 1, dimVisible: P(t, 300, 700), zeroText: false,
+          err: function (idx) { var i = hideAt[idx]; if (i === undefined) return 0; return P(t, 1300 + i * 330, 400) * LOSSE[i] / LMAX; } });
+        op(nodes.loss, P(t, 0, 600));
+        nodes.lossBars.forEach(function (b, i) {
+          var h = b.h * P(t, 1300 + i * 330, 400);
+          b.b.setAttribute("y", b.base - h); b.b.setAttribute("height", h);
+          b.labs.forEach(function (l) { op(l, P(t, 1300 + i * 330, 300)); });
+        });
+        op(nodes.lossCap, P(t, 1000, 400));
+        op(nodes.lossTot, P(t, 1300 + 13 * 330 + 100, 500));
+        nodes.lossNotes.forEach(function (e, i) { op(e, P(t, 5900 + i * 180, 400)); });
+      } },
+    { name: "Test scores", D: 10200,
+      cap: "At test time the cells are split into 5 fixed groups, and each group is hidden in turn. So every real cell is guessed once while hidden; the mean of these errors is the masked score.",
+      draw: function (t) {
+        hideAllB(); hideMinis();
+        nodes.titleA.textContent = "Test: 5 fixed groups, each hidden once";
+        nodes.noteA.textContent = "Red bars = error of each cell while it was hidden (toy).";
+        op(nodes.heads, 1); rowLabels(1); maskState(1); op(nodes.padBrace, 1);
+        var s0 = 1300, step = 1400;
+        gridState({
+          grp: function () { return P(t, 200, 900); },
+          vScale: 1 - 0.75 * P(t, 200, 900),
+          blank: function (idx) { var k = GRP[idx], s = s0 + k * step; return P(t, s, 250) * (1 - P(t, s + 950, 300)); },
+          zeroText: true,
+          err: function (idx) { var k = GRP[idx]; return P(t, s0 + k * step + 400, 450) * SERR[idx] / SMAX; }
+        });
+        op(nodes.score, P(t, 0, 600));
+        nodes.draws.forEach(function (d, k) {
+          var a = P(t, s0 + k * step, 300);
+          op(d.g, a);
+          var w = d.w * P(t, s0 + k * step + 400, 450);
+          d.b.setAttribute("width", w);
+          d.v.setAttribute("x", 236 + d.w + 4); op(d.v, P(t, s0 + k * step + 850, 300));
+        });
+        nodes.scoreTot.forEach(function (e) { op(e, P(t, s0 + 5 * step, 500)); });
+        nodes.scoreOther.forEach(function (e, i) { op(e, P(t, s0 + 5 * step + 400 + i * 150, 400)); });
+      } },
+    { name: "Decision", D: 6200,
+      cap: "A benign window is easy to rebuild, so its error is small (green). A GridSybil ghost has positions that do not fit together, so its error is larger (red); above the benign-validation 95th percentile we raise an alarm.",
+      draw: function (t) {
+        hideAllB(); hideMinis(); op(nodes.gGrid, 0);
+        nodes.titleA.textContent = "Two test windows (toy values)";
+        nodes.noteA.textContent = "";
+        var a = P(t, 0, 700);
+        miniDraw(nodes.miniL, a, function (i) { return BEN[i] / 0.85; }, "errok", NREAL, P(t, 600, 900));
+        miniDraw(nodes.miniR, a, function (i) { return ATT[i] / 0.85; }, "err", NREAL, P(t, 600, 900));
+        nodes.miniLab[0].textContent = "benign window"; nodes.miniLab[1].textContent = "GridSybil ghost (toy)";
+        nodes.miniLab[0].setAttribute("class", "b okt"); nodes.miniLab[1].setAttribute("class", "b badt");
+        nodes.miniSc[0].textContent = "masked score " + BSC.toFixed(2); nodes.miniSc[1].textContent = "masked score " + ASC.toFixed(2);
+        nodes.miniSc[0].setAttribute("class", "b okt"); nodes.miniSc[1].setAttribute("class", "b badt");
+        nodes.miniSc2[0].textContent = "small errors everywhere"; nodes.miniSc2[1].textContent = "big errors on position / range";
+        nodes.miniLab.forEach(function (e) { op(e, a); });
+        nodes.miniSc.forEach(function (e) { op(e, P(t, 1400, 500)); });
+        nodes.miniSc2.forEach(function (e) { op(e, P(t, 1400, 500)); });
+        op(nodes.dec, P(t, 300, 600));
+        op(nodes.decAxis, P(t, 500, 500));
+        nodes.hist.forEach(function (h, i) {
+          var v = h.h * P(t, 700 + i * 40, 500);
+          h.e.setAttribute("y", nodes.dotBase - v); h.e.setAttribute("height", v);
+        });
+        op(nodes.thr, P(t, 1900, 500));
+        var pb = P(t, 2600, 800), pa = P(t, 3400, 800);
+        nodes.dotB.setAttribute("cy", lerp(90, nodes.dotBase, pb)); op(nodes.dotB, pb > 0 ? 1 : 0);
+        nodes.dotA.setAttribute("cy", lerp(90, nodes.dotBase, pa)); op(nodes.dotA, pa > 0 ? 1 : 0);
+        op(nodes.labB, P(t, 3300, 400)); op(nodes.labA, P(t, 4200, 400));
+        nodes.decNotes.forEach(function (e, i) { op(e, P(t, 4400 + i * 250, 400)); });
+      } },
+    { name: "Caveat: window length", D: 7000,
+      cap: "A 1-row window has no time neighbours, so its hidden cells are hard to guess and its score is high even when it is benign. That is why we also report AUROC inside each window length (length-matched).",
+      draw: function (t) {
+        hideAllB(); hideMinis(); op(nodes.gGrid, 0);
+        nodes.titleA.textContent = "Short vs long window (toy)";
+        nodes.noteA.textContent = "";
+        var a = P(t, 0, 700);
+        var hidL = { 2: 1, 6: 1, 10: 1 }, hidR = {}; hidR[3 * F + 6] = 1;
+        miniDraw(nodes.miniL, a, null, "err", 1, 0, function (i) { return hidL[i] ? 1 : 0; }, P(t, 1700, 500) * (0.75 + 0.25 * Math.sin(t / 160)));
+        miniDraw(nodes.miniR, a, null, "err", T, 0, function (i) { return hidR[i] ? 1 : 0; }, P(t, 1700, 500));
+        nodes.miniLab[0].textContent = "1-row window"; nodes.miniLab[1].textContent = "8-row window";
+        nodes.miniLab[0].setAttribute("class", "b"); nodes.miniLab[1].setAttribute("class", "b");
+        nodes.miniSc[0].textContent = "no row above or below:"; nodes.miniSc[1].textContent = "blue: neighbours above, below";
+        nodes.miniSc[0].setAttribute("class", "b badt"); nodes.miniSc[1].setAttribute("class", "b okt");
+        nodes.miniSc2[0].textContent = "hard to guess → high score"; nodes.miniSc2[1].textContent = "they help → lower score";
+        nodes.miniLab.forEach(function (e) { op(e, a); });
+        op(nodes.arrows, P(t, 900, 600));
+        nodes.miniSc.forEach(function (e) { op(e, P(t, 1900, 500)); });
+        nodes.miniSc2.forEach(function (e) { op(e, P(t, 2200, 500)); });
+        op(nodes.cav, P(t, 2400, 500));
+        nodes.cavBars.forEach(function (b, i) {
+          var p = P(t, 2700 + i * 250, 600), h = b.h * p;
+          b.b.setAttribute("y", b.base - h); b.b.setAttribute("height", h);
+          op(b.t, P(t, 3100 + i * 250, 300));
+        });
+        op(nodes.cavLeg, P(t, 2600, 400));
+        nodes.cavNotes.forEach(function (e, i) { op(e, P(t, 4600 + i * 280, 400)); });
+      } }
+  ];
+
+  function miniDraw(m, a, errFn, errCls, nReal, ep, hidFn, q) {
+    op(m.g, a);
+    m.cells.forEach(function (c, i) {
+      var real = c.r < nReal;
+      c.bg.setAttribute("class", real ? "real" : "pad");
+      var src = (nReal === T && c.r >= NREAL) ? V[c.r % NREAL][c.c] : V[Math.min(c.r, NREAL - 1)][c.c];
+      var hid = hidFn ? hidFn(i) : 0;
+      op(c.v, real && !hid ? vop(src) * 0.8 : 0);
+      var e = (errFn && real) ? Math.min(1, errFn(i)) * ep : 0;
+      var eh = (c.cs - 3) * e;
+      c.err.setAttribute("class", errCls);
+      c.err.setAttribute("y", c.y + c.cs - 1.5 - eh); c.err.setAttribute("height", Math.max(eh, 0));
+      op(c.err, e > 0 ? 0.95 : 0);
+      op(c.hb, hid ? 1 : 0);
+      op(c.q, hid ? (q === undefined ? 1 : q) : 0);
+    });
+  }
+
+  // ---------- player ----------
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var cur = 0, tms = 0, playing = false, running = false, speed = 1, holdLeft = 0, last = null, raf = null;
+  var HOLD = 3200;
+  var capTitle = document.getElementById("capTitle"), capText = document.getElementById("capText");
+  var playBtn = document.getElementById("play"), ind = document.getElementById("ind"), dots = document.getElementById("dots");
+  STAGES.forEach(function (s, i) {
+    var b = document.createElement("button");
+    b.setAttribute("aria-label", "Stage " + (i + 1) + ": " + s.name);
+    b.title = (i + 1) + ". " + s.name;
+    b.addEventListener("click", function () { go(i, true); });
+    dots.appendChild(b);
+  });
+  function render() {
+    var s = STAGES[cur];
+    s.draw(Math.min(tms, s.D));
+    capTitle.textContent = "Stage " + (cur + 1) + " · " + s.name;
+    capText.textContent = s.cap;
+    ind.textContent = "Stage " + (cur + 1) + " / " + STAGES.length;
+    Array.prototype.forEach.call(dots.children, function (d, i) { d.classList.toggle("on", i === cur); });
+    playBtn.textContent = (playing || running) ? "Pause" : "Play";
+  }
+  function loop(now) {
+    raf = null;
+    if (last === null) last = now;
+    var dt = Math.min(now - last, 100) * speed; last = now;
+    var s = STAGES[cur];
+    if (running && tms < s.D) { tms = Math.min(s.D, tms + dt); }
+    else if (tms >= s.D) {
+      running = false;
+      if (playing) {
+        holdLeft -= dt;
+        if (holdLeft <= 0) {
+          if (cur < STAGES.length - 1) { start(cur + 1); }
+          else { playing = false; }
+        }
+      }
+    }
+    render();
+    if (running || playing) raf = requestAnimationFrame(loop);
+  }
+  function kick() { if (!raf) { last = null; raf = requestAnimationFrame(loop); } }
+  function start(n) {
+    cur = n; holdLeft = HOLD;
+    if (reduce) { tms = STAGES[n].D; running = false; }
+    else { tms = 0; running = true; }
+  }
+  function go(n, animate) {
+    n = Math.max(0, Math.min(STAGES.length - 1, n));
+    start(n);
+    if (!animate) { tms = STAGES[n].D; running = false; }
+    render(); kick();
+  }
+  function togglePlay() {
+    if (playing || running) { playing = false; running = false; render(); return; }
+    playing = true;
+    if (cur === STAGES.length - 1 && tms >= STAGES[cur].D) start(0);
+    else if (tms < STAGES[cur].D && !reduce) running = true;
+    holdLeft = HOLD;
+    render(); kick();
+  }
+  playBtn.addEventListener("click", togglePlay);
+  document.getElementById("next").addEventListener("click", function () { go(cur + 1, true); });
+  document.getElementById("prev").addEventListener("click", function () { go(cur - 1, true); });
+  document.getElementById("restart").addEventListener("click", function () { playing = true; go(0, true); });
+  Array.prototype.forEach.call(document.querySelectorAll(".spd"), function (b) {
+    b.addEventListener("click", function () {
+      speed = parseFloat(b.getAttribute("data-s"));
+      Array.prototype.forEach.call(document.querySelectorAll(".spd"), function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+    });
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === " " || e.key === "Spacebar") { e.preventDefault(); togglePlay(); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); go(cur + 1, true); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); go(cur - 1, true); }
+  });
+
+  // ---------- theme ----------
+  var themeBtn = document.getElementById("theme");
+  function isDark() {
+    var t = document.documentElement.getAttribute("data-theme");
+    if (t) return t === "dark";
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+  function label() { themeBtn.textContent = isDark() ? "Light" : "Dark"; }
+  var saved = null;
+  try { saved = localStorage.getItem("masked-ae-anim-theme"); } catch (e) {}
+  var qth = (location.search.match(/[?&]theme=(light|dark)/) || [])[1];
+  if (qth) saved = qth;
+  if (saved === "light" || saved === "dark") document.documentElement.setAttribute("data-theme", saved);
+  themeBtn.addEventListener("click", function () {
+    var next = isDark() ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("masked-ae-anim-theme", next); } catch (e) {}
+    label();
+  });
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    if (mq.addEventListener) mq.addEventListener("change", label);
+  }
+
+  // ---------- init ----------
+  var wasNarrow = null;
+  function rebuildIfNeeded() {
+    var n = window.innerWidth <= 700;
+    if (n !== wasNarrow) { wasNarrow = n; build(); render(); }
+  }
+  window.addEventListener("resize", rebuildIfNeeded);
+  label();
+  rebuildIfNeeded();
+  var qs = parseInt((location.search.match(/[?&]stage=(\d+)/) || [])[1], 10);
+  if (!isNaN(qs)) { go(qs - 1, false); }
+  else { start(0); render(); kick(); }
+  window.__maeAnim = { go: function (n) { go(n, false); }, count: STAGES.length, at: function (n, t) { cur = n; tms = t; running = false; playing = false; render(); } };
+})();
+</script>
+</body>
+</html>

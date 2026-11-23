@@ -1,0 +1,1358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TimesNet T32 Animated</title>
+<meta name="description" content="Step-by-step animation of the one-class TimesNet model-t32b-seed0 (src/model/all_t32_benign): one window, embedding, per-window FFT periods, 2-D folding with Inception convolutions, 4 TimesBlocks, masked pooling, the three pretraining objectives, the frozen encoder, kNN scoring with a benign threshold, and the real results with caveats.">
+<style>
+:root {
+  --bg: #ffffff; --stage-bg: #eef0f3; --text: #1b1d21; --muted: #5b616c; --border: #d9dce1; --surface: #f5f6f8;
+  --accent: #2c5bc9; --val: #d9730d; --warm-text: #b35c00; --grid: #e6e8ec;
+  --bar-u: #c3c8d0; --bar-s: #6b7280;
+  --mae: #0f8b8d; --mae2: #7cc7c4;
+  --s0: #2c5bc9; --s1: #d9730d; --s2: #1f8a5b; --s3: #8a4bbf;
+  --ok: #1f8a5b; --bad: #c8382f;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17191d; --stage-bg: #0e0f12; --text: #e8eaee; --muted: #a3a9b4; --border: #3a3e46; --surface: #22252b;
+    --accent: #8db0ff; --val: #ffa65a; --warm-text: #ffa65a; --grid: #2c3037;
+    --bar-u: #4a4f58; --bar-s: #9aa1ad;
+    --mae: #4fd1d3; --mae2: #2b6f70;
+    --s0: #8db0ff; --s1: #ffa65a; --s2: #5fd39a; --s3: #c99ae6;
+    --ok: #5fd39a; --bad: #ff7b72;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17191d; --stage-bg: #0e0f12; --text: #e8eaee; --muted: #a3a9b4; --border: #3a3e46; --surface: #22252b;
+  --accent: #8db0ff; --val: #ffa65a; --warm-text: #ffa65a; --grid: #2c3037;
+  --bar-u: #4a4f58; --bar-s: #9aa1ad;
+  --mae: #4fd1d3; --mae2: #2b6f70;
+  --s0: #8db0ff; --s1: #ffa65a; --s2: #5fd39a; --s3: #c99ae6;
+  --ok: #5fd39a; --bad: #ff7b72;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--stage-bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+#app { max-width: 1240px; margin: 0 auto; padding: 10px 16px 12px; display: flex; flex-direction: column; min-height: 100vh; }
+header { display: flex; align-items: center; gap: 12px; }
+header .t { flex: 1; min-width: 0; }
+h1 { font-size: 20px; margin: 0; letter-spacing: -0.2px; line-height: 1.25; }
+.sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+button { font: 600 14px var(--font); color: var(--text); background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 12px; cursor: pointer; min-height: 36px; }
+button:hover { border-color: var(--accent); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed="true"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+#figure { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; margin-top: 10px; padding: 6px;
+  display: flex; justify-content: center; }
+#scene { display: block; width: 100%; height: calc(100vh - 248px); min-height: 300px; }
+#cap { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; margin-top: 8px; padding: 9px 14px;
+  min-height: 80px; }
+#cap .st { font-size: 13px; font-weight: 650; color: var(--accent); text-transform: uppercase; letter-spacing: 0.6px; }
+#cap p { margin: 3px 0 0; font-size: 16.5px; line-height: 1.4; }
+#ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+#ctl .grp { display: flex; gap: 4px; align-items: center; }
+#ctl .lbl { font-size: 13px; color: var(--muted); margin-right: 2px; }
+#play { min-width: 82px; }
+#dots { display: flex; gap: 5px; align-items: center; margin-left: auto; flex-wrap: wrap; }
+#dots button { width: 14px; height: 14px; min-height: 0; padding: 0; border-radius: 50%; background: var(--bar-u); border: none; }
+#dots button.on { background: var(--accent); }
+#ind { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 100px; text-align: right; }
+.kbd { font-size: 12px; color: var(--muted); }
+svg text { fill: var(--text); font-family: var(--font); }
+svg .mut { fill: var(--muted); }
+svg .mono { font-family: var(--mono); }
+svg .b { font-weight: 650; }
+svg .acc { fill: var(--accent); }
+svg .okt { fill: var(--ok); } svg .badt { fill: var(--bad); } svg .valt { fill: var(--warm-text); } svg .maet { fill: var(--mae); }
+svg .c0t { fill: var(--s0); } svg .c1t { fill: var(--s1); } svg .c2t { fill: var(--s2); } svg .c3t { fill: var(--s3); }
+svg .real { fill: var(--surface); stroke: var(--border); stroke-width: 0.6; }
+svg .pad { fill: url(#hatchG); stroke: var(--border); stroke-width: 0.6; }
+svg .zfill { fill: none; stroke: var(--muted); stroke-width: 0.8; stroke-dasharray: 2 2; }
+svg .hatch-bg { fill: var(--bar-u); } svg .hatch-ln { stroke: var(--bar-s); stroke-width: 2; }
+svg .v { fill: var(--accent); }
+svg .tok { fill: var(--val); }
+svg .inj { fill: var(--bad); }
+svg .guess { fill: none; stroke: var(--val); stroke-width: 1.4; }
+svg .err { fill: var(--bad); }
+svg .p0 { fill: var(--s0); } svg .p1 { fill: var(--s1); } svg .p2 { fill: var(--s2); } svg .p3 { fill: var(--s3); }
+svg .grey { fill: var(--bar-u); }
+svg .mk1 { fill: var(--mae); fill-opacity: 0.45; } svg .mk0 { fill: var(--surface); stroke: var(--border); stroke-width: 0.6; }
+svg .zc { fill: var(--mae); }
+svg .kbox { fill: var(--accent); fill-opacity: 0.10; stroke: var(--accent); stroke-width: 2; }
+svg .kbox2 { fill: var(--val); fill-opacity: 0.12; stroke: var(--val); stroke-width: 2; }
+svg .axis { stroke: var(--muted); stroke-width: 1.2; }
+svg .gl { stroke: var(--grid); stroke-width: 1; }
+svg .thr { stroke: var(--val); stroke-width: 2.5; stroke-dasharray: 6 4; }
+svg .hv { fill: var(--ok); fill-opacity: 0.45; }
+svg .ha { fill: var(--bad); fill-opacity: 0.22; stroke: var(--bad); stroke-width: 1; }
+svg .dot-ok { fill: var(--ok); stroke: var(--bg); stroke-width: 2; }
+svg .dot-bad { fill: var(--bad); stroke: var(--bg); stroke-width: 2; }
+svg .dot-acc { fill: var(--accent); stroke: var(--bg); stroke-width: 2; }
+svg .dot-hol { fill: var(--bg); stroke: var(--accent); stroke-width: 2.5; }
+svg .dot-neg { fill: var(--bar-s); stroke: var(--bg); stroke-width: 1.5; }
+svg .dot-sb { fill: var(--bg); stroke: var(--bar-s); stroke-width: 1.5; stroke-dasharray: 3 2; }
+svg .pt { fill: var(--bar-s); fill-opacity: 0.55; }
+svg .ell { fill: var(--mae); fill-opacity: 0.06; stroke: var(--mae); stroke-width: 1.5; stroke-dasharray: 5 4; }
+svg .arrow { stroke: var(--accent); stroke-width: 2; fill: none; }
+svg .arrowm { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+svg .ln-ok { stroke: var(--ok); stroke-width: 1.6; }
+svg .ln-bad { stroke: var(--bad); stroke-width: 1.6; }
+svg .ln-push { stroke: var(--bad); stroke-width: 1.4; stroke-dasharray: 4 3; }
+svg .ln-pull { stroke: var(--ok); stroke-width: 2.5; }
+svg .circ { fill: none; stroke: var(--border); stroke-width: 1.5; }
+svg .box { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+svg .boxa { fill: var(--accent); fill-opacity: 0.08; stroke: var(--accent); stroke-width: 1.4; }
+svg .boxf { fill: var(--surface); stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 5 3; }
+svg .boxon { fill: var(--accent); fill-opacity: 0.22; stroke: var(--accent); stroke-width: 2; }
+svg .strike { stroke: var(--bad); stroke-width: 2; }
+svg .path { fill: none; stroke: var(--bar-s); stroke-width: 1.4; }
+svg .bpre { fill: var(--accent); } svg .bpre2 { fill: var(--accent); fill-opacity: 0.45; }
+svg .bbase { fill: var(--bar-s); } svg .bbase2 { fill: var(--bar-s); fill-opacity: 0.45; }
+svg .blen { fill: var(--bar-u); }
+@media (max-width: 700px) {
+  #app { padding: 8px 16px 12px; }
+  h1 { font-size: 17px; }
+  #scene { height: auto; min-height: 0; }
+  #cap p { font-size: 15.5px; }
+  #dots { margin-left: 0; }
+  .kbd { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="t">
+      <h1>How our one-class TimesNet works (model-t32b-seed0)</h1>
+      <div class="sub">src/model/all_t32_benign · real sizes: T = 32 rows × 13 features, d = 128 · cell colours, spectra and 2-D pictures are toy · stages 12–13 use the real scores</div>
+    </div>
+    <button id="theme" aria-label="Toggle light or dark theme">Dark</button>
+  </header>
+  <div id="figure"><svg id="scene" role="img" aria-labelledby="capTitle capText" preserveAspectRatio="xMidYMid meet"></svg></div>
+  <div id="cap" aria-live="polite"><div class="st" id="capTitle"></div><p id="capText"></p></div>
+  <div id="ctl">
+    <div class="grp">
+      <button id="restart" aria-label="Restart from stage 1">Restart</button>
+      <button id="prev" aria-label="Previous stage">&larr; Prev</button>
+      <button id="play" aria-label="Play or pause">Play</button>
+      <button id="next" aria-label="Next stage">Next &rarr;</button>
+    </div>
+    <div class="grp" role="group" aria-label="Speed">
+      <span class="lbl">Speed</span>
+      <button class="spd" data-s="0.5" aria-pressed="false">0.5×</button>
+      <button class="spd" data-s="1" aria-pressed="true">1×</button>
+      <button class="spd" data-s="2" aria-pressed="false">2×</button>
+    </div>
+    <span class="kbd">Space play/pause · ← → stage</span>
+    <div id="dots" aria-label="Stages"></div>
+    <span id="ind"></span>
+  </div>
+</div>
+<script>
+(function () {
+  "use strict";
+  var NS = "http://www.w3.org/2000/svg";
+  var svg = document.getElementById("scene");
+  var T = 32, F = 13, NREAL = 24, NCH = 16;
+  var FEAT = ["cPx", "cPy", "rPx", "rPy", "cVx", "cVy", "rVx", "rVy", "cAx", "cAy", "rng", "brg", "lΔτ"];
+  var TAU = 2 * Math.PI;
+
+  // ---------- toy data (deterministic; illustration only) ----------
+  function rng(seed) {
+    return function () {
+      seed |= 0; seed = (seed + 0x6d2b79f5) | 0;
+      var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  var R = rng(11);
+  function clamp(v) { return Math.max(-2, Math.min(2, v)); }
+  function xfun(c, t) {
+    switch (c) {
+      case 0: return -1.5 + 0.12 * t;
+      case 1: return 0.9 - 0.06 * t;
+      case 2: return -1.3 + 0.11 * t;
+      case 3: return 0.7 - 0.05 * t;
+      case 4: return 0.9 + 0.15 * Math.sin(t / 3);
+      case 5: return -0.5 + 0.12 * Math.cos(t / 4);
+      case 6: return 0.8 + 0.12 * Math.sin(t / 3.4);
+      case 7: return -0.4 + 0.1 * Math.cos(t / 4.2);
+      case 8: return 0.5 * Math.sin(t / 2.5);
+      case 9: return 0.4 * Math.cos(t / 3);
+      case 10: return -0.6 + 0.04 * t + 0.25 * Math.sin(t / 5);
+      case 11: return 0.3 + 0.5 * Math.sin(t / 6);
+      default: return -0.3;
+    }
+  }
+  var X = [];
+  for (var c0 = 0; c0 < F; c0++) {
+    X[c0] = [];
+    for (var t0 = 0; t0 < T; t0++) X[c0][t0] = t0 < NREAL ? clamp(xfun(c0, t0) + (R() - 0.5) * (c0 === 12 ? 0.9 : 0.15)) : 0;
+  }
+  // embedded H0 (block-1 input): 16 of the 128 channels, with rhythms of period 8, 12 and 6 rows
+  var H0 = [], CHP = [];
+  for (var c1 = 0; c1 < NCH; c1++) {
+    var p = { a: R() * TAU, b: R() * TAU, d: R() * TAU, base: (R() - 0.5) * 1.0, tr: (R() - 0.5) * 0.05,
+              g1: 0.25 * (0.8 + 0.4 * R()), g2: 0.20 * (0.8 + 0.4 * R()), g3: 0.15 * (0.8 + 0.4 * R()) };
+    CHP.push(p); H0[c1] = [];
+    for (var t1 = 0; t1 < T; t1++) {
+      H0[c1][t1] = t1 < NREAL ? p.base + p.tr * (t1 - 12) + p.g1 * Math.sin(TAU * t1 / 8 + p.a) + p.g2 * Math.sin(TAU * t1 / 12 + p.b)
+        + p.g3 * Math.sin(TAU * t1 / 6 + p.d) + (R() - 0.5) * 0.12 : 0;
+    }
+  }
+  // H after block k (toy): rhythms grow, offsets shrink
+  function Hk(k, c, t) {
+    if (t >= NREAL) return 0;
+    var p = CHP[c], s = 1 + 0.35 * k, ph = 0.25 * k * (c % 5);
+    return clamp(p.base * (1 - 0.15 * k) + p.g1 * s * 2 * Math.sin(TAU * t / 8 + p.a + ph) + p.g2 * s * 2 * Math.sin(TAU * t / 12 + p.b)
+      + p.g3 * s * 2 * Math.sin(TAU * t / 6 + p.d + ph) + (H0[c][t] - p.base) * 0.2);
+  }
+  // FFT amplitude of the real rows, averaged over the channels (as PeriodFinder, min_freq 2)
+  var NB = Math.floor(NREAL / 2) + 1, AMP = [];
+  for (var f = 0; f < NB; f++) {
+    var s = 0;
+    for (var c2 = 0; c2 < NCH; c2++) {
+      var re = 0, im = 0;
+      for (var t2 = 0; t2 < NREAL; t2++) { re += H0[c2][t2] * Math.cos(TAU * f * t2 / NREAL); im -= H0[c2][t2] * Math.sin(TAU * f * t2 / NREAL); }
+      s += Math.sqrt(re * re + im * im);
+    }
+    AMP[f] = s / NCH;
+  }
+  var cand = []; for (var f2 = 2; f2 < NB; f2++) cand.push(f2);
+  cand.sort(function (a, b) { return AMP[b] - AMP[a]; });
+  var TOPF = cand.slice(0, 3), PER = TOPF.map(function (fq) { return Math.floor(NREAL / fq); });
+  var ex = TOPF.map(function (fq) { return Math.exp(AMP[fq]); }), exs = ex[0] + ex[1] + ex[2];
+  var W = ex.map(function (e) { return e / exs; });
+  var AMAX = Math.max.apply(null, AMP);
+  // one channel's 32 values for the folding picture
+  var CH0 = H0[0];
+  // branch outputs (toy) for the combine picture
+  var BR = [0, 1, 2].map(function (i) {
+    var out = [];
+    for (var t = 0; t < T; t++) out.push(t < NREAL ? clamp(0.9 * Math.sin(TAU * t / PER[i] + i) + (R() - 0.5) * 0.3) : 0);
+    return out;
+  });
+  var SUM = [];
+  for (var t3 = 0; t3 < T; t3++) SUM.push(t3 < NREAL ? clamp(W[0] * BR[0][t3] + W[1] * BR[1][t3] + W[2] * BR[2][t3] + CH0[t3]) : 0);
+  // reconstruction: 6 of the 24 real rows hidden at random (25%), toy guesses and errors
+  var HIDR = [1, 5, 9, 14, 17, 21], isHid = {}; HIDR.forEach(function (x) { isHid[x] = 1; });
+  var GU = [], ERRR = [];
+  for (var c3 = 0; c3 < F; c3++) { GU[c3] = []; for (var t4 = 0; t4 < T; t4++) GU[c3][t4] = clamp(X[c3][t4] + (R() - 0.5) * (c3 < 2 || c3 === 10 ? 1.4 : 1.0)); }
+  HIDR.forEach(function (t) { var e = 0; for (var c = 0; c < F; c++) { var d = GU[c][t] - X[c][t]; e += d * d; } ERRR.push(e / F); });
+  var EMAX = Math.max.apply(null, ERRR), RLOSS = ERRR.reduce(function (a, b) { return a + b; }, 0) / ERRR.length;
+  // P1 injection (toy) from row t14
+  var INJ_T = 13, INJ_C = { 0: 0.9, 1: -0.6, 10: 0.7, 11: -0.8 };
+  // contrastive views (toy crops)
+  var V1S = 2, V1N = 21, V2S = 0, V2N = 20, V1H = { 3: 1, 7: 1, 8: 1, 12: 1, 18: 1 };
+  // bank scatter (toy 2-D)
+  var BANK = [], BLOBS = [[190, 150, 55, 40], [360, 200, 70, 45], [260, 270, 60, 28]];
+  var R3 = rng(5);
+  function gauss() { var u = R3() || 1e-9, v = R3(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(TAU * v); }
+  for (var i5 = 0; i5 < 150; i5++) {
+    var bl = BLOBS[i5 % 3];
+    BANK.push([Math.max(40, Math.min(560, bl[0] + gauss() * bl[2])), Math.max(56, Math.min(320, bl[1] + gauss() * bl[3]))]);
+  }
+  var QB = [345, 205], QA = [520, 82];
+  function nearest(q, k) {
+    return BANK.map(function (b, i) { return { i: i, d: Math.hypot(b[0] - q[0], b[1] - q[1]) }; })
+      .sort(function (a, b) { return a.d - b.d; }).slice(0, k).map(function (o) { return o.i; });
+  }
+  var NNB = nearest(QB, 5), NNA = nearest(QA, 5);
+  // real kNN K = 5 score histograms of model-t32b-seed0 (share per bin, bins of 0.02 on 0..0.6, last bin includes >= 0.58)
+  var HVAL = [0.5543, 0.2235, 0.0930, 0.0471, 0.0283, 0.0184, 0.0115, 0.0091, 0.0059, 0.0035, 0.0025, 0.0013, 0.0008, 0.0004, 0.0002,
+    0.0001, 0.0001, 0, 0.0001, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  var HGRID = [0.1104, 0.0613, 0.0407, 0.0368, 0.0291, 0.0268, 0.0249, 0.0228, 0.0222, 0.0190, 0.0204, 0.0231, 0.0267, 0.0348, 0.0355,
+    0.0397, 0.0376, 0.0371, 0.0387, 0.0365, 0.0358, 0.0317, 0.0292, 0.0289, 0.0253, 0.0254, 0.0258, 0.0225, 0.0191, 0.0324];
+
+  // ---------- helpers ----------
+  function el(tag, attrs, parent) {
+    var e = document.createElementNS(NS, tag);
+    if (attrs) for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function txt(parent, x, y, s, cls, extra) {
+    var a = { x: x, y: y }; if (cls) a["class"] = cls;
+    if (extra) for (var k in extra) a[k] = extra[k];
+    var e = el("text", a, parent); e.textContent = s; return e;
+  }
+  function lines(parent, x, y, arr, lh, size) {
+    return arr.map(function (l, i) { return txt(parent, x, y + i * lh, l[0], l[1] || "", { "font-size": l[2] || size }); });
+  }
+  function reveal(arr, t, s0, step) { arr.forEach(function (e, i) { op(e, P(t, s0 + i * step, 400)); }); }
+  function op(e, o) { e.setAttribute("opacity", o <= 0.001 ? 0 : Math.min(1, o).toFixed(3)); }
+  function ease(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; }
+  function P(t, s, d) { return t <= s ? 0 : t >= s + d ? 1 : ease((t - s) / d); }
+  function lerp(a, b, p) { return a + (b - a) * p; }
+  function vop(v) { return 0.10 + 0.75 * (v + 2) / 4; }
+  function box(parent, x, y, w, h, label, cls, size, label2) {
+    var g = el("g", null, parent);
+    var r = el("rect", { x: x, y: y, width: w, height: h, rx: 6, "class": cls || "box" }, g);
+    var t1 = txt(g, x + w / 2, y + h / 2 + (label2 ? -2 : 5), label, "b", { "font-size": size || 13, "text-anchor": "middle" });
+    var t2 = label2 ? txt(g, x + w / 2, y + h / 2 + 14, label2, "mut", { "font-size": (size || 13) - 1.5, "text-anchor": "middle" }) : null;
+    return { g: g, r: r, t: t1, t2: t2 };
+  }
+  function arrow(parent, x1, y1, x2, y2, cls) {
+    return el("line", { x1: x1, y1: y1, x2: x2, y2: y2, "class": cls || "arrow", "marker-end": "url(#arr)" }, parent);
+  }
+
+  // grid of cells: rows x cols
+  function makeGrid(parent, x0, y0, rows, cols, cw, ch, padFn) {
+    var g = el("g", null, parent), cells = [];
+    for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+      var x = x0 + c * cw, y = y0 + r * ch, pad = padFn ? padFn(r, c) : false;
+      var cg = el("g", null, g);
+      cells.push({
+        r: r, c: c, x: x, y: y, pad: pad, g: cg,
+        bg: el("rect", { x: x, y: y, width: cw, height: ch, "class": pad ? "pad" : "real" }, cg),
+        v: el("rect", { x: x + 0.5, y: y + 0.5, width: cw - 1, height: ch - 1, "class": "v", opacity: 0 }, cg),
+        ov: el("rect", { x: x + 0.5, y: y + 0.5, width: cw - 1, height: ch - 1, "class": "tok", opacity: 0 }, cg)
+      });
+    }
+    return { g: g, cells: cells, x0: x0, y0: y0, cw: cw, ch: ch, rows: rows, cols: cols };
+  }
+  function paint(G, o) {
+    G.cells.forEach(function (k) {
+      op(k.g, o.appear ? o.appear(k.r, k.c) : 1);
+      var ov = o.ov ? o.ov(k.r, k.c) : null;
+      if (ov && ov[1] > 0) { k.ov.setAttribute("class", ov[0]); op(k.ov, ov[1]); } else op(k.ov, 0);
+      if (k.pad) { op(k.v, 0); return; }
+      var v = o.val ? o.val(k.r, k.c) : 0;
+      op(k.v, v === null ? 0 : vop(v) * (o.dim === undefined ? 1 : o.dim));
+    });
+  }
+
+  // ---------- layout ----------
+  var L, N;
+  function layout() {
+    var narrow = window.innerWidth <= 700;
+    return narrow ? { narrow: true, w: 620, h: 1010, ax: 12, ay: 4, as: 1.45, bx: 10, by: 480 }
+                  : { narrow: false, w: 1060, h: 570, ax: 8, ay: 48, as: 1.1, bx: 452, by: 6 };
+  }
+  var GX = 34, GY = 50, CW = 10, CH = 11, HCH = 8;
+  var MY = GY + F * CH + 6;
+
+  function build() {
+    L = layout();
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    svg.setAttribute("viewBox", "0 0 " + L.w + " " + L.h);
+    var defs = el("defs", null, svg);
+    var pat = el("pattern", { id: "hatchG", width: 6, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" }, defs);
+    el("rect", { width: 6, height: 6, "class": "hatch-bg" }, pat);
+    el("line", { x1: 0, y1: 0, x2: 0, y2: 6, "class": "hatch-ln" }, pat);
+    var mk = el("marker", { id: "arr", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 5, markerHeight: 5, orient: "auto-start-reverse" }, defs);
+    el("path", { d: "M0,0 L10,5 L0,10 z", fill: "var(--accent)" }, mk);
+
+    var A = el("g", { transform: "translate(" + L.ax + "," + L.ay + ") scale(" + L.as + ")" }, svg);
+    var B = el("g", { transform: "translate(" + L.bx + "," + L.by + ")" }, svg);
+    N = { A: A, B: B, a: [], b: [] };
+    N.titleA = txt(A, 0, 14, "", "b", { "font-size": 14 });
+    N.subA = txt(A, 0, 32, "", "mut", { "font-size": 11.5 });
+    N.titleB = txt(B, 10, 24, "", "b", { "font-size": 18 });
+
+    // shared X grid (features x time) + mask row + labels
+    N.xg = el("g", null, A);
+    N.X = makeGrid(N.xg, GX, GY, F, T, CW, CH, function (r, c) { return c >= NREAL; });
+    N.xlab = el("g", null, N.xg);
+    FEAT.forEach(function (f, r) { txt(N.xlab, GX - 4, GY + r * CH + CH - 2, f, "mut", { "font-size": 9.5, "text-anchor": "end" }); });
+    N.mask = el("g", null, N.xg);
+    txt(N.mask, GX - 4, MY + CH - 2, "mask", "maet b", { "font-size": 9.5, "text-anchor": "end" });
+    N.maskCells = [];
+    for (var c = 0; c < T; c++) {
+      var on = c < NREAL, mg = el("g", null, N.mask);
+      el("rect", { x: GX + c * CW, y: MY, width: CW, height: CH, "class": on ? "mk1" : "mk0" }, mg);
+      txt(mg, GX + c * CW + CW / 2, MY + CH - 2, on ? "1" : "0", "", { "font-size": 8, "text-anchor": "middle" });
+      N.maskCells.push(mg);
+    }
+    N.tlab = el("g", null, N.xg);
+    timeLabels(N.tlab, MY + CH + 13);
+    N.padB = el("g", null, N.xg);
+    el("path", { d: "M" + (GX + NREAL * CW + 1) + "," + (MY + CH + 20) + " v4 h" + (8 * CW - 2) + " v-4", fill: "none", stroke: "var(--muted)", "stroke-width": 1.1 }, N.padB);
+    txt(N.padB, GX + T * CW, MY + CH + 38, "t25–t32: padding (mask 0)", "mut", { "font-size": 11, "text-anchor": "end" });
+    N.noteA = txt(A, 0, 300, "", "mut", { "font-size": 11.5 });
+
+    // shared H grid (16 of 128 channels x time)
+    N.hg = el("g", null, A);
+    N.H = makeGrid(N.hg, GX, GY, NCH, T, CW, HCH, function (r, c) { return c >= NREAL; });
+    var hl = el("g", null, N.hg);
+    txt(hl, GX - 4, GY + 7, "ch1", "mut", { "font-size": 9, "text-anchor": "end" });
+    txt(hl, GX - 4, GY + NCH * HCH - 1, "ch16", "mut", { "font-size": 9, "text-anchor": "end" });
+    N.htl = el("g", null, N.hg);
+    timeLabels(N.htl, GY + NCH * HCH + 13);
+
+    for (var i = 0; i < 13; i++) { N.a.push(el("g", null, A)); N.b.push(el("g", null, B)); }
+    N.scat = el("g", null, B);
+    buildS1(); buildS2(); buildS3(); buildS4(); buildS5(); buildS6(); buildS7(); buildS8(); buildS9(); buildS10();
+    buildScatter(); buildS11(); buildS12(); buildS13();
+  }
+  function timeLabels(g, y) {
+    [0, 7, 15, 23, 31].forEach(function (c) { txt(g, GX + c * CW + CW / 2, y, "t" + (c + 1), "mut", { "font-size": 10, "text-anchor": "middle" }); });
+  }
+
+  // ----- stage 1: one window -----
+  function buildS1() {
+    var g = N.b[0];
+    N.s1 = lines(g, 10, 62, [
+      ["The 13 features of each message:", "b"],
+      ["cP = claimed position x, y · rP = receiver position x, y"],
+      ["cV = claimed velocity x, y · rV = receiver velocity x, y"],
+      ["cA = claimed acceleration x, y"],
+      ["rng = range, brg = bearing, lΔτ = log time gap"],
+      [""],
+      ["Row mask: 1 = real message, 0 = padding.", "b"],
+      ["A link with fewer than 32 messages is padded to 32."],
+      [""],
+      ["Training data: benign windows only", "b"],
+      ["502,773 benign train windows from all 8 folders."],
+      ["Labels were used only to choose this data, so this"],
+      ["is one-class training, not label-free pretraining."],
+      ["The training code never opens a label file.", "mut"]
+    ], 30, 16);
+  }
+
+  // ----- stage 2: embedding -----
+  function buildS2() {
+    var A = N.a[1], B = N.b[1];
+    N.kbox = el("rect", { x: GX, y: GY - 3, width: 3 * CW, height: F * CH + 6, rx: 3, "class": "kbox" }, A);
+    N.kLab = txt(A, GX, GY - 7, "kernel 3", "acc b", { "font-size": 10.5, "text-anchor": "middle" });
+    N.HB = makeGrid(B, 60, 70, NCH, T, 15, 9, function (r, c) { return c >= NREAL; });
+    txt(B, 52, 77, "ch1", "mut", { "font-size": 11, "text-anchor": "end" });
+    txt(B, 52, 70 + NCH * 9 - 1, "ch16", "mut", { "font-size": 11, "text-anchor": "end" });
+    txt(B, 60, 62, "H₀: 32 rows × 128 channels (16 of 128 drawn, toy values)", "mut", { "font-size": 13 });
+    [0, 7, 15, 23, 31].forEach(function (c) { txt(B, 60 + c * 15 + 7.5, 70 + NCH * 9 + 15, "t" + (c + 1), "mut", { "font-size": 11, "text-anchor": "middle" }); });
+    txt(B, 60 + 28 * 15, 70 + NCH * 9 + 32, "padding rows stay 0", "mut", { "font-size": 12, "text-anchor": "middle" });
+    N.s2 = lines(B, 10, 290, [
+      ["Conv1d over time, kernel 3: row before, row, row after", "b"],
+      ["13 features → d = 128 numbers per row (no bias)"],
+      ["+ a fixed sin/cos position code (not learned)"],
+      ["+ dropout 0.1 (only while training)"],
+      ["Padding rows are set to 0 before and after.", ""],
+      ["Real conv weights: 13 × 128 × 3 = 4,992.", "mut"]
+    ], 30, 16);
+  }
+
+  // ----- stage 3: FFT periods -----
+  function buildS3() {
+    var A = N.a[2], B = N.b[2];
+    el("path", { d: "M" + GX + "," + (GY - 6) + " v-4 h" + (NREAL * CW) + " v4", fill: "none", stroke: "var(--accent)", "stroke-width": 1.4 }, A);
+    txt(A, GX + NREAL * CW / 2, GY - 13, "FFT over the 24 real rows only", "acc b", { "font-size": 11, "text-anchor": "middle" });
+    txt(A, GX + 28 * CW, GY - 13, "not used", "mut", { "font-size": 10.5, "text-anchor": "middle" });
+    var base = 230, x0 = 40, bw = 34, gap = 8, maxH = 140;
+    txt(B, 10, 52, "Toy spectrum of this window (n = 24 real rows)", "mut", { "font-size": 14 });
+    el("line", { x1: 30, y1: base, x2: 590, y2: base, "class": "axis" }, B);
+    N.fbar = [];
+    for (var f = 0; f < NB; f++) {
+      var x = x0 + f * (bw + gap), k = TOPF.indexOf(f);
+      var cls = f < 2 ? "grey" : (k >= 0 ? "p" + k : "v");
+      var r = el("rect", { x: x, y: base, width: bw, height: 0, "class": cls, "fill-opacity": (f >= 2 && k < 0) ? 0.35 : 1 }, B);
+      txt(B, x + bw / 2, base + 16, String(f), "mut", { "font-size": 12, "text-anchor": "middle" });
+      var h = maxH * AMP[f] / AMAX;
+      var lab = null;
+      if (k >= 0) lab = txt(B, x + bw / 2, base - h - 8, "p = " + PER[k], "b c" + k + "t", { "font-size": 13.5, "text-anchor": "middle" });
+      N.fbar.push({ r: r, h: h, lab: lab, base: base, k: k });
+    }
+    txt(B, 310, base + 34, "frequency f = cycles in the 24 real rows", "mut", { "font-size": 12.5, "text-anchor": "middle" });
+    N.fGrey = txt(B, x0, 82, "f = 0, 1: not allowed (min_freq 2)", "mut", { "font-size": 12.5 });
+    N.s3 = lines(B, 10, 300, [
+      ["amplitude = |FFT| of each channel, averaged over all 128"],
+      ["top 3 frequencies (f ≥ 2) → periods p = n // f", "b"],
+      ["this toy window: p = " + PER.join(", ") + " (n = 24)"],
+      ["Per window: each window gets its own periods.", "b"],
+      ["(The original TimesNet uses one set per batch.)", "mut"],
+      ["Every TimesBlock finds the periods again on its input."],
+      ["< 4 real rows: no allowed frequency → period 1.", "mut"]
+    ], 29, 16);
+  }
+
+  // ----- stage 4: fold to 2-D + Inception -----
+  function buildS4() {
+    var A = N.a[3], B = N.b[3];
+    var p = PER[0], rows = Math.ceil(T / p), cs = Math.min(28, 300 / p, 130 / rows);
+    var gx = 70, gy = 128;
+    N.fold = { p: p, rows: rows, cs: cs, gx: gx, gy: gy, cells: [] };
+    N.stripLab = txt(A, GX, 52, "one channel, 32 rows (toy values):", "mut", { "font-size": 11 });
+    for (var i = 0; i < rows * p; i++) {
+      var r = Math.floor(i / p), c = i % p;
+      if (i >= T) { el("rect", { x: gx + c * cs, y: gy + r * cs, width: cs, height: cs, "class": "zfill" }, A); continue; }
+      var e = el("rect", { "class": i < NREAL ? "v" : "pad" }, A);
+      var fr = el("rect", { "class": "real", "fill-opacity": 0 }, A);
+      N.fold.cells.push({ e: e, fr: fr, i: i, from: { x: GX + i * CW, y: 58, w: CW, h: 16 }, to: { x: gx + c * cs, y: gy + r * cs, w: cs, h: cs } });
+    }
+    N.foldLab = el("g", null, A);
+    for (var r2 = 0; r2 < rows; r2++) txt(N.foldLab, gx - 6, gy + r2 * cs + cs / 2 + 4, "cycle " + (r2 + 1), "mut", { "font-size": 10.5, "text-anchor": "end" });
+    arrow(N.foldLab, gx, gy - 10, gx + p * cs, gy - 10);
+    txt(N.foldLab, gx + p * cs / 2, gy - 16, "within one period: t → t+1", "acc b", { "font-size": 11, "text-anchor": "middle" });
+    arrow(N.foldLab, gx + p * cs + 10, gy, gx + p * cs + 10, gy + rows * cs);
+    txt(N.foldLab, gx + p * cs + 16, gy + rows * cs / 2 - 4, "across", "acc b", { "font-size": 11 });
+    txt(N.foldLab, gx + p * cs + 16, gy + rows * cs / 2 + 9, "periods:", "acc b", { "font-size": 11 });
+    txt(N.foldLab, gx + p * cs + 16, gy + rows * cs / 2 + 22, "t → t+" + p, "acc b", { "font-size": 11 });
+    txt(N.foldLab, gx, gy + rows * cs + 18, "dashed cells: zeros added to fill the grid", "mut", { "font-size": 10.5 });
+    N.k2 = el("rect", { width: 3 * cs, height: 3 * cs, rx: 3, "class": "kbox2" }, A);
+    N.k2Lab = txt(A, 0, 0, "3×3 kernel", "valt b", { "font-size": 10.5 });
+
+    // B: the 3 grids + Inception
+    N.s4g = el("g", null, B);
+    var xs = [10, 215, 420];
+    PER.forEach(function (pp, k) {
+      var rr = Math.ceil(T / pp), c2 = Math.min(14, 175 / pp, 84 / rr), y0 = 76;
+      txt(N.s4g, xs[k], 60, "p = " + pp + ": " + rr + " × " + pp + (rr * pp > T ? " (+" + (rr * pp - T) + " zeros)" : ""), "b c" + k + "t", { "font-size": 13 });
+      for (var i = 0; i < rr * pp; i++) {
+        var x = xs[k] + (i % pp) * c2, y = y0 + Math.floor(i / pp) * c2;
+        if (i >= T) el("rect", { x: x, y: y, width: c2, height: c2, "class": "zfill" }, N.s4g);
+        else {
+          el("rect", { x: x, y: y, width: c2, height: c2, "class": i < NREAL ? "real" : "pad" }, N.s4g);
+          if (i < NREAL) el("rect", { x: x + 0.5, y: y + 0.5, width: c2 - 1, height: c2 - 1, "class": "p" + k, opacity: vop(CH0[i]) }, N.s4g);
+        }
+      }
+    });
+    N.s4inc = el("g", null, B);
+    var g = N.s4inc, y0 = 200;
+    txt(g, 10, y0 - 10, "Same Inception convs for all 3 grids (128 channels):", "b", { "font-size": 14 });
+    box(g, 10, y0 + 10, 70, 96, "grid", "box", 12.5, "128 ch");
+    ["1×1", "3×3", "5×5"].forEach(function (k, i) {
+      box(g, 104, y0 + i * 36, 62, 28, k, "boxa", 12.5);
+      box(g, 330, y0 + i * 36, 62, 28, k, "boxa", 12.5);
+      el("line", { x1: 80, y1: y0 + 58, x2: 104, y2: y0 + i * 36 + 14, "class": "arrowm" }, g);
+      el("line", { x1: 166, y1: y0 + i * 36 + 14, x2: 190, y2: y0 + 58, "class": "arrowm" }, g);
+      el("line", { x1: 306, y1: y0 + 58, x2: 330, y2: y0 + i * 36 + 14, "class": "arrowm" }, g);
+      el("line", { x1: 392, y1: y0 + i * 36 + 14, x2: 416, y2: y0 + 58, "class": "arrowm" }, g);
+    });
+    box(g, 190, y0 + 44, 44, 28, "mean", "box", 11.5);
+    box(g, 246, y0 + 44, 60, 28, "GELU", "box", 12);
+    box(g, 416, y0 + 44, 44, 28, "mean", "box", 11.5);
+    box(g, 482, y0 + 10, 100, 96, "unfold", "box", 12.5, "→ 32 rows");
+    arrow(g, 460, y0 + 58, 480, y0 + 58);
+    txt(g, 135, y0 + 124, "128 → 64", "mut", { "font-size": 12, "text-anchor": "middle" });
+    txt(g, 361, y0 + 124, "64 → 128", "mut", { "font-size": 12, "text-anchor": "middle" });
+    N.s4 = lines(B, 10, 362, [
+      ["Along a row: neighbour messages (within a period).", ""],
+      ["Down a column: same phase in the next cycle.", ""],
+      ["A 2-D kernel reads both directions at once.", "b"],
+      ["Unfold: the grid goes back to 32 rows, extra zeros cut.", ""],
+      ["Real sizes: d = 128, inner width d_ff = 64.", "mut"]
+    ], 29, 16);
+  }
+
+  // ----- stage 5: combine + 4 blocks -----
+  function buildS5() {
+    var B = N.b[4];
+    var x0 = 172, cw = 12.5, ch = 15;
+    N.s5strips = [];
+    function strip(y, vals, cls, label, lcls) {
+      var g = el("g", null, B), cells = [];
+      txt(g, x0 - 8, y + 12, label, lcls || "", { "font-size": 13, "text-anchor": "end" });
+      for (var t = 0; t < T; t++) {
+        el("rect", { x: x0 + t * cw, y: y, width: cw, height: ch, "class": t < NREAL ? "real" : "pad" }, g);
+        if (t < NREAL) cells.push(el("rect", { x: x0 + t * cw + 0.5, y: y + 0.5, width: cw - 1, height: ch - 1, "class": cls, opacity: vop(vals[t]) }, g));
+      }
+      N.s5strips.push(g);
+      return g;
+    }
+    txt(B, 10, 50, "One channel, toy values; w = softmax of the 3 FFT amplitudes", "mut", { "font-size": 13 });
+    for (var k = 0; k < 3; k++) strip(64 + k * 24, BR[k], "p" + k, "p = " + PER[k] + " · w = " + W[k].toFixed(2), "b c" + k + "t");
+    strip(146, CH0, "v", "+ block input", "b");
+    N.s5line = el("line", { x1: x0, y1: 170, x2: x0 + T * cw, y2: 170, "class": "axis" }, B);
+    strip(178, SUM, "v", "= sum, pad → 0", "b");
+    N.s5ln = txt(B, x0, 214, "then LayerNorm (shared by the 4 blocks)", "mut", { "font-size": 13 });
+    N.s5blocks = [];
+    var toyPer = [PER.join(", "), "8, 6, 4", "12, 8, 4", "8, 12, 6"];
+    for (var b = 0; b < 4; b++) {
+      var bx = 10 + b * 148;
+      var bb = box(B, bx, 246, 128, 58, "TimesBlock " + (b + 1), "box", 13.5, "periods " + toyPer[b]);
+      if (b < 3) arrow(B, bx + 129, 275, bx + 147, 275);
+      N.s5blocks.push(bb);
+    }
+    N.s5toy = txt(B, 10, 322, "periods of blocks 2–4 are toy; each block finds its own", "mut", { "font-size": 12.5 });
+    N.s5 = lines(B, 10, 360, [
+      ["out = Σ wᵢ · branchᵢ + input  (residual)", "mono", 15],
+      ["Padding rows → 0, then LayerNorm.", ""],
+      ["4 TimesBlocks one after another.", "b"],
+      ["Output H: one 128-vector per message (32 × 128).", "b"],
+      ["Short windows: < 4 rows → period 1 in every branch.", "mut"]
+    ], 29, 16);
+  }
+
+  // ----- stage 6: pooling -----
+  function buildS6() {
+    var A = N.a[5], B = N.b[5];
+    var zx = GX + T * CW + 12;
+    N.zx = zx;
+    txt(A, zx + 7, GY - 6, "z", "maet b", { "font-size": 13, "text-anchor": "middle" });
+    N.zc = [];
+    for (var c = 0; c < NCH; c++) {
+      el("rect", { x: zx, y: GY + c * HCH, width: 14, height: HCH, "class": "real" }, A);
+      var m = 0; for (var t = 0; t < NREAL; t++) m += Hk(4, c, t); m /= NREAL;
+      N.zc.push({ e: el("rect", { x: zx + 0.5, y: GY + c * HCH + 0.5, width: 13, height: HCH - 1, "class": "zc", opacity: 0 }, A), v: m });
+    }
+    N.flyCols = [];
+    for (var t2 = 0; t2 < NREAL; t2++) {
+      N.flyCols.push(el("rect", { x: GX + t2 * CW, y: GY, width: CW, height: NCH * HCH, "class": "zc", opacity: 0 }, A));
+    }
+    N.padX = el("g", null, A);
+    for (var t3 = NREAL; t3 < T; t3++) {
+      var x = GX + t3 * CW;
+      el("line", { x1: x + 2, y1: GY + NCH * HCH + 20, x2: x + CW - 2, y2: GY + NCH * HCH + 28, "class": "strike" }, N.padX);
+      el("line", { x1: x + CW - 2, y1: GY + NCH * HCH + 20, x2: x + 2, y2: GY + NCH * HCH + 28, "class": "strike" }, N.padX);
+    }
+    txt(N.padX, GX + T * CW, GY + NCH * HCH + 44, "padding rows: not counted", "badt", { "font-size": 11, "text-anchor": "end" });
+    N.s6 = lines(B, 10, 70, [
+      ["z = (1 / n) · Σ H_t over the n real rows", "mono b", 17],
+      ["n = 24 in this window; padding is never counted.", ""],
+      [""],
+      ["H (32 × 128, one vector per message):", "b"],
+      ["\u00a0\u00a0\u00a0→ the reconstruction head", ""],
+      ["z (128, one vector per window):", "b"],
+      ["\u00a0\u00a0\u00a0→ P1–P3 heads and the projection head", ""],
+      ["\u00a0\u00a0\u00a0→ later: every anomaly score", ""],
+      [""],
+      ["Encoder: 2,301,312 parameters", "b"],
+      ["(d = 128, d_ff = 64, 4 blocks, kernels 1/3/5, top-3)", "mut"],
+      ["With the pretraining heads and the mask token:", ""],
+      ["2,402,461 parameters.", ""]
+    ], 30, 16);
+  }
+
+  // ----- stage 7: reconstruction -----
+  function buildS7() {
+    var A = N.a[6], B = N.b[6];
+    N.eb = [];
+    var base = 300;
+    txt(A, GX, 262, "error per hidden row (toy):", "mut", { "font-size": 10.5 });
+    HIDR.forEach(function (t, i) {
+      N.eb.push({ e: el("rect", { x: GX + t * CW + 1, y: base, width: CW - 2, height: 0, "class": "err" }, A), h: 26 * ERRR[i] / EMAX });
+    });
+    el("line", { x1: GX, y1: base, x2: GX + NREAL * CW, y2: base, "class": "axis" }, A);
+    N.rl = txt(A, GX + T * CW, 262, "loss = " + RLOSS.toFixed(2) + " (toy)", "badt b", { "font-size": 11, "text-anchor": "end" });
+    var g = el("g", null, B); N.s7flow = g;
+    box(g, 10, 44, 80, 40, "window x", "box", 13);
+    box(g, 112, 44, 120, 40, "augment", "box", 13, "→ view 1");
+    box(g, 254, 44, 140, 40, "hide rows", "boxa", 13, "→ mask token");
+    box(g, 416, 44, 170, 40, "TimesNet encoder", "boxa", 13);
+    arrow(g, 90, 64, 110, 64); arrow(g, 232, 64, 252, 64); arrow(g, 394, 64, 414, 64);
+    box(g, 416, 112, 170, 40, "H (32 × 128)", "box", 13);
+    box(g, 196, 112, 198, 40, "recon head", "boxa", 13, "128 → 128 → 13");
+    box(g, 10, 112, 164, 40, "MSE on hidden rows", "box", 13);
+    arrow(g, 500, 84, 500, 110); arrow(g, 416, 132, 396, 132); arrow(g, 196, 132, 176, 132);
+    N.s7 = lines(B, 10, 196, [
+      ["Hide whole rows (all 13 features), real rows only:", "b"],
+      ["• half of the windows: exactly 25% of the real rows"],
+      ["• other half: one block of 20–30% of the real rows"],
+      ["Hidden rows get a learned mask token (13 numbers)."],
+      ["Loss: squared error on the hidden rows only."],
+      ["Windows with < 2 real rows: nothing is hidden."],
+      ["This toy: 6 of 24 rows at random (orange).", "valt"],
+      ["Real run, benign val: recon error 0.1325 = 0.45 × linear", "mut", 14],
+      ["interpolation; positions 2–2.8 × worse than it.", "mut", 14]
+    ], 30, 16);
+  }
+
+  // ----- stage 8: physics heads -----
+  function buildS8() {
+    var A = N.a[7], B = N.b[7];
+    N.s8a = lines(A, GX, 262, [
+      ["P1 injected from t14 (toy): cPx, cPy change,", "badt b"],
+      ["and range + bearing are recomputed.", "mut"]
+    ], 16, 11);
+    var names = [["P1 position jump", "50–150 m, then stays shifted"], ["P2 speed scaled", "claimed speed ×2–3 or ×0.2–0.5"], ["P3 sharp turn", "velocity + accel. turn 90–180°"]];
+    N.s8sk = [];
+    for (var k = 0; k < 3; k++) {
+      var g = el("g", null, B), x0 = 10 + k * 197;
+      el("rect", { x: x0, y: 40, width: 186, height: 150, rx: 8, "class": "box" }, g);
+      txt(g, x0 + 10, 60, names[k][0], "b", { "font-size": 14 });
+      txt(g, x0 + 10, 182, names[k][1], "mut", { "font-size": 11.5 });
+      var pts = [];
+      for (var i = 0; i < 8; i++) pts.push([x0 + 18 + i * 21, 140 - i * 6 - Math.sin(i / 2) * 4]);
+      el("polyline", { points: pts.map(function (q) { return q.join(","); }).join(" "), "class": "path" }, g);
+      var moving = [];
+      pts.forEach(function (q, i) {
+        var late = i >= 4;
+        if (k === 0 && late) {
+          el("circle", { cx: q[0], cy: q[1], r: 3.5, "class": "dot-sb" }, g);
+          moving.push({ e: el("circle", { cx: q[0], cy: q[1], r: 4.5, "class": "dot-bad" }, g), x: q[0], y: q[1] });
+        } else el("circle", { cx: q[0], cy: q[1], r: 4, "class": late ? "dot-bad" : "dot-neg" }, g);
+        if (k > 0) {
+          var ang = Math.atan2(-6, 21), len = 11, ax = q[0], ay = q[1] - 16;
+          var ln = el("line", { x1: ax, y1: ay, x2: ax + len * Math.cos(ang), y2: ay + len * Math.sin(ang), "class": late ? "ln-bad" : "arrowm" }, g);
+          if (late) moving.push({ e: ln, x: ax, y: ay, ang: ang, len: len });
+        }
+      });
+      N.s8sk.push({ g: g, k: k, mv: moving });
+    }
+    var hg = el("g", null, B); N.s8h = hg;
+    box(hg, 10, 226, 92, 92, "z (128)", "box", 13.5, "pass 3");
+    N.s8out = [];
+    ["P1 head", "P2 head", "P3 head"].forEach(function (nm, i) {
+      box(hg, 140, 222 + i * 34, 140, 28, nm, "boxa", 12.5);
+      el("line", { x1: 102, y1: 272, x2: 140, y2: 236 + i * 34, "class": "arrowm" }, hg);
+      N.s8out.push(txt(hg, 292, 241 + i * 34, ["P1? 0.97", "P2? 0.02", "P3? 0.01"][i] + " (toy)", i === 0 ? "badt b" : "mut", { "font-size": 13 }));
+    });
+    txt(hg, 420, 256, "each head:", "mut", { "font-size": 12.5 });
+    txt(hg, 420, 274, "128 → 128 → 1", "mono", { "font-size": 12.5 });
+    txt(hg, 420, 292, "loss: BCE each", "mut", { "font-size": 12.5 });
+    N.s8 = lines(B, 10, 352, [
+      ["Half of the windows with ≥ 4 real rows get one violation."],
+      ["It starts at a random row and lasts to the end."],
+      ["P2 and P3 need a moving sender (≥ 2 m/s), else P1.", "mut", 15],
+      ["Real run: P1–P3 AUROC ≥ 0.9988; the injected", "b"],
+      ["violations are easy, so these heads add little late on.", ""]
+    ], 29, 16);
+  }
+
+  // ----- stage 9: contrastive -----
+  function buildS9() {
+    var A = N.a[8], B = N.b[8];
+    function view(y, s0, n, hid, title) {
+      txt(A, GX, y - 6, title, "b", { "font-size": 11.5 });
+      var G = makeGrid(A, GX, y, F, T, CW, 5, function (r, c) { return c >= n; });
+      paint(G, { val: function (r, c) { return c < n ? X[r][c + s0] : 0; }, ov: function (r, c) { return hid[c] ? ["tok", 0.9] : null; } });
+      for (var c = 0; c < T; c++) el("rect", { x: GX + c * CW, y: y + F * 5 + 3, width: CW, height: 5, "class": c < n ? "mk1" : "mk0" }, A);
+      return G;
+    }
+    view(52, V1S, V1N, V1H, "view 1 (pass 1): rows t3–t23 kept, rows hidden");
+    view(150, V2S, V2N, {}, "view 2 (pass 2): rows t1–t20 kept");
+    N.s9a = lines(A, GX, 248, [
+      ["Augmentations (physically consistent):", "b"],
+      ["• sender + receiver moved by the same 3–5 m", ""],
+      ["\u00a0\u00a0\u00a0(range and bearing do not change)", "mut"],
+      ["• time stretch k = 0.95–1.05: v·k, a·k², Δτ / k", ""],
+      ["• keep a block of 80–100% of the real rows", ""]
+    ], 14, 11);
+    var cx = 300, cy = 200, rr = 130;
+    N.circ = { cx: cx, cy: cy, r: rr };
+    el("circle", { cx: cx, cy: cy, r: rr, "class": "circ" }, B);
+    txt(B, cx, cy + rr + 22, "unit circle = projected z (toy 2-D)", "mut", { "font-size": 12.5, "text-anchor": "middle" });
+    N.negs = [];
+    var negA = [20, 60, 100, 140, 300, 335];
+    negA.forEach(function (a, i) {
+      var ln = el("line", { "class": "ln-push" }, B);
+      var d = el("circle", { r: 7, "class": "dot-neg" }, B);
+      N.negs.push({ a: a, d: d, ln: ln, push: (a > 200 ? 18 : -18) * (i % 2 ? 1 : 0.8) });
+    });
+    N.sbLn = null;
+    N.sb = el("circle", { r: 7, "class": "dot-sb" }, B);
+    N.sbT = txt(B, 0, 0, "same broadcast: not a negative", "mut", { "font-size": 12 });
+    N.pullLn = el("line", { "class": "ln-pull" }, B);
+    N.anc = el("circle", { r: 9, "class": "dot-acc" }, B);
+    N.pos = el("circle", { r: 9, "class": "dot-hol" }, B);
+    N.ancT = txt(B, 0, 0, "view 1", "acc b", { "font-size": 13 });
+    N.posT = txt(B, 0, 0, "view 2", "acc b", { "font-size": 13 });
+    N.legC = lines(B, 10, 52, [
+      ["green: pull the two views together", "okt b", 13.5],
+      ["red dashed: push other windows away", "badt b", 13.5]
+    ], 20, 13.5);
+    N.s9 = lines(B, 10, 384, [
+      ["projection head 128 → 128 → 128, then length 1"],
+      ["NT-Xent, τ = 0.1; negatives = other windows of the batch"],
+      ["Only windows with ≥ 4 real rows in both views.", "mut", 15],
+      ["Same run + pseudonym = same broadcasts: never a negative.", "mut", 15]
+    ], 29, 16);
+  }
+
+  // ----- stage 10: joint loss -----
+  function buildS10() {
+    var A = N.a[9], B = N.b[9];
+    var rows = [
+      ["view 1 + hidden rows", "H → recon; z1 → proj", "pass 1"],
+      ["view 2", "z2 → proj → NT-Xent", "pass 2"],
+      ["x + 1 violation", "z → P1, P2, P3", "pass 3"]
+    ];
+    N.s10a = [];
+    rows.forEach(function (r, i) {
+      var g = el("g", null, A), y = 58 + i * 74;
+      txt(g, 0, y - 6, r[2], "acc b", { "font-size": 11.5 });
+      box(g, 0, y, 120, 40, r[0], "box", 11);
+      box(g, 140, y, 80, 40, "encoder", "boxa", 11.5);
+      box(g, 240, y, 150, 40, r[1], "box", 11);
+      arrow(g, 120, y + 20, 138, y + 20); arrow(g, 220, y + 20, 238, y + 20);
+      N.s10a.push(g);
+    });
+    N.s10foot = lines(A, 0, 286, [["one encoder, same weights, 3 passes per update", "b"], ["(two augmented views + one injected copy)", "mut"]], 15, 11.5);
+    N.s10f = lines(B, 10, 52, [
+      ["L = 1 · L_rec / s_rec + 0.3 · L_nce / s_nce", "mono", 15],
+      ["\u00a0\u00a0\u00a0  + 0.3 · (L_P1 / s_P1 + L_P2 / s_P2 + L_P3 / s_P3)", "mono", 15],
+      ["s = mean of that loss over its first 200 updates, then frozen", "mut", 13.5]
+    ], 24, 15);
+    var nm = ["rec", "nce", "P1", "P2", "P3"], raw = [0.40, 4.20, 0.62, 0.55, 0.60], sc = [0.95, 5.10, 0.69, 0.66, 0.69], lam = [1, 0.3, 0.3, 0.3, 0.3];
+    N.lb = [];
+    var base = 280;
+    el("line", { x1: 30, y1: base, x2: 590, y2: base, "class": "axis" }, B);
+    nm.forEach(function (n, i) {
+      var x = 50 + i * 108;
+      var r = el("rect", { x: x, y: base, width: 56, height: 0, "class": i === 0 ? "p0" : (i === 1 ? "p3" : "p1") }, B);
+      txt(B, x + 28, base + 17, n, "b", { "font-size": 13, "text-anchor": "middle" });
+      var v = txt(B, x + 28, base, "", "", { "font-size": 12.5, "text-anchor": "middle" });
+      N.lb.push({ r: r, v: v, raw: raw[i], n1: raw[i] / sc[i], w: lam[i] * raw[i] / sc[i] });
+    });
+    N.lbPh = txt(B, 10, 140, "", "b", { "font-size": 14 });
+    N.lbSum = txt(B, 590, 140, "", "badt b", { "font-size": 14, "text-anchor": "end" });
+    N.s10 = lines(B, 10, 334, [
+      ["AdamW, lr 1e-3 (500 warm-up, cosine to 0), wd 0.05", ""],
+      ["batch 256, windows of similar length together", ""],
+      ["20 epochs = 37,220 updates, 8.18 h on a Tesla T4", ""],
+      ["Best checkpoint by this loss on benign val", "b"],
+      ["(no attack label): epoch 20, val loss 0.3142", ""],
+      ["Bars are toy values.", "mut", 13.5]
+    ], 29, 16);
+  }
+
+  // ----- shared scatter (stages 11, 12) -----
+  function buildScatter() {
+    var g = N.scat;
+    N.ell = el("ellipse", { cx: 280, cy: 205, rx: 220, ry: 120, transform: "rotate(18 280 205)", "class": "ell" }, g);
+    N.ellT = txt(g, 590, 352, "dashed: Mahalanobis Gaussian of train z", "maet b", { "font-size": 12, "text-anchor": "end" });
+    N.bp = BANK.map(function (b) { return el("circle", { cx: b[0], cy: b[1], r: 3.2, "class": "pt" }, g); });
+    N.nnB = NNB.map(function () { return el("line", { "class": "ln-ok" }, g); });
+    N.nnA = NNA.map(function () { return el("line", { "class": "ln-bad" }, g); });
+    N.qB = el("circle", { cx: QB[0], cy: QB[1], r: 8, "class": "dot-ok" }, g);
+    N.qA = el("circle", { cx: QA[0], cy: QA[1], r: 8, "class": "dot-bad" }, g);
+    N.qBT = txt(g, QB[0] + 12, QB[1] + 24, "benign test window", "okt b", { "font-size": 13 });
+    N.qAT = txt(g, QA[0] - 12, QA[1] - 14, "GridSybil window", "badt b", { "font-size": 13, "text-anchor": "end" });
+    N.scT = txt(g, 10, 52, "toy 2-D picture of z (real z: 128-D, cosine distance)", "mut", { "font-size": 13 });
+  }
+
+  // ----- stage 11: freeze + bank -----
+  function buildS11() {
+    var A = N.a[10], B = N.b[10];
+    box(A, 20, 50, 200, 40, "window (32 × 13 + mask)", "box", 12);
+    arrow(A, 120, 90, 120, 116);
+    box(A, 20, 118, 200, 52, "TimesNet encoder", "boxf", 13, "frozen, eval mode, no dropout");
+    arrow(A, 120, 170, 120, 196);
+    box(A, 20, 198, 200, 40, "z (128)", "box", 13);
+    var d1 = box(A, 250, 64, 140, 32, "projection head", "box", 11.5);
+    var d2 = box(A, 250, 104, 140, 32, "P1–P3 heads", "box", 11.5);
+    el("line", { x1: 254, y1: 80, x2: 386, y2: 80, "class": "strike" }, A);
+    el("line", { x1: 254, y1: 120, x2: 386, y2: 120, "class": "strike" }, A);
+    txt(A, 320, 152, "dropped", "badt b", { "font-size": 11.5, "text-anchor": "middle" });
+    box(A, 250, 174, 140, 32, "recon head", "boxa", 11.5);
+    txt(A, 320, 222, "kept: recon score", "acc b", { "font-size": 11.5, "text-anchor": "middle" });
+    N.s11 = lines(B, 10, 370, [
+      ["All 502,773 benign train windows → z (once).", "b"],
+      ["kNN memory bank: 200,000 of them (seeded draw),"],
+      ["each z scaled to length 1 (for cosine)."],
+      ["Mahalanobis: mean + covariance of all train z", ""],
+      ["(shrinkage 0.01). Thresholds: benign val, 65,313 windows.", "mut", 14.5]
+    ], 29, 16);
+  }
+
+  // ----- stage 12: scoring -----
+  function buildS12() {
+    var A = N.a[11], B = N.b[11];
+    var ax0 = 20, ax1 = 380, base = 200, maxH = 96;
+    function X(s) { return ax0 + (ax1 - ax0) * s / 0.6; }
+    N.hx = X;
+    txt(A, 0, 52, "Real kNN K = 5 scores, model-t32b-seed0:", "b", { "font-size": 11.5 });
+    txt(A, 0, 68, "green = benign val (65,313); red = GridSybil test", "mut", { "font-size": 10.5 });
+    txt(A, 0, 82, "(28,087); each scaled to its own peak", "mut", { "font-size": 10.5 });
+    el("line", { x1: ax0, y1: base, x2: ax1, y2: base, "class": "axis" }, A);
+    [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6].forEach(function (s) {
+      el("line", { x1: X(s), y1: base, x2: X(s), y2: base + 4, "class": "axis" }, A);
+      txt(A, X(s), base + 16, s.toFixed(1), "mut", { "font-size": 10, "text-anchor": "middle" });
+    });
+    txt(A, ax1, base + 30, "kNN score = 1 − mean cosine similarity", "mut", { "font-size": 10.5, "text-anchor": "end" });
+    var bw = (ax1 - ax0) / 30, mv = Math.max.apply(null, HVAL), mg = Math.max.apply(null, HGRID);
+    N.hvb = HVAL.map(function (v, i) { return { e: el("rect", { x: X(i * 0.02) + 0.5, y: base, width: bw - 1, height: 0, "class": "hv" }, A), h: maxH * v / mv }; });
+    N.hab = HGRID.map(function (v, i) { return { e: el("rect", { x: X(i * 0.02) + 0.5, y: base, width: bw - 1, height: 0, "class": "ha" }, A), h: maxH * 0.8 * v / mg }; });
+    N.thr = el("g", null, A);
+    el("line", { x1: X(0.1034), y1: 96, x2: X(0.1034), y2: base, "class": "thr" }, N.thr);
+    txt(N.thr, X(0.1034) + 5, 106, "threshold = benign val p95 = 0.103", "valt b", { "font-size": 10.5 });
+    N.dB = el("circle", { cx: X(0.0172), cy: base, r: 6, "class": "dot-ok" }, A);
+    N.dA = el("circle", { cx: X(0.2806), cy: base, r: 6, "class": "dot-bad" }, A);
+    N.dBase = base;
+    N.s12a = lines(A, 0, 246, [
+      ["median benign test window 0.017 → no alarm", "okt b"],
+      ["median GridSybil window 0.281 → ALARM", "badt b"],
+      ["Above the threshold: GridSybil 71.7%, benign 5.2%.", ""]
+    ], 16, 11.5);
+    N.s12 = lines(B, 10, 370, [
+      ["kNN score = 1 − mean cosine similarity to the 5 nearest", "b"],
+      ["Mahalanobis: distance of z to the train Gaussian (p95 16.29)"],
+      ["Recon: hide rows 4 times (seeded), mean error; < 2 rows", ""],
+      ["→ benign val median. Scores are saved before labels are read.", "mut", 14.5]
+    ], 29, 15.5);
+  }
+
+  // ----- stage 13: results -----
+  function buildS13() {
+    var A = N.a[12], B = N.b[12];
+    N.s13a = lines(A, 0, 54, [
+      ["Read with care", "b", 13],
+      ["• One seed (seed 0); seeds 1 and 2 still to run."],
+      ["• An untrained encoder already gives 0.839:"],
+      ["\u00a0\u00a0\u00a0much of the kNN power comes from the architecture."],
+      ["• Pretraining gain (kNN K = 5): +0.047 pooled,"],
+      ["\u00a0\u00a0\u00a0+0.039 length-matched."],
+      ["• DataReplay / DoS: length alone gives 0.95–0.97;"],
+      ["\u00a0\u00a0\u00a0random-init ties or beats pretrained → no gain."],
+      ["• Benign data chosen with labels → one-class."],
+      ["• F14: GridSybil_0709 near-copies may cross the split."],
+      ["• Baselines: mean of seeds 0–3; TimesNet: seed 0."],
+      ["• Recall 0.717 at benign FPR 0.052 (val p95).", ""]
+    ], 20, 11.5);
+    var rows = [
+      ["TimesNet kNN K = 5", 0.886, 0.875, "bpre"],
+      ["random-init kNN K = 5", 0.839, 0.836, "bbase"],
+      ["TimesNet Mahalanobis", 0.880, 0.846, "bpre"],
+      ["one-class ConvAE recon", 0.734, null, "bbase"],
+      ["masked AE recon", 0.657, 0.631, "bbase"],
+      ["length only", 0.559, null, "blen"]
+    ];
+    var x0 = 196, x1 = 560, top = 62;
+    function X(a) { return x0 + (x1 - x0) * (a - 0.5) / 0.5; }
+    txt(B, 10, 52, "GridSybil vs benign test, window AUROC", "mut", { "font-size": 13.5 });
+    [0.5, 0.6, 0.7, 0.8, 0.9, 1.0].forEach(function (a) {
+      el("line", { x1: X(a), y1: top, x2: X(a), y2: top + rows.length * 50, "class": "gl" }, B);
+      txt(B, X(a), top + rows.length * 50 + 16, a.toFixed(1), "mut", { "font-size": 12, "text-anchor": "middle" });
+    });
+    N.rb = [];
+    rows.forEach(function (r, i) {
+      var y = top + 8 + i * 50;
+      txt(B, x0 - 8, y + 18, r[0], "b", { "font-size": 13.5, "text-anchor": "end" });
+      var b1 = el("rect", { x: x0, y: y, width: 0, height: 17, "class": r[3] }, B);
+      var t1 = txt(B, 0, y + 14, r[1].toFixed(3), "b", { "font-size": 13 });
+      var b2 = null, t2 = null;
+      if (r[2] !== null) {
+        b2 = el("rect", { x: x0, y: y + 20, width: 0, height: 12, "class": r[3] + "2" }, B);
+        t2 = txt(B, 0, y + 31, r[2].toFixed(3), "mut", { "font-size": 12 });
+      } else if (i === 3) {
+        t2 = txt(B, x0 + 4, y + 31, "length-matched: not available", "mut", { "font-size": 11.5 });
+      }
+      N.rb.push({ b1: b1, t1: t1, w1: X(r[1]) - x0, b2: b2, t2: t2, w2: r[2] !== null ? X(r[2]) - x0 : 0 });
+    });
+    el("line", { x1: x0, y1: top, x2: x0, y2: top + rows.length * 50, "class": "axis" }, B);
+    var ly = top + rows.length * 50 + 40;
+    N.leg13 = el("g", null, B);
+    el("rect", { x: 10, y: ly - 11, width: 14, height: 12, "class": "bpre" }, N.leg13);
+    txt(N.leg13, 30, ly, "pooled (all windows)", "", { "font-size": 13 });
+    el("rect", { x: 200, y: ly - 11, width: 14, height: 12, "class": "bpre2" }, N.leg13);
+    txt(N.leg13, 220, ly, "length-matched (inside each length)", "", { "font-size": 13 });
+    N.src13 = lines(B, 10, ly + 26, [
+      ["Sources: evaluation summary.json + score files (TimesNet),", "mut", 12],
+      ["baselinepaper inventory, task/masked_autoencoder README.", "mut", 12]
+    ], 17, 12);
+  }
+
+  // ---------- reset ----------
+  function reset() {
+    N.a.forEach(function (g) { op(g, 0); }); N.b.forEach(function (g) { op(g, 0); });
+    op(N.xg, 0); op(N.hg, 0); op(N.scat, 0);
+    N.titleA.textContent = ""; N.subA.textContent = ""; N.titleB.textContent = ""; N.noteA.textContent = "";
+  }
+  function showX(o) {
+    op(N.xg, 1); op(N.xlab, 1); op(N.mask, 1); op(N.tlab, 1); op(N.padB, o && o.padB === 0 ? 0 : 1);
+    N.maskCells.forEach(function (m) { op(m, 1); });
+    paint(N.X, o || {});
+  }
+  function xval(r, c) { return X[r][c]; }
+
+  // ---------- stages ----------
+  var STAGES = [
+    { name: "One window", D: 5600,
+      cap: "One input window is one sender's message sequence as one receiver heard it: up to T = 32 messages (about 1 per second), 13 numbers each. Here 24 rows are real and 8 are padding; the row mask marks them. Cell colours are toy values.",
+      draw: function (t) {
+        reset();
+        N.titleA.textContent = "One window: 13 features × T = 32 rows";
+        N.subA.textContent = "time goes left → right · real size, toy values";
+        op(N.xg, 1); op(N.xlab, P(t, 0, 500));
+        paint(N.X, { val: xval, appear: function (r, c) { return P(t, 300 + c * 70, 350); } });
+        op(N.tlab, P(t, 300, 500));
+        op(N.mask, 1);
+        N.maskCells.forEach(function (m, c) { op(m, P(t, 2700 + c * 40, 300)); });
+        op(N.padB, P(t, 3900, 500));
+        op(N.b[0], 1); N.titleB.textContent = "What is in a window";
+        reveal(N.s1, t, 500, 260);
+      } },
+    { name: "Embedding", D: 6600,
+      cap: "The embedding is a 1-D convolution over time with kernel 3: each row's new vector mixes that message with the one before and the one after. It maps 13 features to d = 128 numbers, adds a fixed sin/cos position code, and keeps padding rows at 0.",
+      draw: function (t) {
+        reset();
+        N.titleA.textContent = "Input window (toy values)";
+        N.subA.textContent = "the kernel slides over time";
+        showX({ val: xval, dim: 0.8 });
+        op(N.a[1], 1);
+        var pos = lerp(0, NREAL - 1, P(t, 500, 4200));
+        N.kbox.setAttribute("x", GX + (pos - 1) * CW);
+        N.kLab.setAttribute("x", GX + (pos + 0.5) * CW);
+        op(N.kbox, P(t, 200, 300) * (1 - P(t, 5000, 400))); op(N.kLab, P(t, 200, 300) * (1 - P(t, 5000, 400)));
+        op(N.b[1], 1); N.titleB.textContent = "Embedding: each row → 128 numbers";
+        paint(N.HB, { val: function (r, c) { return H0[r][c]; }, appear: function (r, c) { return c >= NREAL ? P(t, 4800, 400) : P(t, 500 + 4200 * c / (NREAL - 1), 250); } });
+        reveal(N.s2, t, 1200, 550);
+      } },
+    { name: "FFT periods", D: 7600,
+      cap: "TimesNet looks for rhythms. It runs an FFT over the 24 real rows only, averages the amplitude over the 128 channels, and keeps the 3 strongest frequencies (f ≥ 2). Each one gives a period p = 24 // f. Our code does this for each window; the original TimesNet uses one set of periods per batch.",
+      draw: function (t) {
+        reset();
+        N.titleA.textContent = "H₀ (16 of 128 channels, toy)";
+        N.subA.textContent = "";
+        op(N.hg, 1); op(N.htl, 1);
+        paint(N.H, { val: function (r, c) { return H0[r][c]; }, ov: function (r, c) { return c >= NREAL ? ["grey", 0.6 * P(t, 600, 500)] : null; } });
+        op(N.a[2], P(t, 300, 500));
+        op(N.b[2], 1); N.titleB.textContent = "FFT → the 3 strongest periods";
+        N.fbar.forEach(function (b, f) {
+          var h = b.h * P(t, 800 + f * 140, 500);
+          b.r.setAttribute("y", b.base - h); b.r.setAttribute("height", h);
+          if (b.lab) op(b.lab, P(t, 3000 + b.k * 300, 400));
+        });
+        op(N.fGrey, P(t, 2600, 400));
+        reveal(N.s3, t, 3600, 450);
+      } },
+    { name: "Fold to 2-D", D: 9200,
+      cap: "For each period p, the 32 rows are folded into a grid with p columns. Along a row the model sees neighbour messages (within a period); down a column it sees the same phase in the next cycle (across periods). Inception 2-D convolutions (1×1, 3×3, 5×5, averaged) read both directions; then the grid is unfolded back to 32 rows.",
+      draw: function (t) {
+        reset();
+        var fd = N.fold;
+        N.titleA.textContent = "Fold for p = " + fd.p + ": " + fd.rows + " cycles × " + fd.p;
+        op(N.a[3], 1);
+        fd.cells.forEach(function (k) {
+          var q = P(t, 600 + k.i * 70, 600);
+          var x = lerp(k.from.x, k.to.x, q), y = lerp(k.from.y, k.to.y, q), w = lerp(k.from.w, k.to.w, q), h = lerp(k.from.h, k.to.h, q);
+          [k.e, k.fr].forEach(function (e) { e.setAttribute("x", x.toFixed(2)); e.setAttribute("y", y.toFixed(2)); e.setAttribute("width", w.toFixed(2)); e.setAttribute("height", h.toFixed(2)); });
+          if (k.i < NREAL) op(k.e, vop(CH0[k.i])); else op(k.e, 1);
+          op(k.fr, 1); k.fr.setAttribute("fill-opacity", 0);
+        });
+        op(N.foldLab, P(t, 3200, 500)); op(N.stripLab, 1 - P(t, 2400, 600));
+        var kk = P(t, 4400, 3600), nPos = (fd.p - 2) * (fd.rows - 2);
+        var idx = Math.min(nPos - 1, Math.floor(kk * nPos)), kr = Math.floor(idx / (fd.p - 2)), kc = idx % (fd.p - 2);
+        N.k2.setAttribute("x", fd.gx + kc * fd.cs); N.k2.setAttribute("y", fd.gy + kr * fd.cs);
+        N.k2Lab.setAttribute("x", fd.gx + kc * fd.cs); N.k2Lab.setAttribute("y", fd.gy + kr * fd.cs - 4);
+        var kv = P(t, 4300, 300) * (1 - P(t, 8400, 400));
+        op(N.k2, kv); op(N.k2Lab, kv * (kr === 0 ? 0 : 1));
+        op(N.b[3], 1); N.titleB.textContent = "3 periods → 3 grids → 2-D convolutions";
+        op(N.s4g, P(t, 1000, 600)); op(N.s4inc, P(t, 4000, 600));
+        reveal(N.s4, t, 5200, 500);
+      } },
+    { name: "Combine + 4 blocks", D: 8400,
+      cap: "The 3 unfolded branches are added with weights w = softmax of their FFT amplitudes, and the block input is added back (residual). Padding is set to 0 and a LayerNorm follows. 4 TimesBlocks run one after another, each with its own periods. The output H has one 128-vector per message.",
+      draw: function (t) {
+        reset();
+        var kb = t < 3800 ? 1 : Math.min(4, 1 + Math.floor((t - 3800) / 900));
+        N.titleA.textContent = "H after block " + kb + " (16 of 128 ch, toy)";
+        op(N.hg, 1); op(N.htl, 1);
+        paint(N.H, { val: function (r, c) { return Hk(kb, r, c); } });
+        op(N.b[4], 1); N.titleB.textContent = "Combine the branches; repeat 4 times";
+        N.s5strips.forEach(function (g, i) { op(g, P(t, 300 + i * 450, 450)); });
+        op(N.s5line, P(t, 1600, 300)); op(N.s5ln, P(t, 2700, 400));
+        N.s5blocks.forEach(function (b, i) {
+          var on = P(t, 3800 + i * 900, 300);
+          op(b.g, Math.max(P(t, 3400, 400) * 0.5, on));
+          b.r.setAttribute("class", t >= 3800 + i * 900 && t < 3800 + (i + 1) * 900 ? "boxon" : "box");
+        });
+        op(N.s5toy, P(t, 4000, 400));
+        reveal(N.s5, t, 4400, 600);
+      } },
+    { name: "Pooling → z", D: 6200,
+      cap: "z is the mean of H over the real rows only; padding rows never count. H (one vector per message) feeds the reconstruction head. z (one vector per window) feeds the other heads and, later, every anomaly score.",
+      draw: function (t) {
+        reset();
+        N.titleA.textContent = "Masked mean pooling: H → z";
+        N.subA.textContent = "16 of 128 channels, toy values";
+        op(N.hg, 1); op(N.htl, 1);
+        paint(N.H, { val: function (r, c) { return Hk(4, r, c); } });
+        op(N.a[5], 1);
+        var mv = P(t, 800, 1800);
+        N.flyCols.forEach(function (e, i) {
+          e.setAttribute("x", lerp(GX + i * CW, N.zx, mv)); op(e, mv > 0 && mv < 1 ? 0.25 : 0);
+          e.setAttribute("width", lerp(CW, 14, mv));
+        });
+        N.zc.forEach(function (z) { op(z.e, P(t, 2400, 600) * vop(z.v * 2)); });
+        op(N.padX, P(t, 400, 400));
+        op(N.b[5], 1); N.titleB.textContent = "One vector per window: z";
+        reveal(N.s6, t, 1500, 300);
+      } },
+    { name: "Pass 1: reconstruction", D: 8600,
+      cap: "Pass 1. A copy of the window is augmented (view 1) and whole rows are hidden: 25% at random, or one block of 20–30%. Hidden rows get a learned mask token. The reconstruction head guesses all 13 features of each hidden row from H; the loss is the squared error on those rows only.",
+      draw: function (t) {
+        reset();
+        var g = P(t, 3200, 1000);
+        N.titleA.textContent = g < 0.5 ? "View 1: hidden rows → mask token" : "Guesses for the hidden rows";
+        N.subA.textContent = "toy: 6 of 24 real rows hidden";
+        showX({
+          val: function (r, c) { return isHid[c] ? lerp(X[r][c], GU[r][c], g) : X[r][c]; },
+          dim: 1 - 0.45 * P(t, 4300, 500),
+          ov: function (r, c) {
+            if (!isHid[c]) return null;
+            var h = P(t, 500 + HIDR.indexOf(c) * 250, 350);
+            return [g > 0 ? "guess" : "tok", g > 0 ? 1 : 0.95 * h];
+          }
+        });
+        N.X.cells.forEach(function (k) { if (isHid[k.c]) op(k.v, g * vop(lerp(X[k.r][k.c], GU[k.r][k.c], g))); });
+        op(N.a[6], 1);
+        N.eb.forEach(function (b, i) { var h = b.h * P(t, 4600 + i * 250, 400); b.e.setAttribute("y", 300 - h); b.e.setAttribute("height", h); });
+        op(N.rl, P(t, 6200, 400));
+        op(N.b[6], 1); N.titleB.textContent = "Pass 1: hide rows, rebuild them";
+        op(N.s7flow, P(t, 0, 500));
+        reveal(N.s7, t, 1000, 450);
+      } },
+    { name: "Pass 3: physics heads", D: 8600,
+      cap: "Pass 3. In half of the windows one physics violation is injected: P1 claimed position jumps 50–150 m (range and bearing recomputed), P2 claimed speed ×2–3 or ×0.2–0.5 with the same positions, P3 claimed velocity and acceleration turned by 90–180°. Three small heads on z must say which one it was.",
+      draw: function (t) {
+        reset();
+        N.titleA.textContent = "Original window + one violation (P1)";
+        var j = P(t, 1500, 800);
+        showX({
+          val: function (r, c) { return (c >= INJ_T && c < NREAL && INJ_C[r] !== undefined) ? clamp(X[r][c] + INJ_C[r] * j) : X[r][c]; },
+          ov: function (r, c) { return (c >= INJ_T && c < NREAL && INJ_C[r] !== undefined) ? ["inj", 0.45 * j] : null; }
+        });
+        op(N.a[7], 1); reveal(N.s8a, t, 2200, 300);
+        op(N.b[7], 1); N.titleB.textContent = "Pass 3: inject a violation, detect it";
+        N.s8sk.forEach(function (s, i) {
+          var a = P(t, 400 + i * 700, 500), m = P(t, 1000 + i * 700, 900);
+          op(s.g, a);
+          s.mv.forEach(function (o) {
+            if (s.k === 0) { o.e.setAttribute("cy", o.y - 26 * m); }
+            else {
+              var ang = o.ang, len = o.len;
+              if (s.k === 1) len = o.len * (1 + 1.1 * m);
+              else ang = o.ang - 2.3 * m;
+              o.e.setAttribute("x2", o.x + len * Math.cos(ang)); o.e.setAttribute("y2", o.y + len * Math.sin(ang));
+            }
+          });
+        });
+        op(N.s8h, P(t, 3400, 500));
+        N.s8out.forEach(function (e, i) { op(e, P(t, 4200 + i * 200, 400)); });
+        reveal(N.s8, t, 4800, 500);
+      } },
+    { name: "Passes 1 + 2: contrastive", D: 8600,
+      cap: "Passes 1 and 2. Two augmented views of the same window (view 1 is the masked one from pass 1) are encoded, and a projection head maps each z to a unit vector. NT-Xent (τ = 0.1) pulls the two views together and pushes the other windows of the batch away. Windows of the same broadcast (same run and pseudonym) are not used as negatives.",
+      draw: function (t) {
+        reset();
+        N.titleA.textContent = "Two views of the same window (toy)";
+        op(N.a[8], 1); reveal(N.s9a, t, 600, 250);
+        op(N.b[8], 1); N.titleB.textContent = "Contrastive: same window → close";
+        var C = N.circ, m = P(t, 2200, 2400);
+        function pt(a) { var r = a * Math.PI / 180; return [C.cx + C.r * Math.cos(r), C.cy - C.r * Math.sin(r)]; }
+        var aA = 200, aP = lerp(275, 212, m), pa = pt(aA), pp = pt(aP);
+        N.anc.setAttribute("cx", pa[0]); N.anc.setAttribute("cy", pa[1]);
+        N.pos.setAttribute("cx", pp[0]); N.pos.setAttribute("cy", pp[1]);
+        N.ancT.setAttribute("x", pa[0] - 14); N.ancT.setAttribute("y", pa[1] + 4); N.ancT.setAttribute("text-anchor", "end");
+        N.posT.setAttribute("x", pp[0] - 6); N.posT.setAttribute("y", pp[1] + 26); N.posT.setAttribute("text-anchor", "end");
+        N.pullLn.setAttribute("x1", pa[0]); N.pullLn.setAttribute("y1", pa[1]); N.pullLn.setAttribute("x2", pp[0]); N.pullLn.setAttribute("y2", pp[1]);
+        var ap = P(t, 900, 500);
+        [N.anc, N.pos, N.ancT, N.posT].forEach(function (e) { op(e, ap); });
+        op(N.pullLn, P(t, 2000, 400));
+        N.negs.forEach(function (n, i) {
+          var q = pt(n.a + n.push * m);
+          n.d.setAttribute("cx", q[0]); n.d.setAttribute("cy", q[1]);
+          n.ln.setAttribute("x1", pa[0]); n.ln.setAttribute("y1", pa[1]); n.ln.setAttribute("x2", q[0]); n.ln.setAttribute("y2", q[1]);
+          op(n.d, P(t, 1200 + i * 100, 400)); op(n.ln, P(t, 2000, 400) * 0.8);
+        });
+        var sb = pt(160);
+        N.sb.setAttribute("cx", sb[0]); N.sb.setAttribute("cy", sb[1]);
+        N.sbT.setAttribute("x", sb[0] + 14); N.sbT.setAttribute("y", sb[1] + 4); N.sbT.setAttribute("text-anchor", "start");
+        op(N.sb, P(t, 4800, 400)); op(N.sbT, P(t, 5000, 400));
+        reveal(N.legC, t, 2200, 300);
+        reveal(N.s9, t, 5400, 450);
+      } },
+    { name: "Joint loss", D: 8200,
+      cap: "One update uses all three passes through the same encoder. Each loss is divided by its own scale (its mean over the first 200 updates, then frozen) and weighted: λ = 1 for reconstruction, 0.3 for NT-Xent and for each of P1–P3. The best checkpoint is chosen by this loss on benign validation windows; no attack label is used.",
+      draw: function (t) {
+        reset();
+        N.titleA.textContent = "One update = 3 encoder passes";
+        op(N.a[9], 1);
+        N.s10a.forEach(function (g, i) { op(g, P(t, 200 + i * 400, 400)); });
+        reveal(N.s10foot, t, 1400, 300);
+        op(N.b[9], 1); N.titleB.textContent = "Joint loss: scaled and weighted";
+        reveal(N.s10f, t, 300, 400);
+        var ph1 = P(t, 1600, 600), ph2 = P(t, 3200, 800), ph3 = P(t, 4600, 800);
+        var phase = t < 3200 ? 0 : (t < 4600 ? 1 : 2);
+        N.lbPh.textContent = ["raw losses (toy): very different sizes", "each divided by its own scale s", "then × λ (1 for rec, 0.3 for the others)"][phase];
+        op(N.lbPh, ph1);
+        var sum = 0;
+        N.lb.forEach(function (b) {
+          var v = phase === 0 ? b.raw : (phase === 1 ? lerp(b.raw, b.n1, ph2) : lerp(b.n1, b.w, ph3));
+          var scale = phase === 0 ? 26 : lerp(26, 110, phase === 1 ? ph2 : 1);
+          var h = Math.min(125, v * scale) * ph1;
+          b.r.setAttribute("y", 280 - h); b.r.setAttribute("height", h);
+          b.v.setAttribute("y", 280 - h - 6); b.v.textContent = v.toFixed(2); op(b.v, ph1);
+          sum += v;
+        });
+        N.lbSum.textContent = "L = " + sum.toFixed(2) + " (toy)"; op(N.lbSum, P(t, 5600, 400));
+        reveal(N.s10, t, 5600, 350);
+      } },
+    { name: "Freeze + memory bank", D: 6800,
+      cap: "After pretraining the encoder is frozen; the projection and P1–P3 heads are dropped. Every benign train window is encoded once: 200,000 of their z vectors form the kNN memory bank, and all of them fit the Mahalanobis mean and covariance.",
+      draw: function (t) {
+        reset();
+        N.titleA.textContent = "Frozen encoder";
+        op(N.a[10], P(t, 0, 500));
+        op(N.b[10], 1); N.titleB.textContent = "Benign train z → memory bank";
+        op(N.scat, 1); op(N.scT, P(t, 300, 400));
+        N.bp.forEach(function (p, i) { op(p, P(t, 600 + i * 18, 300)); });
+        op(N.ell, P(t, 3600, 600)); op(N.ellT, P(t, 3800, 400));
+        [N.qA, N.qB, N.qAT, N.qBT].forEach(function (e) { op(e, 0); });
+        N.nnA.concat(N.nnB).forEach(function (e) { op(e, 0); });
+        reveal(N.s11, t, 1200, 600);
+      } },
+    { name: "Score a test window", D: 9600,
+      cap: "A test window goes through the frozen encoder. Its kNN score is 1 minus the mean cosine similarity to its 5 nearest benign bank vectors. A score above the benign-validation 95th percentile (0.103) raises an alarm. The histograms show the real scores of model-t32b-seed0.",
+      draw: function (t) {
+        reset();
+        N.titleA.textContent = "Score vs threshold";
+        op(N.a[11], 1);
+        N.hvb.forEach(function (b, i) { var h = b.h * P(t, 4200 + i * 25, 400); b.e.setAttribute("y", N.dBase - h); b.e.setAttribute("height", h); });
+        N.hab.forEach(function (b, i) { var h = b.h * P(t, 4600 + i * 25, 400); b.e.setAttribute("y", N.dBase - h); b.e.setAttribute("height", h); });
+        op(N.thr, P(t, 5600, 400));
+        var pb = P(t, 6200, 700), pa = P(t, 6900, 700);
+        N.dB.setAttribute("cy", lerp(96, N.dBase, pb)); op(N.dB, pb > 0 ? 1 : 0);
+        N.dA.setAttribute("cy", lerp(96, N.dBase, pa)); op(N.dA, pa > 0 ? 1 : 0);
+        reveal(N.s12a, t, 7600, 350);
+        op(N.b[11], 1); N.titleB.textContent = "kNN: distance to the 5 nearest benign z";
+        op(N.scat, 1); op(N.scT, 1); op(N.ell, 0.6); op(N.ellT, 0);
+        N.bp.forEach(function (p) { op(p, 1); });
+        var qb = P(t, 400, 500), qa = P(t, 1900, 500);
+        op(N.qB, qb); op(N.qBT, qb); op(N.qA, qa); op(N.qAT, qa);
+        function nn(lnArr, ids, q, s) {
+          lnArr.forEach(function (ln, i) {
+            var b = BANK[ids[i]], p = P(t, s + i * 120, 300);
+            ln.setAttribute("x1", q[0]); ln.setAttribute("y1", q[1]);
+            ln.setAttribute("x2", lerp(q[0], b[0], p)); ln.setAttribute("y2", lerp(q[1], b[1], p)); op(ln, p);
+          });
+        }
+        nn(N.nnB, NNB, QB, 900); nn(N.nnA, NNA, QA, 2400);
+        reveal(N.s12, t, 3200, 500);
+      } },
+    { name: "Results + caveats", D: 6400,
+      cap: "GridSybil, test, window AUROC. Pretrained TimesNet kNN: 0.886 (0.875 when matched by window length), above the untrained encoder (0.839 / 0.836), the one-class ConvAE (0.734), the masked autoencoder (0.657) and length alone (0.559). Only one seed; for DataReplay and DoS, window length decides and pretraining shows no gain.",
+      draw: function (t) {
+        reset();
+        N.titleA.textContent = "What the numbers mean";
+        op(N.a[12], 1); reveal(N.s13a, t, 2400, 250);
+        op(N.b[12], 1); N.titleB.textContent = "Real results (model-t32b-seed0)";
+        N.rb.forEach(function (r, i) {
+          var p = P(t, 300 + i * 250, 600);
+          r.b1.setAttribute("width", r.w1 * p); r.t1.setAttribute("x", 196 + r.w1 * p + 5); op(r.t1, P(t, 700 + i * 250, 300));
+          if (r.b2) { r.b2.setAttribute("width", r.w2 * p); r.t2.setAttribute("x", 196 + r.w2 * p + 5); }
+          if (r.t2) op(r.t2, P(t, 800 + i * 250, 300));
+        });
+        op(N.leg13, P(t, 1800, 400)); reveal(N.src13, t, 2000, 200);
+      } }
+  ];
+
+  // ---------- player ----------
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var cur = 0, tms = 0, playing = false, running = false, speed = 1, holdLeft = 0, last = null, raf = null;
+  var HOLD = 3200;
+  var capTitle = document.getElementById("capTitle"), capText = document.getElementById("capText");
+  var playBtn = document.getElementById("play"), ind = document.getElementById("ind"), dots = document.getElementById("dots");
+  STAGES.forEach(function (s, i) {
+    var b = document.createElement("button");
+    b.setAttribute("aria-label", "Stage " + (i + 1) + ": " + s.name);
+    b.title = (i + 1) + ". " + s.name;
+    b.addEventListener("click", function () { go(i, true); });
+    dots.appendChild(b);
+  });
+  function render() {
+    var s = STAGES[cur];
+    s.draw(Math.min(tms, s.D));
+    capTitle.textContent = "Stage " + (cur + 1) + " · " + s.name;
+    capText.textContent = s.cap;
+    ind.textContent = "Stage " + (cur + 1) + " / " + STAGES.length;
+    Array.prototype.forEach.call(dots.children, function (d, i) { d.classList.toggle("on", i === cur); });
+    playBtn.textContent = (playing || running) ? "Pause" : "Play";
+  }
+  function loop(now) {
+    raf = null;
+    if (last === null) last = now;
+    var dt = Math.min(now - last, 100) * speed; last = now;
+    var s = STAGES[cur];
+    if (running && tms < s.D) { tms = Math.min(s.D, tms + dt); }
+    else if (tms >= s.D) {
+      running = false;
+      if (playing) {
+        holdLeft -= dt;
+        if (holdLeft <= 0) {
+          if (cur < STAGES.length - 1) { start(cur + 1); }
+          else { playing = false; }
+        }
+      }
+    }
+    render();
+    if (running || playing) raf = requestAnimationFrame(loop);
+  }
+  function kick() { if (!raf) { last = null; raf = requestAnimationFrame(loop); } }
+  function start(n) {
+    cur = n; holdLeft = HOLD;
+    if (reduce) { tms = STAGES[n].D; running = false; }
+    else { tms = 0; running = true; }
+  }
+  function go(n, animate) {
+    n = Math.max(0, Math.min(STAGES.length - 1, n));
+    start(n);
+    if (!animate) { tms = STAGES[n].D; running = false; }
+    render(); kick();
+  }
+  function togglePlay() {
+    if (playing || running) { playing = false; running = false; render(); return; }
+    playing = true;
+    if (cur === STAGES.length - 1 && tms >= STAGES[cur].D) start(0);
+    else if (tms < STAGES[cur].D && !reduce) running = true;
+    holdLeft = HOLD;
+    render(); kick();
+  }
+  playBtn.addEventListener("click", togglePlay);
+  document.getElementById("next").addEventListener("click", function () { go(cur + 1, true); });
+  document.getElementById("prev").addEventListener("click", function () { go(cur - 1, true); });
+  document.getElementById("restart").addEventListener("click", function () { playing = true; go(0, true); });
+  Array.prototype.forEach.call(document.querySelectorAll(".spd"), function (b) {
+    b.addEventListener("click", function () {
+      speed = parseFloat(b.getAttribute("data-s"));
+      Array.prototype.forEach.call(document.querySelectorAll(".spd"), function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+    });
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === " " || e.key === "Spacebar") { e.preventDefault(); togglePlay(); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); go(cur + 1, true); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); go(cur - 1, true); }
+  });
+
+  // ---------- theme ----------
+  var themeBtn = document.getElementById("theme");
+  function isDark() {
+    var t = document.documentElement.getAttribute("data-theme");
+    if (t) return t === "dark";
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+  function label() { themeBtn.textContent = isDark() ? "Light" : "Dark"; }
+  var saved = null;
+  try { saved = localStorage.getItem("timesnet-t32b-anim-theme"); } catch (e) {}
+  var qth = (location.search.match(/[?&]theme=(light|dark)/) || [])[1];
+  if (qth) saved = qth;
+  if (saved === "light" || saved === "dark") document.documentElement.setAttribute("data-theme", saved);
+  themeBtn.addEventListener("click", function () {
+    var next = isDark() ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("timesnet-t32b-anim-theme", next); } catch (e) {}
+    label();
+  });
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    if (mq.addEventListener) mq.addEventListener("change", label);
+  }
+
+  // ---------- init ----------
+  var wasNarrow = null;
+  function rebuildIfNeeded() {
+    var n = window.innerWidth <= 700;
+    if (n !== wasNarrow) { wasNarrow = n; build(); render(); }
+  }
+  window.addEventListener("resize", rebuildIfNeeded);
+  label();
+  rebuildIfNeeded();
+  var qs = parseInt((location.search.match(/[?&]stage=(\d+)/) || [])[1], 10);
+  if (!isNaN(qs)) { go(qs - 1, false); }
+  else { start(0); render(); kick(); }
+  window.__tnAnim = {
+    go: function (n) { go(n, false); }, count: STAGES.length,
+    at: function (n, t) { cur = n; tms = t; running = false; playing = false; render(); },
+    state: function () { return { cur: cur, tms: tms, playing: playing, running: running, speed: speed, periods: PER, weights: W }; }
+  };
+})();
+</script>
+</body>
+</html>

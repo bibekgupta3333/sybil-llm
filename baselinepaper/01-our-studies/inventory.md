@@ -32,6 +32,16 @@ section gets a "Seeds 1–2" / "Seeds 1–3" block below; the 4-seed summary tab
 sample sd over the per-seed values (n = 4), computed from the sourced per-seed numbers (seed 0 at the precision
 stored in this file). Machine-readable: `seed_reruns` and `seed_summary` per study in `results.json`.
 
+**Updated 2026-11-18:** (1) the "Four seeds per cell" table and `seed_summary` were checked against the run files now
+on the Mac (`task/*/runs/seed{1,2,3}/`, `task/encoder/runs/{evaluation,ae-seed3,ae-seed4}/`): every per-seed value
+equals its file within 1e-6 (rounded seed-0 notebook values aside) and every mean / sd recomputes to the stored
+value; one rounded value in `results.json` replaced (H GridSybil-folders seed 0). (2) New section **M**
+(`task/masked_autoencoder/`, one-class masked autoencoder, TabMlp and TabResnet seeds 0–3 at T = 64 / 48 / 32
+complete; TabResnet T32 filled later on 2026-11-18). (3) New section **T** (TimesNet one-class `model-t32b-seed0`, context only, one
+seed). (4) M and T rows added to the cross-study, other-attack and four-seed tables and to the comparability notes.
+Length-matched AUROCs of M and T were recomputed for this file from their score files; every other new number is
+copied from a run file and was re-derived from the score files (|Δ| < 1e-6).
+
 **Where the numbers live (important for the paper):**
 
 - `task/encoder/` stores its test metrics in a file: `task/encoder/runs/evaluation/results.json`.
@@ -42,13 +52,17 @@ stored in this file). Machine-readable: `seed_reruns` and `seed_summary` per stu
   `runs/seed0/`: `task/autoencoder_benign_t48/runs/seed0/test_metrics.json`,
   `task/autoencoder_t64/runs/seed0/results.json`, `task/autoencoder_t32/runs/seed0/evaluation.json`.
 - `src/baselines/plausibility/` stores everything in `src/runs/baselines/plausibility/summary.json`.
+- M (added 2026-11-18) writes `test_metrics.json` and `scores/<split>.npz` per run in
+  `task/masked_autoencoder/runs/<encoder>/T<w>-seed<k>/`; T writes `summary.json` and `scores/<split>.npz` in
+  `src/runs/evaluation/all/T32_benign/model-t32b-seed0[-random-init]/`.
 
 Study labels used below: **S0** = `task/encoder`, **A** = `task/autoencoder`, **B** = `task/autoencoder_overlap`,
 **C** = `task/autoencoder_st`, **D** = `task/autoencoder_benign_t32`, **E** = `task/autoencoder_st_t32`,
 **F** = `task/autoencoder_benign_t48`, **G** = `task/autoencoder_t64`, **H** = `task/autoencoder_t32`,
-**P** = `src/baselines/plausibility` (A–E as in `task/autoencoder-study-slides.html`).
+**P** = `src/baselines/plausibility` (A–E as in `task/autoencoder-study-slides.html`), **M** = `task/masked_autoencoder`
+(added 2026-11-18), **T** = TimesNet `model-t32b-seed0` (`src/model/all_t32_benign`, context only).
 
-Common to S0 and A–H (sources: each `runs/*/config.json`, `env.json`, `trainer.py` / `train.py`, dataset
+Common to S0 and A–H (M and T differ: see their sections) (sources: each `runs/*/config.json`, `env.json`, `trainer.py` / `train.py`, dataset
 `metadata.json`):
 
 - **Sample** = one window: the messages one receiver heard from one sender pseudonym (a link), cut to T rows at
@@ -604,6 +618,197 @@ summary.json is a hard-coded literal (the evidence is the label-file guard, test
 
 ---
 
+## M. `task/masked_autoencoder/` — one-class masked autoencoder (widedeep-style TabMlp / TabResnet), T = 64 / 48 / 32
+
+Added 2026-11-18. Sources: `task/masked_autoencoder/README.md` (method, deviations, protocol); the executed notebook
+`task/masked_autoencoder/masked_autoencoder.ipynb`; per run `task/masked_autoencoder/runs/<encoder>/T<w>-seed<k>/`
+`{config,env,summary,test_metrics}.json` and `scores/<split>.npz` (`<encoder>` = `mlp` TabMlp or `resnet` TabResnet).
+Pooled, length-only, 1–3-row and ≥ 4-row AUROCs are copied from `test_metrics.json`; for this inventory every one of
+them was recomputed from the score files with sklearn and equals the file (|Δ| < 1e-6, 20 finished runs). The
+length-matched AUROC, the benign short-vs-long AUROC and the 1-row shares are **not** in the run files: they were
+recomputed here from `scores/*.npz` with the notebook's method (`length_matched_auroc`, section 5b; T64 labels read
+through `task.masked_autoencoder.data.make_source`, as the notebook does). Machine-readable: `masked_autoencoder` in
+`results.json`.
+
+| Item | Value |
+|---|---|
+| Purpose | A second model family for the one-class question: a masking-based autoencoder after pytorch-widedeep's self-supervised `EncoderDecoderTrainer(encoder=TabMlp / TabResnet, masked_prob=0.2)`, trained one-class on **exactly the windows of the one-class ConvAE cells** (S0 AE at T64, F at T48, D at T32), so its numbers sit next to theirs |
+| Method | each window (T × 13, prefix row mask) flattened to 13 T columns + T row-mask columns (padding cells 0); `RandomObfuscator`: every step hides each real cell with p = 0.2 (set to 0); encoder **TabMlp** [14 T → 64 → 16] (Linear → ReLU → Dropout 0.1) with mirrored decoder [16 → 64 → 13 T], or **TabResnet** DenseResnet blocks [64, 32, 16] (dropout 0.1) with mirrored decoder + Linear(64, 13 T); z = 16. Loss = widedeep `EncoderDecoderLoss`: per window, mean over hidden cells of (pred − true)² / var_f |
+| Deviations from widedeep 1.7.0 (README "Deviations") | (1) the encoder sees the masked input (widedeep's TabMlp / TabResnet path computes `masked_x` but encodes the clean input); (2) TabMlp decoder ends in a plain Linear (widedeep's ReLU output cannot produce negative z-scores); (3) mask columns never hidden or reconstructed, padding never hidden / in the loss / scored; (4) loss variance pooled per feature over real cells, not per flattened column; (5) batch 256, early stopping and ReduceLROnPlateau (widedeep: batch 32, fixed epochs, no schedule); (6) small widths with z = 16 (widedeep defaults [200, 100] / [200, 100, 100]). Library not installed (it would downgrade numpy); re-implemented in PyTorch |
+| Data per T | T64: `benign_gridsybil/T64` via `task/encoder` mode ae — benign train windows, val = 10% of their sender vehicles (split seed 0): fit 107,924 (3,263 vehicles) / val 12,149 (362 vehicles); test = on-disk mixed test, 12,741 benign + 25,685 GridSybil (labels read after scoring). T48: `benign_gridsybil/T48_benign` on-disk train 112,890 (3,223 vehicles) / val 13,584 (402) / test 13,405 benign + `test_gridsybil` 27,064. T32: `all/T32_benign` on-disk train 502,773 (4,206) / val 65,313 (524) / test 60,142 benign + `test_gridsybil` 28,087 / `test_datareplay` 76,283 / `test_dosrandom` 199,834 / `test_dosdisruptive` 199,826. Test vehicles 574 / 574 / 750, 0 in train or val (`test_metrics.json` → `label_checks`) |
+| Params | TabMlp **113,616 / 85,760 / 57,904**; TabResnet **128,224 / 100,576 / 72,928** at T = 64 / 48 / 32 (one-class ConvAE 80,189 / 71,741 / 63,293) |
+| Training | AdamW (widedeep default) lr 1e-3, weight decay 0.01, batch 256, max 300 epochs, no grad clip; early stopping + ReduceLROnPlateau (factor 0.5) on the benign val masked-reconstruction MSE with the sibling's patience: T64 5 / 3 / `min_delta` 0, T48 and T32 10 / 5 / relative 1e-4. The seed sets weights, batch order and training masks. **One configuration, not tuned** |
+| Val used for | early stopping, LR schedule, thresholds p95 / p99 of **benign val** scores (window, and track max / mean) |
+| Scores (per window, real cells only, saved before any label is read) | `masked_recon`: cells partitioned once into 5 fixed groups (`eval_mask_seed` 20261117, same for every run), each group hidden in turn, MSE of each real cell reconstructed while hidden; `full_recon`: MSE with nothing hidden; `mahalanobis`: z of the clean input vs a Gaussian fitted on benign train z (shrinkage only if cond > 1e6: never needed, cond 56–1,229 TabMlp, 12–32 TabResnet (T32: 14.0–18.8), shrinkage 0). Per track: max / mean over a link's windows |
+| Labels | training reads no label at T48 / T32 (`summary.json` → `label_reads` = []); at T64 the train labels are read once to select the benign windows (as S0); one-class = benign windows selected with labels, no label in the loss |
+| Seeds | 0–3 per T and encoder. **TabMlp: 12 / 12 runs complete. TabResnet: 12 / 12 runs complete** (T32 seeds 0–3 finished later on 2026-11-18; every run stopped by early stopping) |
+| Hardware / software | Mac MPS, torch 2.14.1 (`env.json`); TabMlp git cff8c53, TabResnet git 4250b0e, both `git_dirty: true` |
+
+**Training record** (`summary.json`; every run stopped by early stopping):
+
+| Encoder | T | best epoch (seeds 0 / 1 / 2 / 3) | epochs run | LR halvings | train minutes | best val masked MSE |
+|---|---|---|---|---|---|---|
+| TabMlp | 64 | 63 / 41 / 46 / 68 | 68 / 46 / 51 / 73 | 3 / 2 / 3 / 4 | 0.9 / 0.7 / 0.7 / 1.0 | 0.2917 / 0.2926 / 0.2910 / 0.2913 |
+| TabMlp | 48 | 101 / 80 / 110 / 84 | 111 / 90 / 120 / 94 | 5 / 5 / 5 / 3 | 1.6 / 1.3 / 1.7 / 1.3 | 0.3469 / 0.3457 / 0.3427 / 0.3468 |
+| TabMlp | 32 | 43 / 58 / 45 / 48 | 53 / 68 / 55 / 58 | 3 / 4 / 3 / 3 | 4.2 / 5.4 / 4.4 / 4.6 | 0.3248 / 0.3192 / 0.3267 / 0.3259 |
+| TabResnet | 64 | 161 / 129 / 174 / 164 | 166 / 134 / 179 / 169 | 6 / 6 / 5 / 5 | 6.6 / 5.3 / 6.9 / 6.6 | 0.2247 / 0.2330 / 0.2257 / 0.2234 |
+| TabResnet | 48 | 198 / 209 / 214 / 193 | 208 / 219 / 224 / 203 | 7 / 7 / 5 / 8 | 9.3 / 8.6 / 8.8 / 8.6 | 0.2804 / 0.2791 / 0.2749 / 0.2823 |
+| TabResnet | 32 | 138 / 108 / 154 / 148 | 148 / 118 / 164 / 158 | 7 / 5 / 7 / 5 | 29.2 / 22.0 / 33.9 / 32.8 | 0.2462 / 0.2491 / 0.2482 / 0.2452 |
+
+**TabMlp, GridSybil vs benign test, window level, seeds 0–3** (mean ± sample sd, n = 4; other columns are means;
+length-only = −n_messages, fixed in advance):
+
+| T | Score | Seeds 0 / 1 / 2 / 3 | Mean ± sd | Length-matched (mean ± sd) | ≥ 4 rows | 1–3 rows | PR-AUC (chance) | val p95: recall / benign FPR | val p99: recall / benign FPR | Track max / mean | Length-only |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 64 | masked recon | 0.5329 / 0.5316 / 0.5285 / 0.5311 | **0.531 ± 0.002** | 0.510 ± 0.002 | 0.550 | 0.398 | 0.707 (0.668) | 0.093 / 0.048 | 0.027 / 0.010 | 0.521 / 0.522 | 0.535 |
+| 64 | full recon | 0.5400 / 0.5407 / 0.5342 / 0.5402 | **0.539 ± 0.003** | 0.530 ± 0.003 | 0.558 | 0.448 | 0.722 (0.668) | 0.112 / 0.047 | 0.051 / 0.011 | 0.529 / 0.530 | 0.535 |
+| 64 | Mahalanobis | 0.3774 / 0.4129 / 0.4128 / 0.3893 | **0.398 ± 0.018** | 0.403 ± 0.019 | 0.412 | 0.374 | 0.634 (0.668) | 0.065 / 0.055 | 0.038 / 0.011 | 0.385 / 0.385 | 0.535 |
+| 48 | masked recon | 0.6060 / 0.6073 / 0.6089 / 0.6072 | **0.607 ± 0.001** | 0.589 ± 0.001 | 0.619 | 0.499 | 0.773 (0.669) | 0.172 / 0.045 | 0.076 / 0.008 | 0.594 / 0.595 | 0.530 |
+| 48 | full recon | 0.6006 / 0.6034 / 0.6048 / 0.6014 | **0.603 ± 0.002** | 0.595 ± 0.002 | 0.618 | 0.526 | 0.772 (0.669) | 0.174 / 0.045 | 0.084 / 0.009 | 0.589 / 0.590 | 0.530 |
+| 48 | Mahalanobis | 0.4204 / 0.3846 / 0.4105 / 0.3948 | **0.403 ± 0.016** | 0.408 ± 0.019 | 0.414 | 0.382 | 0.641 (0.669) | 0.072 / 0.052 | 0.038 / 0.009 | 0.385 / 0.383 | 0.530 |
+| 32 | masked recon | 0.6556 / 0.6589 / 0.6567 / 0.6552 | **0.657 ± 0.002** | 0.631 ± 0.001 | 0.674 | 0.529 | 0.514 (0.318) | 0.210 / 0.052 | 0.087 / 0.009 | 0.630 / 0.638 | 0.559 |
+| 32 | full recon | 0.6479 / 0.6545 / 0.6511 / 0.6474 | **0.650 ± 0.003** | 0.638 ± 0.003 | 0.669 | 0.563 | 0.515 (0.318) | 0.214 / 0.051 | 0.094 / 0.008 | 0.623 / 0.630 | 0.559 |
+| 32 | Mahalanobis | 0.3957 / 0.3912 / 0.4219 / 0.4241 | **0.408 ± 0.017** | 0.415 ± 0.019 | 0.424 | 0.373 | 0.316 (0.318) | 0.077 / 0.053 | 0.048 / 0.011 | 0.382 / 0.382 | 0.559 |
+
+**TabMlp, T = 32, the four attacks vs the same benign test (60,142 windows), seeds 0–3** (mean ± sd; recall / FPR
+means; 1-row share = windows with 1 real row, attack / benign test):
+
+| Attack (attack windows; 1-row share attack / benign) | Score | Pooled AUROC | Length-matched | ≥ 4 rows (attack windows) | 1–3 rows | val p95: recall / benign FPR | Length-only |
+|---|---|---|---|---|---|---|---|
+| GridSybil (28,087; 0.084 / 0.052) | masked recon | 0.657 ± 0.002 | 0.631 ± 0.001 | 0.674 ± 0.002 (22,365) | 0.529 | 0.210 / 0.052 | 0.559 |
+| GridSybil | full recon | 0.650 ± 0.003 | 0.638 ± 0.003 | 0.669 ± 0.003 | 0.563 | 0.214 / 0.051 | 0.559 |
+| GridSybil | Mahalanobis | 0.408 ± 0.017 | 0.415 ± 0.019 | 0.424 ± 0.020 | 0.373 | 0.077 / 0.053 | 0.559 |
+| DataReplay (76,283; 0.702 / 0.052) | masked recon | 0.693 ± 0.003 | **0.490 ± 0.009** | 0.359 ± 0.004 (3,883) | 0.557 | 0.137 / 0.052 | 0.952 |
+| DataReplay | full recon | 0.540 ± 0.010 | 0.491 ± 0.011 | 0.301 ± 0.002 | 0.521 | 0.091 / 0.051 | 0.952 |
+| DataReplay | Mahalanobis | 0.269 ± 0.036 | 0.437 ± 0.030 | 0.415 ± 0.014 | 0.327 | 0.009 / 0.053 | 0.952 |
+| DoSRandom (199,834; 0.888 / 0.052) | masked recon | 0.988 ± 0.001 | 0.970 ± 0.001 | 1.000 ± 0.000 (523) | 0.969 | 0.942 / 0.052 | 0.967 |
+| DoSRandom | full recon | 0.976 ± 0.002 | 0.971 ± 0.002 | 1.000 ± 0.000 | 0.959 | 0.884 / 0.051 | 0.967 |
+| DoSRandom | Mahalanobis | 0.394 ± 0.073 | 0.656 ± 0.118 | 0.715 ± 0.172 | 0.472 | 0.020 / 0.053 | 0.967 |
+| DoSDisruptive (199,826; 0.888 / 0.052) | masked recon | 0.851 ± 0.006 | **0.679 ± 0.005** | 1.000 ± 0.000 (524) | 0.746 | 0.448 / 0.052 | 0.967 |
+| DoSDisruptive | full recon | 0.732 ± 0.007 | 0.683 ± 0.003 | 1.000 ± 0.000 | 0.704 | 0.367 / 0.051 | 0.967 |
+| DoSDisruptive | Mahalanobis | 0.222 ± 0.032 | 0.447 ± 0.070 | 0.269 ± 0.050 | 0.288 | 0.002 / 0.053 | 0.967 |
+
+**Length confound (TabMlp).** `masked_recon` partly measures window length: a 1-row window has no time neighbours,
+so a hidden cell must be rebuilt from the other 12 features of the same message. On **benign test windows alone**,
+`masked_recon` separates 1–3-row from ≥ 4-row windows with AUROC 0.712 ± 0.009 / 0.698 ± 0.004 / 0.688 ± 0.004 at
+T = 64 / 48 / 32 (`full_recon` 0.545 / 0.537 / 0.541; Mahalanobis 0.286 / 0.300 / 0.413). Consequences: the pooled
+T32 DataReplay 0.693 is this length effect (70.2% of DataReplay windows have 1 row vs 5.2% of benign; length-matched
+0.490, ≥ 4 rows 0.359) and **must not be reported as detection**; it is also far below length only (0.952).
+DoSDisruptive falls from 0.851 pooled to 0.679 length-matched, below length only (0.967). DoSRandom stays separable
+inside every length (length-matched 0.970 ± 0.001, ≥ 4-row AUROC 1.000 on only 523 attack windows), the only one of
+DataReplay / DoS where a reconstruction score is not below length only. On GridSybil the TabMlp reconstruction
+scores lose 0.008–0.026 under length matching (T32 masked 0.657 → 0.631); Mahalanobis does not drop. The length-matched AUROC covers 100% of attack windows in every case (every attack length
+also has benign windows).
+
+**TabResnet (status 2026-11-18: T64, T48, T32 complete).** GridSybil vs benign test, window level, seeds 0–3 (same
+columns as the TabMlp table; from `runs/resnet/T{64,48,32}-seed{0..3}/test_metrics.json`, length-matched recomputed
+from `scores/*.npz` as above; the T64 / T48 rows re-checked against the run files, unchanged):
+
+| T | Score | Seeds 0 / 1 / 2 / 3 | Mean ± sd | Length-matched (mean ± sd) | ≥ 4 rows | 1–3 rows | PR-AUC (chance) | val p95: recall / benign FPR | val p99: recall / benign FPR | Track max / mean | Length-only |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 64 | masked recon | 0.5947 / 0.5897 / 0.5959 / 0.5978 | **0.595 ± 0.003** | 0.578 ± 0.004 | 0.604 | 0.507 | 0.754 (0.668) | 0.140 / 0.050 | 0.056 / 0.009 | 0.586 / 0.587 | 0.535 |
+| 64 | full recon | 0.6044 / 0.6010 / 0.6068 / 0.6078 | **0.605 ± 0.003** | 0.609 ± 0.003 | 0.608 | 0.629 | 0.765 (0.668) | 0.155 / 0.052 | 0.078 / 0.010 | 0.596 / 0.597 | 0.535 |
+| 64 | Mahalanobis | 0.3660 / 0.3598 / 0.3649 / 0.3809 | **0.368 ± 0.009** | 0.347 ± 0.012 | 0.385 | 0.298 | 0.618 (0.668) | 0.059 / 0.054 | 0.025 / 0.013 | 0.355 / 0.352 | 0.535 |
+| 48 | masked recon | 0.6493 / 0.6508 / 0.6518 / 0.6480 | **0.650 ± 0.002** | 0.640 ± 0.002 | 0.654 | 0.596 | 0.802 (0.669) | 0.208 / 0.046 | 0.110 / 0.009 | 0.639 / 0.640 | 0.530 |
+| 48 | full recon | 0.6472 / 0.6488 / 0.6478 / 0.6466 | **0.648 ± 0.001** | 0.650 ± 0.001 | 0.654 | 0.641 | 0.798 (0.669) | 0.195 / 0.045 | 0.101 / 0.009 | 0.636 / 0.637 | 0.530 |
+| 48 | Mahalanobis | 0.3718 / 0.3875 / 0.3814 / 0.3834 | **0.381 ± 0.007** | 0.366 ± 0.006 | 0.398 | 0.318 | 0.641 (0.669) | 0.083 / 0.052 | 0.052 / 0.011 | 0.358 / 0.353 | 0.530 |
+| 32 | masked recon | 0.6954 / 0.6964 / 0.6950 / 0.6978 | **0.696 ± 0.001** | 0.678 ± 0.001 | 0.706 | 0.619 | 0.566 (0.318) | 0.250 / 0.051 | 0.127 / 0.009 | 0.674 / 0.681 | 0.559 |
+| 32 | full recon | 0.6839 / 0.6845 / 0.6840 / 0.6887 | **0.685 ± 0.002** | 0.688 ± 0.004 | 0.699 | 0.664 | 0.553 (0.318) | 0.233 / 0.049 | 0.116 / 0.008 | 0.660 / 0.667 | 0.559 |
+| 32 | Mahalanobis | 0.3757 / 0.3740 / 0.3820 / 0.3806 | **0.378 ± 0.004** | 0.387 ± 0.003 | 0.402 | 0.320 | 0.330 (0.318) | 0.100 / 0.049 | 0.073 / 0.010 | 0.347 / 0.344 | 0.559 |
+
+**TabResnet, T = 32, the four attacks vs the same benign test (60,142 windows), seeds 0–3** (same columns as the
+TabMlp four-attack table; ≥ 4-row and 1–3-row columns are means except where ± is given):
+
+| Attack (attack windows; 1-row share attack / benign) | Score | Pooled AUROC | Length-matched | ≥ 4 rows (attack windows) | 1–3 rows | val p95: recall / benign FPR | Length-only |
+|---|---|---|---|---|---|---|---|
+| GridSybil (28,087; 0.084 / 0.052) | masked recon | 0.696 ± 0.001 | 0.678 ± 0.001 | 0.706 ± 0.001 (22,365) | 0.619 | 0.250 / 0.051 | 0.559 |
+| GridSybil | full recon | 0.685 ± 0.002 | 0.688 ± 0.004 | 0.699 ± 0.002 | 0.664 | 0.233 / 0.049 | 0.559 |
+| GridSybil | Mahalanobis | 0.378 ± 0.004 | 0.387 ± 0.003 | 0.402 ± 0.008 | 0.320 | 0.100 / 0.049 | 0.559 |
+| DataReplay (76,283; 0.702 / 0.052) | masked recon | 0.695 ± 0.008 | **0.559 ± 0.007** | 0.375 ± 0.012 (3,883) | 0.605 | 0.142 / 0.051 | 0.952 |
+| DataReplay | full recon | 0.460 ± 0.011 | 0.579 ± 0.006 | 0.305 ± 0.009 | 0.549 | 0.053 / 0.049 | 0.952 |
+| DataReplay | Mahalanobis | 0.271 ± 0.023 | 0.474 ± 0.023 | 0.313 ± 0.034 | 0.443 | 0.012 / 0.049 | 0.952 |
+| DoSRandom (199,834; 0.888 / 0.052) | masked recon | 0.994 ± 0.000 | 0.988 ± 0.000 | 1.000 ± 0.000 (523) | 0.984 | 0.971 / 0.051 | 0.967 |
+| DoSRandom | full recon | 0.964 ± 0.002 | 0.985 ± 0.002 | 1.000 ± 0.000 | 0.957 | 0.825 / 0.049 | 0.967 |
+| DoSRandom | Mahalanobis | 0.629 ± 0.165 | 0.827 ± 0.089 | 0.762 ± 0.064 | 0.795 | 0.193 / 0.049 | 0.967 |
+| DoSDisruptive (199,826; 0.888 / 0.052) | masked recon | 0.859 ± 0.004 | **0.734 ± 0.001** | 1.000 ± 0.000 (524) | 0.784 | 0.452 / 0.051 | 0.967 |
+| DoSDisruptive | full recon | 0.672 ± 0.009 | 0.770 ± 0.007 | 1.000 ± 0.000 | 0.722 | 0.311 / 0.049 | 0.967 |
+| DoSDisruptive | Mahalanobis | 0.281 ± 0.033 | 0.488 ± 0.031 | 0.332 ± 0.178 | 0.445 | 0.032 / 0.049 | 0.967 |
+
+Reading (TabResnet T32): as with TabMlp, DataReplay is not detected — pooled masked 0.695 is far below length only
+(0.952) and length-matched 0.559 is close to chance; DoSDisruptive falls from 0.859 to 0.734, below length only;
+DoSRandom stays separable inside every length (length-matched 0.988 ± 0.000, slightly above TabMlp's 0.970).
+Mahalanobis on DoSRandom is seed-sensitive (0.443–0.809 pooled). Benign short-vs-long AUROC, TabResnet:
+`masked_recon` 0.657 ± 0.006 / 0.659 ± 0.013 / 0.630 ± 0.005 (T64 / T48 / T32), `full_recon` 0.381 ± 0.006 /
+0.436 ± 0.011 / 0.417 ± 0.011 (the full-reconstruction error is *lower* on short windows here, so its length-matched
+AUROC is ≥ pooled), Mahalanobis 0.209 ± 0.049 / 0.179 ± 0.004 / 0.279 ± 0.024.
+
+**Against the one-class ConvAE on the same windows** (ConvAE seeds 0–3 from the "Four seeds per cell" table):
+GridSybil reconstruction 0.657 ± 0.004 / 0.682 ± 0.006 / 0.734 ± 0.003 at T = 64 / 48 / 32 vs TabMlp masked
+0.531 / 0.607 / 0.657 (−0.126 / −0.075 / −0.077) and TabResnet masked 0.595 / 0.650 / 0.696 (−0.062 / −0.032 /
+−0.038): TabResnet is above TabMlp at every T and below the ConvAE at every T.
+At T64 TabMlp sits at the length-only level (0.535). Mahalanobis on z is below chance in every masked-AE run (as in
+the ConvAE). The ConvAE length-matched AUROC was not computed here (D has no per-window score files).
+
+**Caveats:** one configuration (no tuning of p, widths, z); Mac MPS only, no EC2 replicate; the T64 Mahalanobis uses
+shrinkage-when-ill-conditioned (never triggered) where S0 used a ridge 1e-6; length-matched and short-vs-long numbers
+are computed for this inventory, not by the package's evaluation script (the notebook computes the same method); track
+ids hold the true sender (F13).
+
+---
+
+## T. TimesNet one-class `model-t32b-seed0` (context only, one seed)
+
+Added 2026-11-18. Sources: training `src/runs/pretraining/all/T32_benign/model-t32b-seed0/summary.json`; evaluation
+`src/runs/evaluation/all/T32_benign/model-t32b-seed0/summary.json` and its random-init control
+`src/runs/evaluation/all/T32_benign/model-t32b-seed0-random-init/summary.json` (pooled, ≥ 4-row, recall / FPR at val
+p95: `metrics.test_<attack>.window.<score>.{all,n_ge_4}`); analysis `…/model-t32b-seed0/ANALYSIS.md`. The pooled and
+≥ 4-row AUROCs were recomputed here from `scores/*.npz` and equal the summary (|Δ| < 1e-6); the **length-matched
+AUROC is not in the run files**: recomputed here from `scores/*.npz` (`n_real_rows`) with the masked-AE notebook's
+method. Machine-readable: `timesnet_t32b_seed0` in `results.json`. Not a baseline-grid cell and not the thesis's
+fine-tuned detector; listed because it shares D's and M's T32 split and test windows.
+
+| Item | Value |
+|---|---|
+| Model / training | TimesNet encoder (d = 128, d_ff = 64, 4 blocks) + heads, **2,301,312** encoder / **2,402,461** total params; one-class self-supervised pretraining on the benign train windows of `all/T32_benign` (masked reconstruction + P1–P3 injected-violation heads + NT-Xent); 20 epochs, 37,220 updates, best epoch 20 (val joint 0.31416, benign val), stop `max_epochs`, 29,449.7 s wall; EC2 Tesla T4, CUDA, torch 2.14.1+cu126, git 0c104ef, `git_dirty: false` |
+| Data | `all/T32_benign`: train 502,773 benign windows; benign val 65,313 (thresholds); test 60,142 benign + the four attack splits — **identical windows to D and M (T32)** |
+| Scores | recon = masked MSE on hidden real rows, 4 passes (windows with < 2 real rows get the benign val median 0.0623: filled, not measured; 5.2% of benign test, 8.4% GridSybil, 70.2% DataReplay, 88.8% DoS); Mahalanobis on z (fit on the 502,773 train windows, cond 1.8e15, shrinkage 0.01); kNN = 1 − mean cosine similarity to the K nearest of a 200,000-window benign train bank, K 5 / 10 / 20 |
+| Control | random-init: the same architecture untrained, scored identically |
+| Seeds | **1** (seed 0); seeds 1, 2 pending (`agent.md` §6) |
+
+Window AUROC, attack vs benign test (pooled → length-matched), ≥ 4-row AUROC, recall / benign FPR at val p95:
+
+| Attack | Score | Pretrained pooled → length-matched | ≥ 4 rows | val p95 recall / benign FPR | Random-init pooled → length-matched | ≥ 4 rows | val p95 recall / benign FPR |
+|---|---|---|---|---|---|---|---|
+| GridSybil | recon | 0.741 → 0.734 | 0.772 | 0.310 / 0.051 | 0.553 → 0.541 | 0.569 | 0.170 / 0.050 |
+| GridSybil | Mahalanobis | **0.880 → 0.846** | 0.892 | 0.657 / 0.051 | 0.673 → 0.642 | 0.676 | 0.198 / 0.051 |
+| GridSybil | kNN K5 | **0.886 → 0.875** | 0.897 | 0.717 / 0.052 | **0.839 → 0.836** | 0.845 | 0.451 / 0.051 |
+| GridSybil | kNN K10 | 0.885 → 0.871 | 0.895 | 0.711 / 0.051 | 0.831 → 0.828 | 0.838 | 0.420 / 0.051 |
+| GridSybil | kNN K20 | 0.884 → 0.866 | 0.893 | 0.705 / 0.049 | 0.821 → 0.817 | 0.829 | 0.392 / 0.050 |
+| GridSybil | length only | 0.559 | 0.538 | — | 0.559 | 0.538 | — |
+| DataReplay | recon | 0.486 → 0.481 | 0.430 | 0.027 / 0.051 | 0.466 → 0.460 | 0.393 | 0.018 / 0.050 |
+| DataReplay | Mahalanobis | 0.946 → 0.579 | 0.877 | 0.611 / 0.051 | 0.944 → 0.620 | 0.896 | 0.633 / 0.051 |
+| DataReplay | kNN K5 | 0.840 → 0.777 | 0.863 | 0.326 / 0.052 | 0.867 → 0.780 | 0.871 | 0.361 / 0.051 |
+| DataReplay | length only | 0.952 | 0.927 | — | 0.952 | 0.927 | — |
+| DoSRandom | recon | 0.550 → 0.555 | 1.000 | 0.112 / 0.051 | 0.537 → 0.555 | 1.000 | 0.111 / 0.050 |
+| DoSRandom | Mahalanobis | 0.960 → 0.523 | 1.000 | 0.638 / 0.051 | 0.995 → 0.951 | 0.999 | 0.993 / 0.051 |
+| DoSRandom | kNN K5 | 0.971 → 0.966 | 1.000 | 0.844 / 0.052 | 0.993 → 0.989 | 0.993 | 0.980 / 0.051 |
+| DoSRandom | length only | 0.967 | 0.978 | — | 0.967 | 0.978 | — |
+| DoSDisruptive | recon | 0.549 → 0.555 | 0.999 | 0.111 / 0.051 | 0.535 → 0.552 | 0.997 | 0.107 / 0.050 |
+| DoSDisruptive | Mahalanobis | 0.954 → 0.477 | 1.000 | 0.590 / 0.051 | 0.982 → 0.764 | 0.998 | 0.898 / 0.051 |
+| DoSDisruptive | kNN K5 | 0.859 → 0.829 | 0.999 | 0.409 / 0.052 | 0.903 → 0.848 | 0.973 | 0.509 / 0.051 |
+| DoSDisruptive | length only | 0.967 | 0.978 | — | 0.967 | 0.978 | — |
+
+(kNN K10 / K20 for DataReplay / DoS: `results.json` → `timesnet_t32b_seed0`.) Length-only recall at val p95 is 0: the
+val p95 of −n_real_rows is −1, and no window scores above it (stated in the evaluation protocol).
+
+Reading (one seed): on GridSybil the pretrained encoder's kNN / Mahalanobis gain over random-init survives length
+matching (kNN K5 0.875 vs 0.836; Mahalanobis 0.846 vs 0.642), and both are above every reconstruction score of D and
+M on the same windows. For DataReplay / DoS the pooled Mahalanobis 0.95–0.96 is mostly length (length-matched
+0.48–0.58), and random-init is at or above pretrained on every DataReplay / DoS Mahalanobis and kNN length-matched AUROC, so
+there is no evidence of a pretraining gain there (F11).
+
+---
+
 ## P. `src/baselines/plausibility/` — VeReMi-Extension paper Table III detector, re-implemented
 
 Sources: `src/baselines/plausibility/README.md`; `src/runs/baselines/plausibility/summary.json`; spec
@@ -669,15 +874,45 @@ GridSybil vs benign, test split, window level unless stated. One row per reporte
 | G Mahalanobis | unlabelled | T64 | same | 80,189 | 1 | 0.352 | 0.599 | 0.047 (0.057) | 0.087 | 0.340 / 0.335 | 0.535 | 0.317 (≥ 4 rows: 0.362) |
 | H recon | unlabelled (GridSybil 31.3% of train) | all/T32_benign_grid (32) | 67,100; 0.323 | 63,293 | 1 | 0.610 (GridSybil folders only: 0.613) | 0.436 (0.323) | 0.108 (0.040) | not found | 0.594 / 0.599 | 0.560 | 0.496 (≥ 4 rows: 0.648) |
 | H Mahalanobis | unlabelled | all/T32_benign_grid | same | 63,293 | 1 | 0.398 | 0.331 | 0.097 (0.053) | not found | 0.362 / 0.362 | 0.560 | 0.385 (≥ 4 rows: 0.414) |
+| M TabMlp masked recon | one-class (benign) | T64 (64), S0 AE's windows | 38,426; 0.668 | 113,616 | 4 | 0.531 ± 0.002 (length-matched 0.510) | 0.707 (0.668) | 0.093 (0.048) | not computed | 0.521 / 0.522 | 0.535 | 0.398 (≥ 4 rows: 0.550) |
+| M TabMlp full recon | one-class | T64 | same | 113,616 | 4 | 0.539 ± 0.003 (0.530) | 0.722 | 0.112 (0.047) | not computed | 0.529 / 0.530 | 0.535 | 0.448 (≥ 4 rows: 0.558) |
+| M TabMlp Mahalanobis | one-class | T64 | same | 113,616 | 4 | 0.398 ± 0.018 (0.403) | 0.634 | 0.065 (0.055) | not computed | 0.385 / 0.385 | 0.535 | 0.374 (≥ 4 rows: 0.412) |
+| M TabMlp masked recon | one-class | T48_benign (48), F's windows | 13,405 benign + 27,064 GridSybil; 0.669 | 85,760 | 4 | 0.607 ± 0.001 (0.589) | 0.773 (0.669) | 0.172 (0.045) | not computed | 0.594 / 0.595 | 0.530 | 0.499 (≥ 4 rows: 0.619) |
+| M TabMlp full recon | one-class | T48_benign | same | 85,760 | 4 | 0.603 ± 0.002 (0.595) | 0.772 | 0.174 (0.045) | not computed | 0.589 / 0.590 | 0.530 | 0.526 (≥ 4 rows: 0.618) |
+| M TabMlp Mahalanobis | one-class | T48_benign | same | 85,760 | 4 | 0.403 ± 0.016 (0.408) | 0.641 | 0.072 (0.052) | not computed | 0.385 / 0.383 | 0.530 | 0.382 (≥ 4 rows: 0.414) |
+| M TabMlp masked recon | one-class | all/T32_benign (32), D's windows | 60,142 benign + 28,087 GridSybil; 0.318 | 57,904 | 4 | 0.657 ± 0.002 (0.631) | 0.514 (0.318) | 0.210 (0.052) | not computed | 0.630 / 0.638 | 0.559 | 0.529 (≥ 4 rows: 0.674) |
+| M TabMlp full recon | one-class | all/T32_benign | same | 57,904 | 4 | 0.650 ± 0.003 (0.638) | 0.515 | 0.214 (0.051) | not computed | 0.623 / 0.630 | 0.559 | 0.563 (≥ 4 rows: 0.669) |
+| M TabMlp Mahalanobis | one-class | all/T32_benign | same | 57,904 | 4 | 0.408 ± 0.017 (0.415) | 0.316 | 0.077 (0.053) | not computed | 0.382 / 0.382 | 0.559 | 0.373 (≥ 4 rows: 0.424) |
+| M TabResnet masked recon | one-class | T64 | 38,426; 0.668 | 128,224 | 4 | 0.595 ± 0.003 (0.578) | 0.754 | 0.140 (0.050) | not computed | 0.586 / 0.587 | 0.535 | 0.507 (≥ 4 rows: 0.604) |
+| M TabResnet full recon | one-class | T64 | same | 128,224 | 4 | 0.605 ± 0.003 (0.609) | 0.765 | 0.155 (0.052) | not computed | 0.596 / 0.597 | 0.535 | 0.629 (≥ 4 rows: 0.608) |
+| M TabResnet masked recon | one-class | T48_benign | 13,405 + 27,064; 0.669 | 100,576 | 4 | 0.650 ± 0.002 (0.640) | 0.802 | 0.208 (0.046) | not computed | 0.639 / 0.640 | 0.530 | 0.596 (≥ 4 rows: 0.654) |
+| M TabResnet full recon | one-class | T48_benign | same | 100,576 | 4 | 0.648 ± 0.001 (0.650) | 0.798 | 0.195 (0.045) | not computed | 0.636 / 0.637 | 0.530 | 0.641 (≥ 4 rows: 0.654) |
+| M TabResnet masked recon | one-class | all/T32_benign | 60,142 + 28,087; 0.318 | 72,928 | 4 | 0.696 ± 0.001 (0.678) | 0.566 (0.318) | 0.250 (0.051) | not computed | 0.674 / 0.681 | 0.559 | 0.619 (≥ 4 rows: 0.706) |
+| M TabResnet full recon | one-class | all/T32_benign | same | 72,928 | 4 | 0.685 ± 0.002 (0.688) | 0.553 | 0.233 (0.049) | not computed | 0.660 / 0.667 | 0.559 | 0.664 (≥ 4 rows: 0.699) |
+| M TabResnet Mahalanobis | one-class | all/T32_benign | same | 72,928 | 4 | 0.378 ± 0.004 (0.387) | 0.330 | 0.100 (0.049) | not computed | 0.347 / 0.344 | 0.559 | 0.320 (≥ 4 rows: 0.402) |
+| *Context:* T TimesNet kNN K5 | one-class SSL pretraining (benign) | all/T32_benign (32), D's windows | 60,142 + 28,087; 0.318 | 2,402,461 | 1 | 0.886 (length-matched 0.875; random-init 0.839 / 0.836) | 0.871 (0.318) | 0.717 (0.052) | not computed | 0.880 / 0.884 | 0.559 | 0.788 (≥ 4 rows: 0.897) |
+| *Context:* T TimesNet Mahalanobis | one-class SSL | all/T32_benign | same | 2,402,461 | 1 | 0.880 (0.846; random-init 0.673 / 0.642) | 0.843 | 0.657 (0.051) | not computed | 0.873 / 0.877 | 0.559 | 0.686 (≥ 4 rows: 0.892) |
+| *Context:* T TimesNet recon | one-class SSL | all/T32_benign | same | 2,402,461 | 1 | 0.741 (0.734; < 2-row windows filled) | 0.615 | 0.310 (0.051) | not computed | 0.719 / 0.727 | 0.559 | 0.601 (≥ 4 rows: 0.772) |
 | P plausibility (`catch`) | none (rules) | raw messages | all received messages, 0709 / 1416 | — | — | not found (binary output) | not found | not found | 0.727 / 0.692 per message | — | — | — |
 
-Other attacks (only D and P cover them):
+Other attacks (D and P; seed 0 of D. Added 2026-11-18: M TabMlp T32 and T as context, table below):
 
 | Attack | D recon AUROC | D Mahalanobis AUROC | D length-only AUROC | D recall @ val p95 | P F1 per message (0709 / 1416) |
 |---|---|---|---|---|---|
 | DataReplay | 0.391 | 0.336 | 0.952 | 0.046 | 0.510 / 0.537 |
 | DoSRandom | 0.973 | 0.837 | 0.967 | 0.880 | 0.887 / 0.885 |
 | DoSDisruptive | 0.611 | 0.556 | 0.967 | 0.292 | 0.660 / 0.697 |
+
+Same benign test (60,142 windows of `all/T32_benign`), window AUROC **pooled → length-matched** (length-matched =
+AUROC inside each exact window length, weighted by attack windows; recomputed from score files, see sections M, T).
+D: seeds 0–3 pooled (no score files, so no length-matched value). M: TabMlp masked recon (and full recon), seeds 0–3 mean ± sd.
+T: TimesNet seed 0, pretrained / random-init. M TabResnet: masked recon, seeds 0–3 mean ± sd.
+
+| Attack | Length-only | D recon (seeds 0–3) | M masked recon | M full recon | T kNN K5: pretrained / random-init | T Mahalanobis: pretrained / random-init | M TabResnet masked recon |
+|---|---|---|---|---|---|---|---|
+| DataReplay | 0.952 | 0.387 ± 0.010 | 0.693 ± 0.003 → **0.490 ± 0.009** | 0.540 ± 0.010 → 0.491 ± 0.011 | 0.840 → 0.777 / 0.867 → 0.780 | 0.946 → 0.579 / 0.944 → 0.620 | 0.695 ± 0.008 → **0.559 ± 0.007** |
+| DoSRandom | 0.967 | 0.967 ± 0.005 | 0.988 ± 0.001 → 0.970 ± 0.001 | 0.976 ± 0.002 → 0.971 ± 0.002 | 0.971 → 0.966 / 0.993 → 0.989 | 0.960 → 0.523 / 0.995 → 0.951 | 0.994 ± 0.000 → 0.988 ± 0.000 |
+| DoSDisruptive | 0.967 | 0.598 ± 0.012 | 0.851 ± 0.006 → **0.679 ± 0.005** | 0.732 ± 0.007 → 0.683 ± 0.003 | 0.859 → 0.829 / 0.903 → 0.848 | 0.954 → 0.477 / 0.982 → 0.764 | 0.859 ± 0.004 → **0.734 ± 0.001** |
 
 **Seed-3 reruns (2026-11-16, EC2 T4)**, GridSybil vs benign, test, window AUROC; seed 0 (or S0's 3-seed mean) for
 comparison. Sources: the "Seed 3" block of each section; judge verdicts under `baselines/<study>/seed3/judge/` (HF).
@@ -706,10 +941,24 @@ are still not directly comparable (different inputs, splits, test vehicles; see 
 | F | one-class | T48_benign | recon | 0.6894 / 0.6775 / 0.6764 / 0.6845 | 0.682 ± 0.006 | Maha 0.446 ± 0.015 | PASS-WITH-NOTES ×3 |
 | G | unlabelled mix | T64 | recon | 0.4819 / 0.4810 / 0.4835 / 0.4800 | 0.482 ± 0.002 | Maha 0.340 ± 0.010 | seed 3 PASS, 1–2 PASS-WITH-NOTES |
 | H | unlabelled mix | all/T32_benign_grid | recon | 0.6102 / 0.6171 / 0.6070 / 0.6129 | 0.612 ± 0.004 | Maha 0.421 ± 0.024; GridSybil folders recon 0.614 ± 0.004 | PASS-WITH-NOTES ×3 |
+| M TabMlp (added 2026-11-18) | one-class | T64 (S0 AE's windows) | masked recon | 0.5329 / 0.5316 / 0.5285 / 0.5311 | 0.531 ± 0.002 | full recon 0.539 ± 0.003; Maha 0.398 ± 0.018; length-matched masked 0.510 ± 0.002 | no judge; every AUROC recomputed from score files (Δ < 1e-6) |
+| M TabMlp | one-class | T48_benign (F's windows) | masked recon | 0.6060 / 0.6073 / 0.6089 / 0.6072 | 0.607 ± 0.001 | full recon 0.603 ± 0.002; Maha 0.403 ± 0.016; length-matched masked 0.589 ± 0.001 | same |
+| M TabMlp | one-class | all/T32_benign (D's windows) | masked recon | 0.6556 / 0.6589 / 0.6567 / 0.6552 | 0.657 ± 0.002 | full recon 0.650 ± 0.003; Maha 0.408 ± 0.017; length-matched masked 0.631 ± 0.001; DataReplay 0.693 → 0.490, DoSRandom 0.988 → 0.970, DoSDisruptive 0.851 → 0.679 (pooled → length-matched) | same |
+| M TabResnet | one-class | T64 | masked recon | 0.5947 / 0.5897 / 0.5959 / 0.5978 | 0.595 ± 0.003 | full recon 0.605 ± 0.003; Maha 0.368 ± 0.009 | same |
+| M TabResnet | one-class | T48_benign | masked recon | 0.6493 / 0.6508 / 0.6518 / 0.6480 | 0.650 ± 0.002 | full recon 0.648 ± 0.001; Maha 0.381 ± 0.007 | same |
+| M TabResnet | one-class | all/T32_benign | masked recon | 0.6954 / 0.6964 / 0.6950 / 0.6978 | 0.696 ± 0.001 | full recon 0.685 ± 0.002; Maha 0.378 ± 0.004; length-matched masked 0.678 ± 0.001; DataReplay 0.695 → 0.559, DoSRandom 0.994 → 0.988, DoSDisruptive 0.859 → 0.734 (pooled → length-matched) | same |
 
 Readings unchanged by the extra seeds: reconstruction is stable (sd ≤ 0.006); Mahalanobis on z is the least stable
 score in every cell that has it and below chance in every seed of S0, F, G and H (D: 0.487–0.514); the single-seed F number 0.689 was the best
 of four. Seed 0 of A, D (3 dp) and C, E (4 dp) are rounded notebook values.
+M (masked AE, added 2026-11-18): all seeds on the Mac (MPS), no EC2 replicate and no judge; same reading — reconstruction
+stable (sd ≤ 0.004), Mahalanobis below chance in every run and the least stable score. 2026-11-18 check: every
+per-seed value of this table and of `seed_summary` was compared with the run files now on the Mac
+(`task/*/runs/seed{1,2,3}/judge/recompute.json`, `test_metrics.json`, `results.json`, `evaluation.json`,
+`task/encoder/runs/evaluation/results.json`, `ae-seed{3,4}/judge/recompute.json`): all equal within 1e-6 except the
+rounded seed-0 notebook values; every mean / sd recomputes to the stored 4 dp. One rounded value was replaced in
+`results.json` (H GridSybil-folders seed 0: 0.613 → 0.61311 from `task/autoencoder_t32/runs/seed0/evaluation.json`;
+mean ± sd unchanged).
 
 ---
 
@@ -720,8 +969,8 @@ notebook counts):
 
 | Group | Studies | What is shared | What differs |
 |---|---|---|---|
-| G1: the benign + GridSybil test vehicles (574 sender vehicles) | S0, A, B, C, F, G | the same 10% test vehicles | window cut and count: S0 and G T = 64 → the same 38,426 windows; F = 13,405 benign + 27,064 GridSybil windows at T = 48, the same counts as A and C (T48_benign windows = T48_tvt's of the same id, `agent.md` §2); A and C T = 48 → the same 40,469 windows (`agent.md`: T48_tvt test = T48 test, vehicles + window ids); B stride 24 → 42,653 windows over the same 35,957 tracks as C |
-| G2: `all/T32_benign` test | D | — | 80 / 10 / 10 split over 7,511 vehicle keys; benign from 8 folders (525 vehicles) + attack windows of 225 test attack vehicles |
+| G1: the benign + GridSybil test vehicles (574 sender vehicles) | S0, A, B, C, F, G; M at T64 / T48 (added 2026-11-18) | the same 10% test vehicles | window cut and count: S0 and G T = 64 → the same 38,426 windows; F = 13,405 benign + 27,064 GridSybil windows at T = 48, the same counts as A and C (T48_benign windows = T48_tvt's of the same id, `agent.md` §2); A and C T = 48 → the same 40,469 windows (`agent.md`: T48_tvt test = T48 test, vehicles + window ids); B stride 24 → 42,653 windows over the same 35,957 tracks as C |
+| G2: `all/T32_benign` test | D; M at T32; T (context) | D, M (T32) and T: the same 60,142 benign + attack test windows and split; D and M share the on-disk normalisation, T applies its own feature scaling at load time (evaluation `summary.json` → `checkpoint.scaling`; median / IQR for three features, D13) | 80 / 10 / 10 split over 7,511 vehicle keys; benign from 8 folders (525 vehicles) + attack windows of 225 test attack vehicles |
 | G3: `all/T32_benign_grid` test | E, H | E and H: the same 67,100 test windows, split and normalisation | 85 / 7.5 / 7.5 split over the same keys → **different test vehicles from D** (524 vehicles) |
 | G4: raw messages | P | — | no split; every received message of every subset, including the vehicles the learned models trained on |
 
@@ -748,6 +997,18 @@ by the scale, but the inputs the models saw differ.
 4. **D's four attacks** against one benign test set: one model, one normalisation, one threshold. AUROC and recall at
    val p95 are comparable across attacks; PR-AUC is not (attack share 0.318 / 0.559 / 0.769 / 0.769).
 5. **P's eight subsets** with each other and with the paper's Table III (same unit, same metric).
+6. **M vs the one-class ConvAE at the same T** (added 2026-11-18): M at T64 / T48 / T32 uses exactly the train, val
+   and test windows of S0 AE / F / D (imported data classes, caches and splits; T64 also the same 362 val vehicles),
+   the same benign-val p95 / p99 threshold rule and the sibling's early-stopping / plateau patience; both have
+   seeds 0–3. Footnotes: a different model family (flattened MLP / ResNet vs 1-D ConvAE) with a different input
+   corruption (random cell masking) and optimiser (AdamW, weight decay 0.01 vs Adam 1e-5); **M is untuned** (one
+   configuration from widedeep's defaults, scaled down); M ran on the Mac only (ConvAE seeds 1–3 on EC2 CUDA); M's
+   T64 Mahalanobis uses shrinkage-when-ill-conditioned (not triggered) vs S0's ridge. The length-matched AUROC exists
+   only for M (and T), not for the ConvAE.
+7. **D vs M vs T at T32** (same 60,142 benign test windows and attack splits): one-class ConvAE, masked AE (4 seeds
+   each) and TimesNet (context, **one seed**, EC2 CUDA, 2.4 M params vs 58–73 k, SSL losses beyond reconstruction,
+   its own feature scaling, D13). T's recon score fills < 2-row windows with the benign val median, so its pooled recon
+   AUROC is not a measured error on those windows; compare T on kNN / Mahalanobis, and length-matched.
 
 **Rows that must not be ranked against each other:**
 
@@ -780,6 +1041,10 @@ by the scale, but the inputs the models saw differ.
   E; absent in B.
 - **Short-window bins** differ per study (≤ 3 / 4–16 / 17–48 / 49–64 in S0; ≤ 3 / 4–16 / 17–32 / 33–48 in A; 1–3 /
   4–16 / 17–47 / 48 in C; 1–3 / 4–16 / 17–31 / 32 in E; only "≥ 4 rows" in D). Only the 1–3 (≤ 3) bin lines up.
+- **M vs any cell other than its ConvAE sibling:** inherits every mismatch of that sibling's row above (e.g. M T32 vs
+  H: different split and test vehicles).
+- **Length-matched AUROC** (M, T only) is not comparable with the pooled AUROC of other rows; for long-window
+  GridSybil the two differ by ≤ 0.034, for DataReplay / DoS by up to 0.44 (T Mahalanobis DoSRandom 0.960 → 0.523).
 - **Track level:** S0 and A have none. Track ids contain the true sender (F13), so every track-level number is a
   privileged grouping.
 
@@ -789,8 +1054,10 @@ by the scale, but the inputs the models saw differ.
 
 **Seeds and uncertainty**
 
-- Seeds per study: S0 = 3 (AE and supervised); A, B, C, D, E, F, G, H = **1 each** (seed 0). The `seed0_featlog` folders are
-  re-runs of seed 0 with identical histories, not extra seeds.
+- Seeds per study (as written 2026-11-10): S0 = 3 (AE and supervised); A, B, C, D, E, F, G, H = **1 each** (seed 0). The
+  `seed0_featlog` folders are re-runs of seed 0 with identical histories, not extra seeds. **Updated 2026-11-18:** since
+  2026-11-17 every grid cell (S0 AE, A, C, D, E, F, G, H) has seeds 0–3 (S0 AE 0–4; seed 0 Mac, 1–3 EC2); B and the S0
+  supervised model keep 1 / 3 seeds; M has seeds 0–3 per T and encoder (TabMlp and TabResnet complete); T has 1 seed.
 - Confidence intervals: only S0 has any (vehicle bootstrap, 1,000 resamples, test-sampling only; not combined with
   seed variance). A–E: none. P: none (deterministic, but no interval over receivers / vehicles).
 - No significance test between any two methods (no paired bootstrap, no DeLong).
@@ -799,7 +1066,9 @@ by the scale, but the inputs the models saw differ.
 
 **Test metrics not persisted**
 
-- F, G, H persist test metrics and per-window scores (added 2026-11-11); the rest of this item applies to A–E.
+- F, G, H persist test metrics and per-window scores (added 2026-11-11); so do M (`test_metrics.json`,
+  `scores/<split>.npz`) and T (evaluation `summary.json`, `scores/<split>.npz`) (added 2026-11-18); the rest of this
+  item applies to A–E (the EC2 seeds 1–3 of A–E have judge recompute JSONs, not per-window score files).
 - A–E test metrics are stored only as notebook outputs (3–4 decimals) and README text; no per-window score files, so
   CIs, paired tests and re-binned breakdowns cannot be computed without re-scoring from `best.pt`.
 
@@ -809,6 +1078,8 @@ by the scale, but the inputs the models saw differ.
 |---|---|---|---|---|
 | S0, A, B, C, E, F, G, H | yes | no | no | no |
 | D | yes | yes | yes | yes |
+| M (T32 only; T64 / T48: GridSybil only) | yes | yes | yes | yes |
+| T (context, T32) | yes | yes | yes | yes |
 | P | yes | yes | yes | yes |
 
 - No supervised model is tested on an attack it was not trained on (no leave-one-attack-out), and no supervised
@@ -823,11 +1094,15 @@ by the scale, but the inputs the models saw differ.
 - Four different test sets (G1–G4), four normalisations, three T values, three split ratios.
 - No one-class run under the same protocol as an unsupervised run. Since 2026-11-11 each window length has both
   (T64: S0-AE vs G, same test windows; T48: F vs A / B; T32: D vs H, different test sets), but training settings,
-  val sets or normalisation still differ within each pair, each new run has one seed, and no pair is a paired
-  comparison with an interval.
+  val sets or normalisation still differ within each pair, and no pair is a paired comparison with an interval
+  (2026-11-18: each of these cells now has seeds 0–3, so the "one seed" part no longer holds; the one-class masked AE M
+  shares windows with S0 AE / F / D, but none of them shares a protocol with an unsupervised run).
 - Early-stopping patience, `min_delta`, epoch cap and gradient clipping differ between studies; the S0 AE epoch cap
   was raised from 50 to 300 after the first runs.
-- No hyperparameter search or sensitivity study anywhere (latent size, T, λ of the joint loss, thresholds).
+- No hyperparameter search or sensitivity study anywhere (latent size, T, λ of the joint loss, thresholds); M was
+  run in one configuration only (masking probability 0.2, widths, z = 16 fixed).
+- Length control: only M and T report a length-matched AUROC (computed for this inventory from their score files);
+  all other studies report length-only and 1–3 / ≥ 4-row splits only.
 - Supervised operating points: S0 uses a fixed 0.5 threshold, C / E use val-chosen thresholds.
 
 **Classical baselines in the repo**
@@ -840,6 +1115,9 @@ by the scale, but the inputs the models saw differ.
   gradient boosting on window statistics. PCA appears only for 2-D plots of z; `LogisticRegression` also appears in
   `scripts/evaluate_frozen_encoder.py` and an EDA notebook, which are not baseline studies.
 - No unsupervised classical baseline exists at all, and no classical baseline exists on the T48 or T32 inputs.
+- Added 2026-11-18 (neural, not classical): an MLP / ResNet masked autoencoder (M) and a TimesNet one-class SSL
+  encoder with kNN / Mahalanobis scores (T, context, one seed). The classical one-protocol sweep under
+  `baselinepaper/experiments/` is not inventoried here.
 
 **Leakage: stated but not measured**
 
@@ -887,3 +1165,10 @@ by the scale, but the inputs the models saw differ.
    READMEs after rounding. No disagreement found.
 8. **Run folders:** none missing. All of `task/*/runs/seed0/` (A–E), `task/encoder/runs/{ae,supervised}-seed{0,1,2}/`,
    `runs/baselines/`, `runs/evaluation/` and `src/runs/baselines/plausibility/` exist with config, env and summary.
+9. **M README vs run folders (2026-11-18).** `task/masked_autoencoder/README.md` ("Results (TabResnet, seeds 0-3)")
+   now lists all 12 finished TabResnet runs (T64 / T48 / T32, seeds 0-3), matching section M; its TabMlp table
+   equals the numbers in section M (pooled, length-matched, length-only, ConvAE column).
+10. **T recon score.** The TimesNet pooled recon AUROC includes windows with < 2 real rows whose score is the benign
+    val median (filled, not measured; `summary.json` → `protocol.recon_fill`); its DataReplay / DoS recon rows are
+    therefore mostly fill (70–89% of attack windows). The evaluation's own like-for-like subset with D is GridSybil
+    ≥ 4 rows (`protocol.comparable_to_baseline`): T recon 0.772, D recon 0.778 (seed 0).

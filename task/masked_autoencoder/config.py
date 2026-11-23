@@ -14,11 +14,41 @@ one-class ConvAE package it is compared with:
 from __future__ import annotations
 
 import dataclasses
+from pathlib import Path
 
 RUNS_DIR = "task/masked_autoencoder/runs"
 N_FEATURES = 13
 ENCODERS = ("mlp", "resnet")
+WINDOWS = (64, 48, 32)
+SEEDS = (0, 1, 2, 3)
 EVAL_MASK_SEED = 20261117  # fixed for every window, run and seed: the deterministic scoring masks
+LOGS_NAME = "logs"
+
+
+def encoder_path(encoder: str, runs_dir: str | Path = RUNS_DIR) -> Path:
+    """Folder of every run of one encoder, `<runs_dir>/<encoder>`."""
+    if encoder not in ENCODERS:
+        raise ValueError(f"encoder must be one of {ENCODERS}, got {encoder!r}")
+    return Path(runs_dir) / encoder
+
+
+def run_path(encoder: str, window: int, seed: int, runs_dir: str | Path = RUNS_DIR, check: bool = False) -> Path:
+    """Run folder `<runs_dir>/<encoder>/T<window>-seed<seed>` (`-check` suffix for a capped quick-check run).
+
+    The single place that defines the run layout; train, evaluate, plots, run_all and the notebook all call it.
+    """
+    return encoder_path(encoder, runs_dir) / (f"T{window}-seed{seed}" + ("-check" if check else ""))
+
+
+def logs_path(encoder: str, runs_dir: str | Path = RUNS_DIR) -> Path:
+    """Folder of the grid logs of one encoder, `<runs_dir>/<encoder>/logs`."""
+    return encoder_path(encoder, runs_dir) / LOGS_NAME
+
+
+def is_finished(run_dir: str | Path) -> bool:
+    """True when a run folder holds both `summary.json` (training) and `test_metrics.json` (evaluation)."""
+    run_dir = Path(run_dir)
+    return (run_dir / "summary.json").is_file() and (run_dir / "test_metrics.json").is_file()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -109,7 +139,7 @@ class MAEConfig:
         device: "auto" (mps > cuda > cpu) or a torch device.
         eval_batch: batch size for validation and scoring.
         workers: JSON decoding processes (only used when a sibling cache is missing).
-        runs_dir: parent of the run folders.
+        runs_dir: root of the run tree; a run lives in `run_path(encoder, window, seed, runs_dir)`.
         max_windows: cap per split for quick checks (0 = all); a capped run gets a `-check` suffix.
     """
 
@@ -172,8 +202,17 @@ class MAEConfig:
 
     @property
     def run_id(self) -> str:
-        """Run folder name, e.g. `T32-mlp-seed0` (`-check` when windows are capped)."""
+        """Run identifier stored in the run files, e.g. `T32-mlp-seed0` (`-check` when windows are capped).
+
+        Not a path: the folder is `run_dir` (`runs/mlp/T32-seed0`); the id keeps the encoder so it stays unique
+        across encoders and equal to the ids already written by the TabMlp runs.
+        """
         return f"T{self.window}-{self.encoder}-seed{self.seed}" + ("-check" if self.max_windows else "")
+
+    @property
+    def run_dir(self) -> Path:
+        """Run folder, `<runs_dir>/<encoder>/T<window>-seed<seed>[-check]`."""
+        return run_path(self.encoder, self.window, self.seed, self.runs_dir, check=bool(self.max_windows))
 
     def to_dict(self) -> dict:
         """JSON-ready settings (plus the resolved data protocol, for the record)."""

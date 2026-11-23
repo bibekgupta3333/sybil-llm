@@ -46,7 +46,24 @@ it tells nothing about whether a model has learned plausible motion, which is wh
 contribute, and it may not hold under another pseudonym-change policy. A pooled AUROC cannot tell the two apart.
 Every detector here can see length, so we report each result next to the one-feature control and matched on
 length, in line with the call for simple baselines~\cite{arp2022dos,kim2022rigorous}.
-\pending{Matched on length, the benign-only detectors retain 0.xxx--0.xxx on the DoS attacks.} The unit of
+\pending{Matched on length, the benign-only detectors retain 0.xxx--0.xxx on the DoS attacks.}
+
+The earlier studies show why a length-only score alone is not enough as a control
+(Section~\ref{sec:res-prelim}, Table~\ref{tab:lmprelim}). The masked autoencoder scores DataReplay with a pooled
+AUROC of \prelim{0.693 $\pm$ 0.003}, which looks like weak detection and is below length alone (0.952), so a
+comparison with the control would only say that it adds nothing. Matched on length it scores \prelim{0.490 $\pm$
+0.009}: the pooled value is length, carried by the reconstruction error. With the TabResnet encoder the same
+score falls from \prelim{0.695 $\pm$ 0.008} to \prelim{0.559 $\pm$ 0.007}, close to chance. A window of one row has no neighboring
+rows from which to rebuild a hidden cell, and on benign test windows alone the masked-reconstruction score
+separates windows of one to three rows from longer ones with an AUROC of \prelim{0.688--0.712}; 70.2\% of the
+DataReplay windows have one row, against 5.2\% of the benign windows. In the same way its DoSDisruptive score
+falls from \prelim{0.851} to \prelim{0.679}. One seed of a pretrained TimesNet encoder shows the second case: its
+Mahalanobis score reaches \prelim{0.946--0.960} on the three pseudonym-rotating attacks, close to length alone,
+and \prelim{0.477--0.579} matched on length, while the same encoder with random weights scores
+\prelim{0.620--0.951}, so these pooled values say nothing about pretraining. On GridSybil, where length is weak,
+matching changes little (masked autoencoder \prelim{0.657 $\to$ 0.631}, TimesNet kNN \prelim{0.886 $\to$ 0.875}).
+These are earlier, partly single-seed results on another protocol; they illustrate the measurement, not a
+finding of this paper. The unit of
 analysis creates this effect: with pseudonym links, the attack mechanism determines the sequence length. Another
 unit, such as all messages a receiver hears in a time interval, would change it and is left to future work.
 

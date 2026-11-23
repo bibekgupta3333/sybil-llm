@@ -197,6 +197,15 @@ table.mdl { font-size: 16px; margin-bottom: 12px; } table.mdl th { font-size: 15
 table.mdl tr.refrow td { background: var(--surface); color: var(--muted); font-weight: 400; }
 table.rel.relc { font-size: 17px; } table.rel.relc th { font-size: 16px; } table.rel.relc td, table.rel.relc th { padding: 6px 8px; }
 .t15 .lab { font-size: 16px; } .t15 .num { white-space: nowrap; }
+.badge.run { background: transparent; border: 1.5px dashed var(--val); color: var(--warm-text); margin: 0; }
+table.mdl tr.pend td { color: var(--muted); font-style: italic; }
+table.mdl td, table.mdl th { padding: 4px 5px !important; } table.mdl { margin-bottom: 8px !important; }
+.sd { font-size: 0.62em; font-weight: 400; color: var(--muted); margin-left: 4px; }
+.na.run { border-color: var(--val); padding: 12px 18px; font-size: 18px; line-height: 1.4; }
+.na.run b { color: var(--warm-text); }
+table.mae { font-size: 18px; } table.mae th { font-size: 15px; } table.mae td, table.mae th { padding: 6px 8px; } table.mae td:first-child { font-weight: 650; white-space: nowrap; }
+.mae-c { padding: 12px 18px !important; justify-content: flex-start !important; flex: none !important; } .mae-c h3 { font-size: 20px !important; margin-bottom: 4px !important; } .mae-c p { font-size: 17px !important; line-height: 1.4; } .mae-c p b { color: var(--text); }
+table.mae tr.conf td { background: var(--hl-bg); color: var(--hl-text); }
 </style>
 </head>
 <body>
@@ -214,7 +223,7 @@ table.rel.relc { font-size: 17px; } table.rel.relc th { font-size: 16px; } table
 <h1>When Does Reconstruction Detect a Sybil?</h1>
 <p class="sub">An empirical study of autoencoder anomaly detection on VeReMi-Extension</p>
 <p class="author">Bibek Gupta<br><span>Department of Computer Science, Florida Polytechnic University</span></p>
-<p class="foot">12 November 2026</p>
+<p class="foot">18 November 2026 · updated with seeds 0–3 and the masked autoencoder</p>
 
 <aside class="notes">This is a short paper built from the baseline studies, separate from the main thesis model. Today: the question, the setup, what the early runs show, and what I need decided.</aside>
 </section>
@@ -303,13 +312,13 @@ table.rel.relc { font-size: 17px; } table.rel.relc th { font-size: 16px; } table
   <tr><th>Paper</th><th>What it says</th><th>How it relates to this study</th></tr>
   <tr class="grp"><td colspan="3">Methodology</td></tr>
   <tr><td>[10] Ruff et al., Proc. IEEE, 2021</td><td>review unifying density, one-class and reconstruction detection; each method assumes what “normal” is</td><td>taxonomy for our training settings; attack-majority training and DataReplay violate its assumptions</td></tr>
-  <tr><td>[11] Nalisnick et al., ICLR, 2019</td><td>deep generative models trained on CIFAR-10 assign higher likelihood to SVHN</td><td>precedent for a below-chance score; ours: DataReplay AUROC 0.391 (one seed)</td></tr>
+  <tr><td>[11] Nalisnick et al., ICLR, 2019</td><td>deep generative models trained on CIFAR-10 assign higher likelihood to SVHN</td><td>precedent for a below-chance score; ours: DataReplay AUROC 0.387 ± 0.010 (seeds 0–3)</td></tr>
   <tr><td>[12] Qiu et al., ICML, 2022</td><td>infers normal / anomalous labels jointly with the model when training data is contaminated</td><td>studies contamination as a minority; our benign + GridSybil data is about 64% attack</td></tr>
   <tr><td>[13] Wu and Keogh, IEEE TKDE, 2021</td><td>benchmark audit naming four flaws: triviality, unrealistic anomaly density, mislabels, run-to-failure bias</td><td>names two of our findings: 62–65% attack density and length-only triviality</td></tr>
   <tr><td>[14] Arp et al., USENIX Security, 2022</td><td>ten pitfalls of machine learning in security, found widespread in 30 top-tier papers</td><td>checklist behind our controls: data snooping, spurious correlation, base rate, baselines</td></tr>
   <tr><td>[15] Geirhos et al., Nat. Mach. Intell., 2020</td><td>perspective: shortcuts are rules that score well on benchmarks but fail to transfer</td><td>names our length shortcut: length alone gives AUROC 0.95–0.97 on DataReplay / DoS</td></tr>
 </table>
-<p class="foot">All six at abstract or record level; the details of [12] and [14] are from abstracts, not yet confirmed against the papers. “Ours” numbers are one-seed side experiments.</p>
+<p class="foot">All six at abstract or record level; the details of [12] and [14] are from abstracts, not yet confirmed against the papers. “Ours” numbers are side experiments, mean ± sd over seeds 0–3.</p>
 
 <aside class="notes">Contamination, reconstruction of anomalies, shortcuts and leakage are known failure modes; we measure their size on VeReMi-Extension Sybil data, to our knowledge for the first time. We do not present these effects as new. Two wordings are unconfirmed: that contamination is studied only as a small minority in Qiu et al. was not checked against the paper's ratios, and the names of the ten pitfalls in Arp et al. were not copied from the PDF.</aside>
 </section>
@@ -348,19 +357,21 @@ table.rel.relc { font-size: 17px; } table.rel.relc th { font-size: 16px; } table
 <section class="slide" data-stage="Methodology">
 <div class="strip" aria-label="sections"><span>Introduction</span><i>&rsaquo;</i><span>Related work</span><i>&rsaquo;</i><span>Questions</span><i>&rsaquo;</i><span class="on">Methodology</span><i>&rsaquo;</i><span>Findings</span><i>&rsaquo;</i><span>Results</span><i>&rsaquo;</i><span>Discussion</span><i>&rsaquo;</i><span>Conclusion</span></div>
 
-<h2>Ten trained models and one reference: what each was trained on</h2>
+<h2>Sixteen trained models and one reference: what each was trained on</h2>
 <table class="mdl">
-  <tr><th>Model</th><th>Trained on</th><th>Labels used</th><th class="n">T (messages)</th><th class="n">Parameters</th><th class="n">Seeds</th></tr>
-  <tr><td>One-class autoencoder</td><td>benign traffic only</td><td>to select benign</td><td class="n">64 / 48 / 32</td><td class="n">80,189 / 71,741 / 63,293</td><td class="n">3 / 1 / 1</td></tr>
-  <tr><td>Unlabelled autoencoder</td><td>benign + GridSybil pooled</td><td>none</td><td class="n">64 / 48 / 32</td><td class="n">80,189 / 71,741 / 63,293</td><td class="n">1 / 1 / 1</td></tr>
+  <tr><th>Model</th><th>Trained on</th><th>Labels used</th><th class="n">T</th><th class="n">Parameters</th><th class="n">Seeds</th></tr>
+  <tr><td>One-class autoencoder</td><td>benign traffic only</td><td>to select benign</td><td class="n">64 / 48 / 32</td><td class="n">80,189 / 71,741 / 63,293</td><td class="n">4 / 4 / 4</td></tr>
+  <tr><td>One-class masked autoencoder, TabMlp</td><td>benign only, 20% of cells hidden</td><td>to select benign</td><td class="n">64 / 48 / 32</td><td class="n">113,616 / 85,760 / 57,904</td><td class="n">4 / 4 / 4</td></tr>
+  <tr><td>One-class masked autoencoder, TabResnet</td><td>benign only, same windows</td><td>to select benign</td><td class="n">64 / 48 / 32</td><td class="n">128,224 / 100,576 / 72,928</td><td class="n">4 / 4 / 4</td></tr>
+  <tr><td>Unlabelled autoencoder</td><td>benign + GridSybil pooled</td><td>none</td><td class="n">64 / 48 / 32</td><td class="n">80,189 / 71,741 / 63,293</td><td class="n">4 / 4 / 4</td></tr>
   <tr><td>Unlabelled autoencoder, overlapping windows</td><td>benign + GridSybil pooled</td><td>none</td><td class="n">48</td><td class="n">71,741</td><td class="n">1</td></tr>
-  <tr><td>Supervised autoencoder</td><td>benign + GridSybil, labelled</td><td>GridSybil labels</td><td class="n">64 / 48 / 32</td><td class="n">37,233* / 72,318 / 63,870</td><td class="n">3 / 1 / 1</td></tr>
+  <tr><td>Supervised autoencoder</td><td>benign + GridSybil, labelled</td><td>GridSybil labels</td><td class="n">64 / 48 / 32</td><td class="n">37,233* / 72,318 / 63,870</td><td class="n">3 / 4 / 4</td></tr>
   <tr class="refrow"><td>Logistic regression on window statistics</td><td>53 window statistics, labelled</td><td>GridSybil labels</td><td class="n">64</td><td class="n">–</td><td class="n">deterministic</td></tr>
 </table>
 <svg width="100%" viewBox="0 0 1160 260" role="img" aria-label="Convolutional autoencoder for T = 32: input 14 by 32, encoder to z of size 16, decoder to a 13 by 32 reconstruction, masked error over real rows is the anomaly score; at T = 48 and 32 the supervised autoencoder adds a classifier head on z with 577 parameters that outputs the probability of GridSybil. 63,293 parameters at T = 32, 71,741 at T = 48, 80,189 at T = 64"><defs><marker id="ah7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahp"/></marker></defs><rect x="0" y="4" width="130" height="142" rx="8" class="bx"/><text x="65.0" y="48.2" font-size="19" text-anchor="middle" font-weight="700">Input</text><text x="65.0" y="71.0" font-size="17" text-anchor="middle" class="mut">13 features</text><text x="65.0" y="93.0" font-size="17" text-anchor="middle" class="mut">+ mask</text><text x="65.0" y="115.0" font-size="17" text-anchor="middle">14 × 32</text><rect x="148" y="4" width="285" height="142" rx="8" class="bx"/><text x="290.5" y="37.2" font-size="19" text-anchor="middle" font-weight="700">Encoder</text><text x="290.5" y="60.0" font-size="17" text-anchor="middle" class="mut">Conv1d 14 → 32 → 64 → 64 (k3)</text><text x="290.5" y="82.0" font-size="17" text-anchor="middle" class="mut">strides 1, 2, 2</text><text x="290.5" y="104.0" font-size="17" text-anchor="middle" class="mut">BatchNorm + ReLU after each</text><text x="290.5" y="126.0" font-size="17" text-anchor="middle" class="mut">Linear 512 → 16</text><rect x="451" y="4" width="70" height="142" rx="8" class="bx-k"/><text x="486.0" y="70.0" font-size="20" text-anchor="middle" font-weight="700">z</text><text x="486.0" y="93.8" font-size="18" text-anchor="middle">16</text><rect x="539" y="4" width="285" height="142" rx="8" class="bx"/><text x="681.5" y="37.2" font-size="19" text-anchor="middle" font-weight="700">Decoder</text><text x="681.5" y="60.0" font-size="17" text-anchor="middle" class="mut">Linear 16 → 512 + ReLU</text><text x="681.5" y="82.0" font-size="17" text-anchor="middle" class="mut">ConvTranspose1d 64 → 64 → 32</text><text x="681.5" y="104.0" font-size="17" text-anchor="middle" class="mut">(k4, s2), BatchNorm + ReLU each</text><text x="681.5" y="126.0" font-size="17" text-anchor="middle" class="mut">Conv1d 32 → 13 (k3)</text><rect x="842" y="4" width="150" height="142" rx="8" class="bx"/><text x="917.0" y="70.2" font-size="19" text-anchor="middle" font-weight="700">Reconstruction</text><text x="917.0" y="93.0" font-size="17" text-anchor="middle">13 × 32</text><rect x="1010" y="4" width="150" height="142" rx="8" class="bx-k"/><text x="1085.0" y="59.2" font-size="19" text-anchor="middle" font-weight="700">Masked error</text><text x="1085.0" y="82.0" font-size="17" text-anchor="middle" class="mut">MSE, real rows</text><text x="1085.0" y="104.0" font-size="17" text-anchor="middle">= anomaly score</text><line x1="132" y1="75" x2="146" y2="75" class="arr" marker-end="url(#ah7)"/><line x1="435" y1="75" x2="449" y2="75" class="arr" marker-end="url(#ah7)"/><line x1="523" y1="75" x2="537" y2="75" class="arr" marker-end="url(#ah7)"/><line x1="826" y1="75" x2="840" y2="75" class="arr" marker-end="url(#ah7)"/><line x1="994" y1="75" x2="1008" y2="75" class="arr" marker-end="url(#ah7)"/><line x1="486" y1="148" x2="486" y2="164" class="arr-d" marker-end="url(#ah7)"/><rect x="148" y="166" width="640" height="60" rx="8" class="bx-d"/><text x="468.0" y="190.5" font-size="17" text-anchor="middle" font-weight="700">Classifier head on z (supervised autoencoder, T = 48 and 32), 577 parameters</text><text x="468.0" y="212.5" font-size="17" text-anchor="middle" class="mut">Linear 16 → 32 · ReLU · Dropout 0.2 · Linear 32 → 1</text><line x1="790" y1="196" x2="826" y2="196" class="arr-d" marker-end="url(#ah7)"/><text x="834" y="202" font-size="18" font-weight="700">P(GridSybil)</text><text x="1160" y="252" font-size="17" text-anchor="end" class="mut">shown for T = 32: 63,293 parameters · T = 48: 71,741 · T = 64: 80,189</text></svg>
-<p class="foot">* At T = 64 the supervised model is the encoder with a classifier head (no dropout) and no decoder. Logistic regression is a reference, not one of the ten.</p>
+<p class="foot">Diagram: convolutional autoencoder; the masked one is an MLP on the flattened window (after pytorch-widedeep). * T = 64: encoder + head, no decoder.</p>
 
-<aside class="notes">The models share one small 1D-convolutional design whose size changes with the window length. The exception is the supervised model at T = 64, which is the encoder with a classifier head and no decoder. Otherwise what differs is the training data: benign traffic only, benign and GridSybil pooled without labels, or both with labels. DataReplay and DoS are never in training.</aside>
+<aside class="notes">The models share one small 1D-convolutional design whose size changes with the window length. The exception is the supervised model at T = 64, which is the encoder with a classifier head and no decoder. Otherwise what differs is the training data: benign traffic only, benign and GridSybil pooled without labels, or both with labels. DataReplay and DoS are never in training. New: a one-class masked autoencoder after pytorch-widedeep's self-supervised pretraining, an MLP over the flattened window that hides 20% of the cells and reconstructs them, trained on exactly the windows of the one-class convolutional autoencoder. Its TabResnet variant, residual blocks [64, 32, 16], is the stronger of the two.</aside>
 </section>
 <section class="slide" data-stage="Methodology">
 <div class="strip" aria-label="sections"><span>Introduction</span><i>&rsaquo;</i><span>Related work</span><i>&rsaquo;</i><span>Questions</span><i>&rsaquo;</i><span class="on">Methodology</span><i>&rsaquo;</i><span>Findings</span><i>&rsaquo;</i><span>Results</span><i>&rsaquo;</i><span>Discussion</span><i>&rsaquo;</i><span>Conclusion</span></div>
@@ -371,13 +382,13 @@ table.rel.relc { font-size: 17px; } table.rel.relc th { font-size: 16px; } table
   <div class="card"><h3>Held-out vehicles</h3><p>Every split is by sender vehicle. Test vehicles are never used for training, early stopping or thresholds.</p></div>
   <div class="card"><h3>Validation only</h3><p>Early stopping, learning-rate schedule and thresholds come from validation data: for the one-class autoencoder the 95th and 99th percentile of benign validation scores.</p></div>
   <div class="card"><h3>Metrics</h3><p>Window AUROC with the attack as the positive class; recall and benign false-positive rate at the validation threshold where reported.</p></div>
-  <div class="card"><h3>Length-only control</h3><p>Score = minus the number of messages in the window, no model. Reported next to the models, except in the overlapping-window study.</p></div>
+  <div class="card"><h3>Length-only control</h3><p>Score = minus the number of messages, no model, next to every model (not the overlapping-window study). For the masked autoencoder also a length-matched AUROC: within each exact window length.</p></div>
   <div class="card"><h3>Second score</h3><p>Latent distance: the Mahalanobis distance of z to the training z, reported next to the reconstruction error where computed (not for the unlabelled autoencoder at T = 48 or the supervised autoencoder at T = 48 and 32).</p></div>
-  <div class="card"><h3>Seeds</h3><p>Three seeds for the one-class autoencoder and the supervised autoencoder at T = 64, one seed for all other models.</p></div>
+  <div class="card"><h3>Seeds</h3><p>Seeds 0–3 for every cell of the grid and the masked autoencoder, reported as mean ± sample sd; three for the supervised model at T = 64, one for the overlapping-window model.</p></div>
 </div>
 <p class="foot">The studies were run one after another with small differences in settings; they are not one controlled experiment. At T = 64 the one-class autoencoder was retrained with a longer epoch cap after a first scoring (0.645), and the length-only direction was first chosen on test labels (0.535, unchanged with the fixed rule).</p>
 
-<aside class="notes">The unlabelled autoencoder takes its thresholds from all validation scores, without labels. The supervised autoencoder at T = 48 and 32 takes its thresholds from validation as well; at T = 64 the threshold is fixed at 0.5. Single-seed runs have no confidence interval.</aside>
+<aside class="notes">The unlabelled autoencoder takes its thresholds from all validation scores, without labels. The supervised autoencoder at T = 48 and 32 takes its thresholds from validation as well; at T = 64 the threshold is fixed at 0.5. Seed 0 ran on the Mac, seeds 1 to 3 on a cloud GPU with the same settings; every extra seed was checked by an independent recompute. The sd is over four seeds, not a confidence interval.</aside>
 </section>
 <section class="slide" data-stage="Findings">
 <div class="strip" aria-label="sections"><span>Introduction</span><i>&rsaquo;</i><span>Related work</span><i>&rsaquo;</i><span>Questions</span><i>&rsaquo;</i><span>Methodology</span><i>&rsaquo;</i><span class="on">Findings</span><i>&rsaquo;</i><span>Results</span><i>&rsaquo;</i><span>Discussion</span><i>&rsaquo;</i><span>Conclusion</span></div>
@@ -398,24 +409,24 @@ table.rel.relc { font-size: 17px; } table.rel.relc th { font-size: 16px; } table
 <div class="strip" aria-label="sections"><span>Introduction</span><i>&rsaquo;</i><span>Related work</span><i>&rsaquo;</i><span>Questions</span><i>&rsaquo;</i><span>Methodology</span><i>&rsaquo;</i><span class="on">Findings</span><i>&rsaquo;</i><span>Results</span><i>&rsaquo;</i><span>Discussion</span><i>&rsaquo;</i><span>Conclusion</span></div>
 
 <h2>In these runs, detection varies more with the training data than with the window length</h2>
-<p class="lead">GridSybil against benign, test, window AUROC. Earlier small studies, now complete for all nine cells.</p>
+<p class="lead">GridSybil against benign, test, window AUROC, mean ± sd over seeds 0–3 (the * cell: seeds 0–2).</p>
 <table class="grid">
   <tr><th>Model (training data)</th><th class="n">T = 64</th><th class="n">T = 48</th><th class="n">T = 32</th></tr>
-  <tr><td>One-class autoencoder (benign only)</td><td class="n">0.655</td><td class="n"><span class="badge">new</span>0.689</td><td class="n">0.736</td></tr>
-  <tr><td>Unlabelled autoencoder (benign + GridSybil)</td><td class="n"><span class="badge">new</span>0.482</td><td class="n">0.484</td><td class="n"><span class="badge">new</span>0.610</td></tr>
-  <tr><td>Supervised autoencoder (GridSybil labels)</td><td class="n">0.928*</td><td class="n">0.929</td><td class="n">0.926</td></tr>
+  <tr><td>One-class autoencoder (benign only)</td><td class="n">0.657<span class="sd">± 0.004</span></td><td class="n">0.682<span class="sd">± 0.006</span></td><td class="n">0.734<span class="sd">± 0.003</span></td></tr>
+  <tr><td>Unlabelled autoencoder (benign + GridSybil)</td><td class="n">0.482<span class="sd">± 0.002</span></td><td class="n">0.485<span class="sd">± 0.001</span></td><td class="n">0.612<span class="sd">± 0.004</span></td></tr>
+  <tr><td>Supervised autoencoder (GridSybil labels)</td><td class="n">0.928*<span class="sd">± 0.002</span></td><td class="n">0.928<span class="sd">± 0.002</span></td><td class="n">0.929<span class="sd">± 0.002</span></td></tr>
   <tr class="refrow"><td>Length alone, for reference</td><td class="n">0.53</td><td class="n">0.53</td><td class="n">0.56</td></tr>
 </table>
-<p class="note">The first two rows are reconstruction error, the third is the classifier score. Columns use different inputs, splits and test vehicles, so read the pattern along a row, not exact differences. The one-class and supervised models at T = 64 are means of 3 seeds; all others are one seed. * Encoder with a classifier head, no decoder. Also: logistic regression on window statistics 0.855 (T = 64); unlabelled autoencoder with overlapping windows 0.484 <span style='white-space: nowrap'>(T = 48)</span>.</p>
-<p class="foot">Preliminary. To be repeated under one common setup before submission.</p>
+<p class="note">The first two rows are reconstruction error, the third is the classifier score. Columns use different inputs, splits and test vehicles, so read the pattern along a row, not exact differences. * Encoder with a classifier head, no decoder, 3 seeds. Seed 0 of the one-class model at T = 48 (0.689) was the best of four. Also: logistic regression on window statistics 0.855 (T = 64); overlapping windows 0.484 <span style='white-space: nowrap'>(T = 48, one seed)</span>.</p>
+<p class="foot">Preliminary. Seeds tighten each cell (sd ≤ 0.006); they do not make the columns comparable. To be repeated under one common setup.</p>
 
-<aside class="notes">This is the grid from the baseline studies; the three cells marked new were run this week. Reconstruction trained on benign data reaches about 0.66 to 0.74. Trained on an unlabelled mix it drops to chance when the attack is the majority. With labels it is 0.93 at every window length.</aside>
+<aside class="notes">This is the grid from the baseline studies, now with four seeds in every cell. The readings did not change: reconstruction trained on benign data reaches about 0.66 to 0.73; trained on an unlabelled mix it drops to chance when the attack is the majority; with labels it is 0.93 at every window length. The single-seed one-class value at T = 48, 0.689, was the best of four seeds; the mean is 0.682.</aside>
 </section>
 <section class="slide" data-stage="Results">
 <div class="strip" aria-label="sections"><span>Introduction</span><i>&rsaquo;</i><span>Related work</span><i>&rsaquo;</i><span>Questions</span><i>&rsaquo;</i><span>Methodology</span><i>&rsaquo;</i><span>Findings</span><i>&rsaquo;</i><span class="on">Results</span><i>&rsaquo;</i><span>Discussion</span><i>&rsaquo;</i><span>Conclusion</span></div>
 
 <h2>Only on GridSybil does the autoencoder clearly beat window length</h2>
-<p class="lead">One-class autoencoder, T = 32 messages, one seed. Window AUROC against benign test; dashed line = chance (0.50).</p>
+<p class="lead">One-class autoencoder, T = 32, mean of seeds 0–3. Window AUROC against benign test; dashed line = chance.</p>
 <div style="display: flex; gap: 30px; align-items: flex-start">
 <div style="flex: 0 0 480px">
 <table class="att">
@@ -427,7 +438,7 @@ table.rel.relc { font-size: 17px; } table.rel.relc th { font-size: 16px; } table
 </table>
 </div>
 <div style="flex: 1; min-width: 0">
-<svg width="100%" viewBox="0 0 500 274" role="img" aria-label="Window AUROC per attack: reconstruction 0.736, 0.391, 0.973, 0.611 against length alone 0.559, 0.952, 0.967, 0.967; the dashed line is chance, 0.50">
+<svg width="100%" viewBox="0 0 500 274" role="img" aria-label="Window AUROC per attack: reconstruction 0.734, 0.387, 0.967, 0.598 against length alone 0.559, 0.952, 0.967, 0.967; the dashed line is chance, 0.50">
 <defs><pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" class="hatch-bg"/><line x1="0" y1="0" x2="0" y2="7" class="hatch-ln"/></pattern></defs>
 <rect x="130" y="3" width="16" height="14" class="bar-k"/><text x="152" y="15" font-size="15">Reconstruction</text>
 <rect x="290" y="3" width="16" height="14" fill="url(#hatch)" class="hatch-box"/><text x="312" y="15" font-size="15">Length alone</text>
@@ -437,45 +448,67 @@ table.rel.relc { font-size: 17px; } table.rel.relc th { font-size: 16px; } table
 <text x="280" y="265" font-size="15" text-anchor="middle" class="mut">0.5</text>
 <text x="430" y="265" font-size="15" text-anchor="middle" class="mut">1</text>
 <text x="122" y="57" font-size="16" text-anchor="end">GridSybil</text>
-<rect x="130" y="30" width="220.8" height="20" class="bar-k"/>
+<rect x="130" y="30" width="220.2" height="20" class="bar-k"/>
 <rect x="130" y="52" width="167.7" height="20" fill="url(#hatch)" class="hatch-box"/>
 <text x="122" y="113" font-size="16" text-anchor="end">DataReplay</text>
-<rect x="130" y="86" width="117.3" height="20" class="bar-k"/>
+<rect x="130" y="86" width="116.1" height="20" class="bar-k"/>
 <rect x="130" y="108" width="285.6" height="20" fill="url(#hatch)" class="hatch-box"/>
 <text x="122" y="169" font-size="16" text-anchor="end">DoSRandom</text>
-<rect x="130" y="142" width="291.9" height="20" class="bar-k"/>
+<rect x="130" y="142" width="290.1" height="20" class="bar-k"/>
 <rect x="130" y="164" width="290.1" height="20" fill="url(#hatch)" class="hatch-box"/>
 <text x="122" y="225" font-size="16" text-anchor="end">DoSDisruptive</text>
-<rect x="130" y="198" width="183.3" height="20" class="bar-k"/>
+<rect x="130" y="198" width="179.4" height="20" class="bar-k"/>
 <rect x="130" y="220" width="290.1" height="20" fill="url(#hatch)" class="hatch-box"/>
 <line x1="280" y1="26" x2="280" y2="246" class="chance-bg"/><line x1="280" y1="26" x2="280" y2="246" class="chance"/>
-<text x="357" y="46" font-size="16" class="v">0.736</text><text x="304" y="68" font-size="16" class="v">0.559</text>
-<text x="242" y="102" font-size="16" text-anchor="end" class="vin">0.391</text><text x="422" y="124" font-size="16" class="v">0.952</text>
-<text x="428" y="158" font-size="16" class="v">0.973</text><text x="427" y="180" font-size="16" class="v">0.967</text>
-<text x="320" y="214" font-size="16" class="v">0.611</text><text x="427" y="236" font-size="16" class="v">0.967</text>
+<text x="356" y="46" font-size="16" class="v">0.734</text><text x="304" y="68" font-size="16" class="v">0.559</text>
+<text x="241" y="102" font-size="16" text-anchor="end" class="vin">0.387</text><text x="422" y="124" font-size="16" class="v">0.952</text>
+<text x="426" y="158" font-size="16" class="v">0.967</text><text x="427" y="180" font-size="16" class="v">0.967</text>
+<text x="316" y="214" font-size="16" class="v">0.598</text><text x="427" y="236" font-size="16" class="v">0.967</text>
 </svg>
 </div>
 </div>
-<p class="note" style="margin-top: 8px">On GridSybil the one-class autoencoder finds 29.8% of attack windows at about 5% benign false alarms. The distance score in the latent space is near or below chance on GridSybil for the one-class and unlabelled autoencoders wherever it was computed (0.32–0.51).</p>
-<p class="foot">Preliminary, seed 0.</p>
+<p class="note" style="margin-top: 8px">On GridSybil the one-class autoencoder finds 29.8–30.1% of attack windows at about 5% benign false alarms (seeds 0–3). The distance score in the latent space is near or below chance on GridSybil for the one-class and unlabelled autoencoders wherever it was computed (means 0.32–0.51).</p>
+<p class="foot">Preliminary, mean of seeds 0–3 (sd ≤ 0.012 per attack). Length alone is deterministic.</p>
 
-<aside class="notes">DataReplay replays real trajectories, so a model of normal motion reconstructs them well; the score is below chance, possibly a length effect, which a comparison within equal window lengths will separate. For the two DoS attacks the pooled score mostly measures window length.</aside>
+<aside class="notes">DataReplay replays real trajectories, so a model of normal motion reconstructs them well; the score is below chance in every seed, and still below chance on windows with four or more messages (0.349, seed 0). For the two DoS attacks the pooled score mostly measures window length.</aside>
 </section>
 <section class="slide" data-stage="Results">
 <div class="strip" aria-label="sections"><span>Introduction</span><i>&rsaquo;</i><span>Related work</span><i>&rsaquo;</i><span>Questions</span><i>&rsaquo;</i><span>Methodology</span><i>&rsaquo;</i><span>Findings</span><i>&rsaquo;</i><span class="on">Results</span><i>&rsaquo;</i><span>Discussion</span><i>&rsaquo;</i><span>Conclusion</span></div>
 
 <h2>In these runs, reconstruction is weaker when the unlabelled training data contains more attack traffic</h2>
-<p class="lead">GridSybil window AUROC by what the model was trained on. The vertical line is chance (0.50).</p>
-<svg width="100%" viewBox="0 0 1160 216" role="img" aria-label="GridSybil window AUROC: supervised autoencoder 0.93, one-class autoencoder at T = 32 0.74, unlabelled autoencoder with 31% attack at T = 32 0.61, unlabelled autoencoder with 65% attack at T = 64 0.48; chance is 0.50"><line x1="440" y1="22" x2="440" y2="188" class="gl"/><line x1="590.0" y1="22" x2="590.0" y2="188" class="gl"/><line x1="890.0" y1="22" x2="890.0" y2="188" class="gl"/><line x1="1040" y1="22" x2="1040" y2="188" class="gl"/><line x1="440" y1="188" x2="1040" y2="188" class="ax"/><text x="440" y="210" font-size="18" text-anchor="middle" class="mut">0</text><text x="590.0" y="210" font-size="18" text-anchor="middle" class="mut">0.25</text><text x="740.0" y="210" font-size="18" text-anchor="middle" class="mut">0.5</text><text x="890.0" y="210" font-size="18" text-anchor="middle" class="mut">0.75</text><text x="1040" y="210" font-size="18" text-anchor="middle" class="mut">1</text><text x="0" y="48" font-size="20">Supervised autoencoder</text><rect x="440" y="26" width="558.0" height="30" rx="3" class="bar-s"/><text x="0" y="88" font-size="20">One-class autoencoder (T = 32)</text><rect x="440" y="66" width="444.0" height="30" rx="3" class="bar-k"/><text x="0" y="128" font-size="20">Unlabelled autoencoder, 31% attack (T = 32)</text><rect x="440" y="106" width="366.0" height="30" rx="3" class="bar-va"/><text x="0" y="168" font-size="20">Unlabelled autoencoder, 65% attack (T = 64)</text><rect x="440" y="146" width="288.0" height="30" rx="3" class="bar-va"/><line x1="740" y1="22" x2="740" y2="188" class="chance-bg"/><line x1="740" y1="22" x2="740" y2="188" class="chance"/><text x="740" y="17" font-size="18" text-anchor="middle" class="mut">chance 0.50</text><text x="1010.0" y="49" font-size="22" class="v">0.93</text><text x="896.0" y="89" font-size="22" class="v">0.74</text><text x="818.0" y="129" font-size="22" class="v">0.61</text><text x="718.0" y="169" font-size="22" text-anchor="end" class="vin">0.48</text></svg>
+<p class="lead">GridSybil window AUROC by what the model was trained on, mean of seeds 0–3. The vertical line is chance (0.50).</p>
+<svg width="100%" viewBox="0 0 1160 216" role="img" aria-label="GridSybil window AUROC: supervised autoencoder at T = 32 0.929, one-class autoencoder at T = 32 0.734, unlabelled autoencoder with 31% attack at T = 32 0.612, unlabelled autoencoder with 65% attack at T = 64 0.482; chance is 0.50"><line x1="440" y1="22" x2="440" y2="188" class="gl"/><line x1="590.0" y1="22" x2="590.0" y2="188" class="gl"/><line x1="890.0" y1="22" x2="890.0" y2="188" class="gl"/><line x1="1040" y1="22" x2="1040" y2="188" class="gl"/><line x1="440" y1="188" x2="1040" y2="188" class="ax"/><text x="440" y="210" font-size="18" text-anchor="middle" class="mut">0</text><text x="590.0" y="210" font-size="18" text-anchor="middle" class="mut">0.25</text><text x="740.0" y="210" font-size="18" text-anchor="middle" class="mut">0.5</text><text x="890.0" y="210" font-size="18" text-anchor="middle" class="mut">0.75</text><text x="1040" y="210" font-size="18" text-anchor="middle" class="mut">1</text><text x="0" y="48" font-size="20">Supervised autoencoder (T = 32)</text><rect x="440" y="26" width="557.4" height="30" rx="3" class="bar-s"/><text x="0" y="88" font-size="20">One-class autoencoder (T = 32)</text><rect x="440" y="66" width="440.4" height="30" rx="3" class="bar-k"/><text x="0" y="128" font-size="20">Unlabelled autoencoder, 31% attack (T = 32)</text><rect x="440" y="106" width="367.2" height="30" rx="3" class="bar-va"/><text x="0" y="168" font-size="20">Unlabelled autoencoder, 65% attack (T = 64)</text><rect x="440" y="146" width="289.2" height="30" rx="3" class="bar-va"/><line x1="740" y1="22" x2="740" y2="188" class="chance-bg"/><line x1="740" y1="22" x2="740" y2="188" class="chance"/><text x="740" y="17" font-size="18" text-anchor="middle" class="mut">chance 0.50</text><text x="1004.0" y="49" font-size="22" class="v">0.929</text><text x="887.0" y="89" font-size="22" class="v">0.734</text><text x="814.0" y="129" font-size="22" class="v">0.612</text><text x="719.0" y="169" font-size="22" text-anchor="end" class="vin">0.482</text></svg>
 <p class="note" style="margin-top: 0; font-size: 17px; line-height: 1.4">This is suggestive, not proof: the 31% and 65% runs also differ in input, split and test vehicles, and the 0% and 31% bars at T = 32 also use different splits and test vehicles. A repeat under one common setup would test it, and an attack-share sweep (0 to 64%) would turn it into a curve.</p>
 <table class="pairs">
   <tr><th>Better-matched pairs</th><th class="n">One-class</th><th class="n">Unlabelled</th><th>Shared</th><th>Still differs</th></tr>
-  <tr><td>T = 64</td><td class="n">0.655</td><td class="n">0.482</td><td>input, test windows, normalisation, architecture</td><td>early-stopping patience, validation vehicles, seeds (3 against 1)</td></tr>
-  <tr><td>T = 48</td><td class="n">0.689</td><td class="n">0.484</td><td>test-window counts</td><td>normalisation constants, train / validation vehicles, gradient clipping</td></tr>
+  <tr><td>T = 64</td><td class="n">0.657</td><td class="n">0.482</td><td>input, test windows, normalisation, architecture, seeds 0–3</td><td>early-stopping patience, validation vehicles</td></tr>
+  <tr><td>T = 48</td><td class="n">0.682</td><td class="n">0.485</td><td>test-window counts</td><td>normalisation constants, train / validation vehicles, gradient clipping</td></tr>
 </table>
-<p class="foot">Preliminary. The one-class bar shows the best of three window lengths (0.66–0.74); the unlabelled values are one seed each.</p>
+<p class="foot">Preliminary. The one-class bar shows the best of three window lengths (0.66–0.73). All values are means of seeds 0–3 (sd ≤ 0.006).</p>
 
 <aside class="notes">An autoencoder learns whatever is common in its training data. When two thirds of the windows are GridSybil, the attack is the normal case and reconstruction error no longer flags it. At one third it still works a little. This is the most original observation, and the one I would like to measure properly.</aside>
+</section>
+<section class="slide" data-stage="Results">
+<div class="strip" aria-label="sections"><span>Introduction</span><i>&rsaquo;</i><span>Related work</span><i>&rsaquo;</i><span>Questions</span><i>&rsaquo;</i><span>Methodology</span><i>&rsaquo;</i><span>Findings</span><i>&rsaquo;</i><span class="on">Results</span><i>&rsaquo;</i><span>Discussion</span><i>&rsaquo;</i><span>Conclusion</span></div>
+
+<h2>Masked autoencoder: TabResnet beats TabMlp, both below the conv. AE</h2>
+<table class="mae" style="width: 100%">
+  <tr><th>One-class, vs benign test</th><th class="n">TabMlp<br>pooled</th><th class="n">TabMlp<br>length-matched</th><th class="n">TabResnet<br>pooled</th><th class="n">TabResnet<br>length-matched</th><th class="n">Conv. AE<br>pooled</th><th class="n">Length<br>alone</th></tr>
+  <tr><td>T = 64 · GridSybil</td><td class="n">0.531 ± 0.002</td><td class="n">0.510</td><td class="n res">0.595 ± 0.003</td><td class="n res">0.578</td><td class="n">0.657 ± 0.004</td><td class="n">0.535</td></tr>
+  <tr><td>T = 48 · GridSybil</td><td class="n">0.607 ± 0.001</td><td class="n">0.589</td><td class="n res">0.650 ± 0.002</td><td class="n res">0.640</td><td class="n">0.682 ± 0.006</td><td class="n">0.530</td></tr>
+  <tr><td>T = 32 · GridSybil</td><td class="n">0.657 ± 0.002</td><td class="n">0.631</td><td class="n res">0.696 ± 0.001</td><td class="n res">0.678</td><td class="n">0.734 ± 0.003</td><td class="n">0.559</td></tr>
+  <tr class="conf"><td>T = 32 · DataReplay</td><td class="n">0.693 ± 0.003</td><td class="n">0.490</td><td class="n res">0.695 ± 0.008</td><td class="n res">0.559</td><td class="n">0.387 ± 0.010</td><td class="n">0.952</td></tr>
+  <tr><td>T = 32 · DoSRandom</td><td class="n">0.988 ± 0.001</td><td class="n">0.970</td><td class="n res">0.994 ± 0.000</td><td class="n res">0.988</td><td class="n">0.967 ± 0.005</td><td class="n">0.967</td></tr>
+  <tr><td>T = 32 · DoSDisruptive</td><td class="n">0.851 ± 0.006</td><td class="n">0.679</td><td class="n res">0.859 ± 0.004</td><td class="n res">0.734</td><td class="n">0.598 ± 0.012</td><td class="n">0.967</td></tr>
+</table>
+<p class="cap" style="margin-top: 8px">Window AUROC of the masked reconstruction score, pooled mean ± sd over seeds 0–3, length-matched = mean over seeds 0–3 (sd ≤ 0.009) of the AUROC within each exact window length, weighted by the attack windows at that length; not computed for the convolutional autoencoder.</p>
+<div class="cols" style="gap: 16px; margin-top: 10px; flex: none">
+  <div class="card mae-c" style="flex: 1 1 0 !important"><h3>Length confound</h3><p>Hiding a cell of a 1-row window leaves no time neighbours, so short windows score high (benign 1–3 vs longer rows, T = 32: AUROC 0.69 TabMlp, 0.63 TabResnet). 70.2% of DataReplay windows have one row, 5.2% of benign ones. Pooled 0.693 / 0.695 becomes 0.490 / 0.559 length-matched: <b>not detection</b>.</p></div>
+  <div class="card mae-c" style="flex: 1 1 0 !important"><h3>Context only</h3><p>Thesis TimesNet, one-class, seed 0, same T = 32 windows, GridSybil kNN: 0.886 pooled / 0.875 length-matched; untrained encoder 0.839 / 0.836. Not a baseline of this paper.</p></div>
+</div>
+<p class="foot">Within a row the masked and convolutional autoencoders use the same train / validation / test windows; rows differ in input and split. Side experiment, not tuned.</p>
+
+<aside class="notes">This is a masking-based autoencoder after pytorch-widedeep's self-supervised pretraining, re-implemented in PyTorch: it hides 20% of the cells and reconstructs them. It is trained one-class on exactly the windows of the convolutional one-class autoencoder, so within a row the comparison is fair. On GridSybil it is below the convolutional autoencoder at every window length, and at T = 64 it is at the length-only level. The pooled DataReplay value of 0.693 looks like detection but is window length: matched by length it is 0.490. The same effect inflates DoSDisruptive, 0.851 to 0.679. Both stay below length alone; only DoSRandom reaches the length-only level. The TimesNet line is context from the thesis model, one seed; matching by length barely changes its gain over the untrained encoder. The TabResnet encoder, a residual MLP, is better than TabMlp at every window length on GridSybil, 0.595, 0.650 and 0.696, and keeps more of it after length matching, but it is still below the convolutional autoencoder. On DataReplay it shows the same length effect: 0.695 pooled, 0.559 matched.</aside>
 </section>
 <section class="slide" data-stage="Discussion">
 <div class="strip" aria-label="sections"><span>Introduction</span><i>&rsaquo;</i><span>Related work</span><i>&rsaquo;</i><span>Questions</span><i>&rsaquo;</i><span>Methodology</span><i>&rsaquo;</i><span>Findings</span><i>&rsaquo;</i><span>Results</span><i>&rsaquo;</i><span class="on">Discussion</span><i>&rsaquo;</i><span>Conclusion</span></div>
@@ -486,7 +519,7 @@ table.rel.relc { font-size: 17px; } table.rel.relc th { font-size: 16px; } table
   <span class="lab">Reading, to be tested under one common setup</span>
   <ul>
     <li><b>Replay is in-distribution.</b> Seen from one receiver and one pseudonym, a replayed window is a genuine trajectory under a new pseudonym.</li>
-    <li><b>Length is a signature and a shortcut.</b> A burst of short-lived pseudonyms is real evidence of these attacks; it tells nothing about whether a model has learned plausible motion.</li>
+    <li><b>Length is a signature and a shortcut.</b> A burst of short-lived pseudonyms is real evidence of these attacks; it tells nothing about whether a model has learned plausible motion. A model score can carry it too: the masked autoencoder's DataReplay 0.693 is 0.490 within equal lengths (TabMlp; TabResnet 0.695 → 0.559).</li>
     <li><b>The unlabelled autoencoder learns what is frequent.</b> Where GridSybil is 64.6% of the training windows (unlabelled autoencoder, T = 64), it is the majority class and “normal” is redefined.</li>
   </ul>
 <svg width="100%" viewBox="0 -2 660 172" role="img" aria-label="Share of training windows: the one-class autoencoder has no attack windows, the unlabelled autoencoder at T = 32 has 31.3% GridSybil windows, the unlabelled autoencoder at T = 64 has 64.6%"><defs><pattern id="hatch2" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" class="hatch-bg"/><line x1="0" y1="0" x2="0" y2="7" class="hatch-ln"/></pattern></defs><rect x="280" y="2" width="16" height="16" class="bar-k"/><text x="302" y="16" font-size="18">benign</text><rect x="390" y="2" width="16" height="16" fill="url(#hatch2)" class="hatch-box"/><text x="412" y="16" font-size="18">GridSybil</text><text x="0" y="50" font-size="18">One-class autoencoder</text><rect x="280" y="30" width="230.0" height="26" class="bar-k"/><text x="520" y="50" font-size="18" font-weight="700">no attack</text><text x="0" y="88" font-size="18">Unlabelled autoencoder, T = 32</text><rect x="280" y="68" width="158.0" height="26" class="bar-k"/><rect x="438.0" y="68" width="72.0" height="26" fill="url(#hatch2)" class="hatch-box"/><text x="520" y="88" font-size="18" font-weight="700">31.3% attack</text><text x="0" y="126" font-size="18">Unlabelled autoencoder, T = 64</text><rect x="280" y="106" width="81.4" height="26" class="bar-k"/><rect x="361.4" y="106" width="148.6" height="26" fill="url(#hatch2)" class="hatch-box"/><text x="520" y="126" font-size="18" font-weight="700">64.6% attack</text><text x="395" y="164" font-size="18" text-anchor="middle" class="mut">share of training windows</text></svg>
@@ -494,9 +527,10 @@ table.rel.relc { font-size: 17px; } table.rel.relc th { font-size: 16px; } table
 <div>
   <span class="lab warm">Limitations</span>
   <ul>
-    <li>The numbers are preliminary: mostly single-seed runs that are not controlled against each other.</li>
+    <li>The numbers are preliminary: four seeds per cell (sd ≤ 0.006 for reconstruction), but the cells are not controlled against each other.</li>
     <li>At T = 32 (all four attack scenarios), near-copies of some GridSybil 0709 cars may straddle the split; not measured.</li>
     <li>At T = 32, benign traffic appears once per attack family, about four times in total, so benign windows are not independent.</li>
+    <li>Length-matched AUROC exists only for the masked autoencoder (and the thesis TimesNet); the other models report pooled AUROC and the length-only score.</li>
     <li>The gap to published numbers is reported as an observation; no cause is claimed.</li>
     <li>The 31% against 65% contrast is suggestive only: the two runs also differ in window length, input, split and test vehicles.</li>
   </ul>
@@ -512,20 +546,20 @@ table.rel.relc { font-size: 17px; } table.rel.relc th { font-size: 16px; } table
 <h2>Conclusion, as far as it can be drawn today</h2>
 <ol class="take">
   <li><b>Fixed already, because it needs no model:</b> the number of messages in a window alone separates DataReplay and both DoS attacks from benign traffic with an AUROC of 0.952–0.967, and GridSybil with 0.559 (T = 32).</li>
-  <li><b>Observation:</b> across the kinds of training data, AUROC differs by 0.32–0.45 at a fixed window length (0.13–0.21 between the two reconstruction-based rows); across window lengths by at most 0.13 within one kind. Neither comparison is controlled.</li>
-  <li><b>Early run, one seed:</b> the one-class autoencoder does not separate replayed trajectories from benign ones: 0.391 over all windows and 0.349 on the 3,883 windows with 4 or more messages, both below chance.</li>
-  <li><b>Recommendation:</b> evaluations on this dataset should hold out vehicles across scenario families, state how the training data was selected, and report a length-only score next to every sequence model.</li>
+  <li><b>Observation, seed means:</b> across the kinds of training data, AUROC differs by 0.32–0.45 at a fixed window length (0.12–0.20 between the two reconstruction-based rows); across window lengths by at most 0.13 within one kind. Neither comparison is controlled.</li>
+  <li><b>Replay is not detected:</b> the one-class autoencoder scores 0.387 ± 0.010 on DataReplay (0.349 on windows with 4 or more messages, seed 0); the masked autoencoder's 0.693 drops to 0.490 within equal window lengths (TabMlp; TabResnet 0.695 → 0.559).</li>
+  <li><b>Recommendation:</b> hold out vehicles across scenario families, state how the training data was selected, and report a length-only score and a length-matched AUROC next to every sequence model.</li>
 </ol>
 <p class="foot">Preliminary. Points 2 and 3 come from runs that are not controlled against each other; they are to be repeated under one common setup.</p>
 
-<aside class="notes">Only the first point is final. The others are what the baseline studies show; a repeat under one common setup can confirm or overturn them.</aside>
+<aside class="notes">Only the first point is final. The others are what the baseline studies show, now with four seeds per cell; a repeat under one common setup can confirm or overturn them. The new reporting rule comes from the masked autoencoder: a pooled AUROC can look like detection when it is window length, so the length-matched value belongs next to it.</aside>
 </section>
 <section class="slide" data-stage="Conclusion">
 <div class="strip" aria-label="sections"><span>Introduction</span><i>&rsaquo;</i><span>Related work</span><i>&rsaquo;</i><span>Questions</span><i>&rsaquo;</i><span>Methodology</span><i>&rsaquo;</i><span>Findings</span><i>&rsaquo;</i><span>Results</span><i>&rsaquo;</i><span>Discussion</span><i>&rsaquo;</i><span class="on">Conclusion</span></div>
 
 <h2>Status and next steps</h2>
 <div class="cards4 t15">
-  <div class="card tile"><span class="lab">&#10003; Done</span><div class="num">10</div><p class="txt">trained baseline models: the one-class, unlabelled and supervised models at T&nbsp;=&nbsp;64, 48 and 32, plus the unlabelled autoencoder with overlapping windows</p></div>
+  <div class="card tile"><span class="lab">&#10003; Done</span><div class="num">16</div><p class="txt">trained models: the nine-cell grid (four seeds per cell, three in one), the overlapping-window model, the masked autoencoder (TabMlp, TabResnet) at T&nbsp;=&nbsp;64, 48, 32</p></div>
   <div class="card tile"><span class="lab">&#10003; Done</span><div class="num">76</div><p class="txt">papers surveyed, with a gap analysis</p></div>
   <div class="card tile"><span class="lab">&#10003; Done</span><div class="num">13 pp</div><p class="txt">IEEE draft that compiles, with placeholders where the results go; the limit is 6 pages</p></div>
   <div class="card tile"><span class="lab warm">&#9675; Next</span><div class="num">1 setup</div><p class="txt">repeat the comparison under one common setup (same windows, split, test set, five seeds), in the cloud</p></div>
@@ -534,8 +568,8 @@ table.rel.relc { font-size: 17px; } table.rel.relc th { font-size: 16px; } table
   <div style="flex: 0 0 440px">
     <span class="lab">Plan</span>
     <ol class="plan">
-      <li>Repeat the comparison in the cloud, 5 seeds each</li>
-      <li>Fill the tables</li>
+      <li>Repeat in the cloud, 5 seeds each</li>
+      <li>Fill the tables, with length-matched AUROC</li>
       <li>Stop experiments on 30 November</li>
       <li>Cut the draft from 13 to 6 pages</li>
     </ol>
@@ -547,9 +581,9 @@ table.rel.relc { font-size: 17px; } table.rel.relc th { font-size: 16px; } table
     <div class="dec"><h3>Authors</h3><p>Author list and order for the paper.</p></div>
   </div>
 </div>
-<p class="foot">The baseline numbers shown are from runs that are not controlled against each other; the tables in the draft are still placeholders.</p>
+<p class="foot">The baseline numbers shown are from runs that are not controlled against each other; the tables in the draft are still placeholders and quote single-seed values.</p>
 
-<aside class="notes">The literature, the baseline models and the draft exist. The comparison under one common setup will be run later in the cloud, not on the Mac. Both venues take 6 pages. SoutheastCon is in Florida, is indexed on Xplore, and refuses work already posted as a preprint; its two official pages give different deadline days. VehicleSec has the better audience fit but a tighter date.</aside>
+<aside class="notes">The literature, the baseline models with four seeds per cell, the masked autoencoder and the draft exist. The draft text still quotes the single-seed numbers; updating it waits on a decision. The comparison under one common setup will be run later in the cloud, not on the Mac. Both venues take 6 pages. SoutheastCon is in Florida, is indexed on Xplore, and refuses work already posted as a preprint; its two official pages give different deadline days. VehicleSec has the better audience fit but a tighter date.</aside>
 </section>
 <section class="slide" data-stage="Conclusion">
 <div class="strip" aria-label="sections"><span>Introduction</span><i>&rsaquo;</i><span>Related work</span><i>&rsaquo;</i><span>Questions</span><i>&rsaquo;</i><span>Methodology</span><i>&rsaquo;</i><span>Findings</span><i>&rsaquo;</i><span>Results</span><i>&rsaquo;</i><span>Discussion</span><i>&rsaquo;</i><span class="on">Conclusion</span></div>
@@ -578,7 +612,7 @@ table.rel.relc { font-size: 17px; } table.rel.relc th { font-size: 16px; } table
   </div>
 </div>
 </div>
-<div class="callout takes"><span class="lab">What it takes</span>Settings are frozen before any result is looked at; same seeds and test set as the other models; the runs go to the cloud with the rest.</div>
+<div class="callout takes"><span class="lab">What it takes</span>Settings frozen before any result is looked at; same seeds and test set as the other models; every AUROC also reported length-matched (within each window length); runs go to the cloud.</div>
 <p class="foot">Proposals. None is run or approved; not part of the thesis plan.</p>
 
 <aside class="notes">These are proposals; none is run or approved. They are the three additions with the best return for the December paper. The sweep comes first: it turns the most original observation into a measured curve for about one day of work.</aside>

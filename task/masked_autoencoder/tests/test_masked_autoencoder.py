@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
 import torch
 
-from task.masked_autoencoder.config import MAEConfig
+from task.masked_autoencoder.config import MAEConfig, is_finished, logs_path, run_path
 from task.masked_autoencoder.data import OneClassSource, Windows
 from task.masked_autoencoder.evaluate import Evaluation
 from task.masked_autoencoder.model import EncoderDecoderLoss, MaskedTabularAutoencoder, count_params
 from task.masked_autoencoder.plots import LossCurvePlot, finished_runs
+from task.masked_autoencoder.run_all import GridRunner
 from task.masked_autoencoder.scoring import EvalMasks, WindowScorer
 from task.masked_autoencoder.train import Experiment
 
@@ -85,6 +87,40 @@ def test_shapes(window, encoder):
 def test_mlp_param_counts():
     counts = {w: count_params(MaskedTabularAutoencoder(MAEConfig.for_window(w))) for w in (64, 48, 32)}
     assert counts == {64: 113_616, 48: 85_760, 32: 57_904}
+
+
+def test_resnet_param_counts():
+    counts = {
+        w: count_params(MaskedTabularAutoencoder(MAEConfig.for_window(w, encoder="resnet"))) for w in (64, 48, 32)
+    }
+    assert counts == {64: 128_224, 48: 100_576, 32: 72_928}
+
+
+def test_run_layout(tmp_path):
+    assert run_path("mlp", 32, 0) == Path("task/masked_autoencoder/runs/mlp/T32-seed0")
+    assert run_path("resnet", 64, 3, tmp_path) == tmp_path / "resnet" / "T64-seed3"
+    assert logs_path("resnet", tmp_path) == tmp_path / "resnet" / "logs"
+    s = MAEConfig.for_window(48, encoder="resnet", seed=2, runs_dir=str(tmp_path))
+    assert s.run_dir == tmp_path / "resnet" / "T48-seed2"
+    assert s.run_id == "T48-resnet-seed2"
+    assert MAEConfig.for_window(48, runs_dir=str(tmp_path), max_windows=10).run_dir.name == "T48-seed0-check"
+    with pytest.raises(ValueError):
+        run_path("transformer", 32, 0)
+
+
+def test_grid_runner_skips_finished_runs(tmp_path):
+    done, trained = run_path("resnet", 32, 0, tmp_path), run_path("resnet", 32, 1, tmp_path)
+    for d in (done, trained):
+        d.mkdir(parents=True)
+        (d / "summary.json").write_text("{}")
+    (done / "test_metrics.json").write_text("{}")
+    assert is_finished(done) and not is_finished(trained)
+    runner = GridRunner("resnet", windows=(32,), seeds=(0, 1, 2), runs_dir=str(tmp_path))
+    assert runner.plan() == [(32, 0, "skip"), (32, 1, "evaluate"), (32, 2, "train")]
+    assert "task.masked_autoencoder.evaluate" in runner.command(32, 1, "evaluate")
+    assert runner.command(32, 2, "train")[-1] == "--evaluate"
+    assert runner.run(dry_run=True) == 0
+    assert not runner.log_path.exists()  # a dry run writes no log
 
 
 def test_obfuscator_never_hides_padding():
@@ -195,11 +231,13 @@ def test_training_reads_no_label_and_evaluation_scores_first(settings):
     assert set(m) == {"masked_recon", "full_recon", "mahalanobis"}
     assert 0.0 <= m["masked_recon"]["auroc"] <= 1.0
     assert json.loads((exp.run_dir / "test_metrics.json").read_text())["run_id"] == settings.run_id
+    assert exp.run_dir == run_path("mlp", 32, 0, settings.runs_dir)
 
 
 def test_loss_curve_from_history(tmp_path):
-    run = tmp_path / "T32-mlp-seed0"
-    run.mkdir()
+    run = run_path("mlp", 32, 0, tmp_path)
+    run.mkdir(parents=True)
+    run_path("resnet", 32, 0, tmp_path).mkdir(parents=True)  # unfinished: not listed
     rows = [
         {
             "epoch": e,
@@ -222,5 +260,6 @@ def test_loss_curve_from_history(tmp_path):
     }
     (run / "summary.json").write_text(json.dumps(summary))
     assert finished_runs(tmp_path) == [run]
+    assert finished_runs(tmp_path, ("resnet",)) == []
     path = LossCurvePlot(run).save()
     assert path == run / "loss_curve.png" and path.stat().st_size > 1000

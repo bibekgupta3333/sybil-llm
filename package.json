@@ -16,7 +16,7 @@
     "docker: docker:build, docker:build:cpu, docker:shell, docker:shell:cpu, docker:check:cpu, docker:train",
     "timesnet all/T32_benign (SEED=0|1|2, default 0): t32b:data:download, t32b:cache, t32b:cache:verify, t32b:check, t32b:smoke, t32b:train, t32b:train:no-guard, t32b:train:seeds, t32b:resume, t32b:eval, t32b:eval:random-init, t32b:eval:seeds, t32b:test, t32b:upload, t32b:download, t32b:ec2, t32b:short, t32b:eval:short, t32b:notebook",
     "benign (TimesNet, all/T32_benign; SEED=0|1|2): benign:download (HF input + cache + verify), benign:train (full data, no memory cap, 72 h), benign:pause, benign:resume, benign:eval (eval + random-init + notebook), benign:upload (run + evaluations, every file, to HF)",
-    "contamination mix10 (ATTACK=gridsybil|datareplay|dosrandom|dosdisruptive): pipeline:encoder-input:all-t32-mix10 (build all/T32_mix10_<attack>, executed copy saved as build.executed.ipynb in it), mix10:cache (npy cache + verify)",
+    "contamination mix10 (ATTACK=gridsybil|datareplay|dosrandom|dosdisruptive): pipeline:encoder-input:all-t32-mix10 (build all/T32_mix10_<attack>, executed copy saved as build.executed.ipynb in it), mix10:cache (npy cache + verify), mix10:train / mix10:sync / mix10:eval / mix10:upload -- <attack> (src/model/all_t32_benign/experiments/README.md), mix10:notebooks, hf:download:mix10 (run + 2 evals), hf:download:mix10:all, hf:download:mix10:judges (judge reports of seed 0 -> src/runs/evaluation/all/T32_mix10_<attack>/judge-model-t32m10-<attack>-seed0)",
     "npm run <name> -- <args> passes <args> through; Python is ${PY:-.venv-train/bin/python}"
   ],
   "scripts": {
@@ -52,6 +52,7 @@
     "mix10:notebooks": "for a in gridsybil datareplay dosrandom dosdisruptive; do NOTEBOOK_ONLY=1 bash src/model/all_t32_benign/experiments/mix10_eval.sh $a || exit 1; done && ${PY:-.venv-train/bin/python} scripts/run_notebook.py src/model/all_t32_benign/experiments/mix10_compare.ipynb --timeout 3600",
     "hf:download:mix10": "a=${ATTACK:?set ATTACK=gridsybil|datareplay|dosrandom|dosdisruptive}; s=${SEED:-0}; bash scripts/hf_fetch.sh runs/model-t32m10-$a-seed$s src/runs/pretraining/all/T32_mix10_$a/model-t32m10-$a-seed$s evaluations/model-t32m10-$a-seed$s src/runs/evaluation/all/T32_mix10_$a/model-t32m10-$a-seed$s evaluations/model-t32m10-$a-seed$s-random-init src/runs/evaluation/all/T32_mix10_$a/model-t32m10-$a-seed$s-random-init",
     "hf:download:mix10:all": "for a in gridsybil datareplay dosrandom dosdisruptive; do ATTACK=$a npm run hf:download:mix10 || true; done",
+    "hf:download:mix10:judges": "for a in gridsybil datareplay dosrandom dosdisruptive; do bash scripts/hf_fetch.sh judges/model-t32m10-$a-seed0 src/runs/evaluation/all/T32_mix10_$a/judge-model-t32m10-$a-seed0 || true; done",
     "train": "${PY:-.venv-train/bin/python} -m src.model.benign_gridsybil.timesnet.train",
     "train:check": "${PY:-.venv-train/bin/python} -m src.model.benign_gridsybil.timesnet.train --check",
     "train:smoke": "${PY:-.venv-train/bin/python} -m src.model.benign_gridsybil.timesnet.train --smoke",

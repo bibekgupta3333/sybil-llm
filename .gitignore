@@ -57,6 +57,7 @@ simulation/.cache/
 
 # One-class masked autoencoder (widedeep re-implementation) runs: checkpoints + per-window score files
 /task/masked_autoencoder/runs/
+/task/masked_autoencoder/cache/
 
 # Baseline paper experiments: window cache and run folders (score files are large); results/ stays tracked
 /baselinepaper/experiments/cache/
@@ -68,3 +69,23 @@ simulation/.cache/
 
 # Unlabelled autoencoder T64 (benign + GridSybil pooled) runs
 /task/autoencoder_t64/runs/
+
+# One-class / unlabelled / supervised autoencoders at T = 20 / 10 / 5 (all/T{20,10,5}_benign[_grid]) runs and caches
+/task/autoencoder_benign_t20/runs/
+/task/autoencoder_benign_t20/cache/
+/task/autoencoder_benign_t10/runs/
+/task/autoencoder_benign_t10/cache/
+/task/autoencoder_benign_t5/runs/
+/task/autoencoder_benign_t5/cache/
+/task/autoencoder_t20/runs/
+/task/autoencoder_t20/cache/
+/task/autoencoder_t10/runs/
+/task/autoencoder_t10/cache/
+/task/autoencoder_t5/runs/
+/task/autoencoder_t5/cache/
+/task/autoencoder_st_t20/runs/
+/task/autoencoder_st_t20/cache/
+/task/autoencoder_st_t10/runs/
+/task/autoencoder_st_t10/cache/
+/task/autoencoder_st_t5/runs/
+/task/autoencoder_st_t5/cache/

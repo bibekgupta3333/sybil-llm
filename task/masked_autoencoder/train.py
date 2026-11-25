@@ -1,4 +1,4 @@
-"""Trains the one-class masked autoencoder (widedeep encoder-decoder pretraining, TabMlp or TabResnet) at T = 64 / 48 / 32.
+"""Trains the one-class masked autoencoder (widedeep encoder-decoder pretraining, TabMlp or TabResnet), T = 64 ... 5.
 
 Only benign training windows fit the weights; benign validation windows drive early stopping, the LR schedule and the
 alarm thresholds; no test split is opened. After training, a Mahalanobis model of z is fitted on the train windows and

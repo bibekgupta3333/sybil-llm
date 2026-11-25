@@ -9,12 +9,22 @@ import numpy as np
 import pytest
 import torch
 
-from task.masked_autoencoder.config import MAEConfig, is_finished, logs_path, run_path
+from task.masked_autoencoder.config import (
+    ALL_WINDOWS,
+    PROTOCOLS,
+    SMALL_WINDOWS,
+    WINDOWS,
+    MAEConfig,
+    is_finished,
+    logs_path,
+    run_path,
+)
+from task.masked_autoencoder.data import T32Source, make_source
 from task.masked_autoencoder.data import OneClassSource, Windows
 from task.masked_autoencoder.evaluate import Evaluation
 from task.masked_autoencoder.model import EncoderDecoderLoss, MaskedTabularAutoencoder, count_params
 from task.masked_autoencoder.plots import LossCurvePlot, finished_runs
-from task.masked_autoencoder.run_all import GridRunner
+from task.masked_autoencoder.run_all import GridRunner, parse_windows
 from task.masked_autoencoder.scoring import EvalMasks, WindowScorer
 from task.masked_autoencoder.train import Experiment
 
@@ -35,7 +45,7 @@ def synthetic(split: str, n: int, t: int, seed: int, sender_base: int = 0, junk:
 
 
 class FakeSource(OneClassSource):
-    """Synthetic T = 32 source; `labels` raises unless `allow_labels` is set."""
+    """Synthetic source (any T); `labels` raises unless `allow_labels` is set."""
 
     def __init__(self, settings: MAEConfig) -> None:
         super().__init__(settings)
@@ -65,14 +75,19 @@ class FakeSource(OneClassSource):
         return np.full(len(self.sets[split]), 16 if split == "test_gridsybil" else 0)
 
 
-@pytest.fixture
-def settings(tmp_path):
+@pytest.fixture(params=[32])
+def settings(tmp_path, request):
     return MAEConfig.for_window(
-        32, runs_dir=str(tmp_path), device="cpu", max_epochs=2, eval_batch=64, threshold_quantiles=(0.95, 0.99)
+        request.param,
+        runs_dir=str(tmp_path),
+        device="cpu",
+        max_epochs=2,
+        eval_batch=64,
+        threshold_quantiles=(0.95, 0.99),
     )
 
 
-@pytest.mark.parametrize("window", [64, 48, 32])
+@pytest.mark.parametrize("window", [64, 48, 32, 20, 10, 5])
 @pytest.mark.parametrize("encoder", ["mlp", "resnet"])
 def test_shapes(window, encoder):
     s = MAEConfig.for_window(window, encoder=encoder)
@@ -94,6 +109,133 @@ def test_resnet_param_counts():
         w: count_params(MaskedTabularAutoencoder(MAEConfig.for_window(w, encoder="resnet"))) for w in (64, 48, 32)
     }
     assert counts == {64: 128_224, 48: 100_576, 32: 72_928}
+
+
+def test_small_window_param_counts():
+    counts = {
+        e: {w: count_params(MaskedTabularAutoencoder(MAEConfig.for_window(w, encoder=e))) for w in SMALL_WINDOWS}
+        for e in ("mlp", "resnet")
+    }
+    assert counts == {"mlp": {20: 37_012, 10: 19_602, 5: 10_897}, "resnet": {20: 52_192, 10: 34_912, 5: 26_272}}
+
+
+# config.json of the existing windows as written before T = 20 / 10 / 5 were added (seed 1, encoder mlp; resnet differs
+# only in "encoder"); must stay bit-identical so the finished runs keep their meaning.
+ATTACKS_32 = ["test_gridsybil", "test_datareplay", "test_dosrandom", "test_dosdisruptive"]
+OLD_PROTOCOLS = {
+    64: {
+        "seq_len": 64,
+        "sibling": "task/encoder (mode ae)",
+        "data_dir": "src/data/encoder_input/benign_gridsybil/T64",
+        "cache_dir": "task/encoder/runs/cache",
+        "attack_splits": [],
+        "patience": 5,
+        "plateau_patience": 3,
+        "min_delta": 0.0,
+    },
+    48: {
+        "seq_len": 48,
+        "sibling": "task/autoencoder_benign_t48",
+        "data_dir": "src/data/encoder_input/benign_gridsybil/T48_benign",
+        "cache_dir": "task/autoencoder_benign_t48/cache",
+        "attack_splits": ["test_gridsybil"],
+        "patience": 10,
+        "plateau_patience": 5,
+        "min_delta": 0.0001,
+    },
+    32: {
+        "seq_len": 32,
+        "sibling": "task/autoencoder_benign_t32",
+        "data_dir": "src/data/encoder_input/all/T32_benign",
+        "cache_dir": "task/autoencoder_benign_t32/cache",
+        "attack_splits": ATTACKS_32,
+        "patience": 10,
+        "plateau_patience": 5,
+        "min_delta": 0.0001,
+    },
+}
+
+
+@pytest.mark.parametrize("window", [64, 48, 32])
+@pytest.mark.parametrize("encoder", ["mlp", "resnet"])
+def test_existing_config_json_unchanged(window, encoder):
+    p = OLD_PROTOCOLS[window]
+    expected = {
+        "window": window,
+        "encoder": encoder,
+        "seed": 1,
+        "masked_prob": 0.2,
+        "mlp_hidden_dims": [64, 16],
+        "mlp_dropout": 0.1,
+        "blocks_dims": [64, 32, 16],
+        "blocks_dropout": 0.1,
+        "feed_masked_input": True,
+        "linear_mlp_output": True,
+        "n_eval_draws": 5,
+        "eval_mask_seed": 20261117,
+        "lr": 0.001,
+        "weight_decay": 0.01,
+        "batch_size": 256,
+        "max_epochs": 300,
+        "patience": p["patience"],
+        "plateau_factor": 0.5,
+        "plateau_patience": p["plateau_patience"],
+        "min_delta": p["min_delta"],
+        "grad_clip": 0.0,
+        "threshold_quantiles": [0.95, 0.99],
+        "mahalanobis_max_cond": 1000000.0,
+        "mahalanobis_shrinkage": 0.01,
+        "device": "auto",
+        "eval_batch": 4096,
+        "workers": 8,
+        "runs_dir": "task/masked_autoencoder/runs",
+        "max_windows": 0,
+        "protocol": p,
+    }
+    got = MAEConfig.for_window(window, encoder=encoder, seed=1).to_dict()
+    assert json.dumps(got, indent=2) == json.dumps(expected, indent=2)
+    assert MAEConfig.from_dict(got) == MAEConfig.for_window(window, encoder=encoder, seed=1)
+
+
+@pytest.mark.parametrize("window", SMALL_WINDOWS)
+def test_small_window_protocol_is_t32_protocol(window):
+    p, p32 = PROTOCOLS[window], PROTOCOLS[32]
+    assert p.seq_len == window
+    assert p.data_dir == f"src/data/encoder_input/all/T{window}_benign"
+    assert p.cache_dir == f"task/masked_autoencoder/cache/T{window}"
+    assert p.sibling == f"task/autoencoder_benign_t{window}"
+    assert (p.attack_splits, p.patience, p.plateau_patience, p.min_delta) == (
+        p32.attack_splits,
+        p32.patience,
+        p32.plateau_patience,
+        p32.min_delta,
+    )
+    s = MAEConfig.for_window(window, encoder="resnet", seed=3)
+    assert (s.patience, s.plateau_patience, s.min_delta) == (10, 5, 1e-4)
+    assert s.eval_mask_seed == 20261117 and s.n_eval_draws == 5
+    assert s.run_dir == Path(f"task/masked_autoencoder/runs/resnet/T{window}-seed3")
+    assert s.run_id == f"T{window}-resnet-seed3"
+    assert isinstance(make_source(s), T32Source)
+    assert MAEConfig.from_dict(json.loads(json.dumps(s.to_dict()))) == s
+
+
+def test_window_lists():
+    assert WINDOWS == (64, 48, 32) and SMALL_WINDOWS == (20, 10, 5)
+    assert set(ALL_WINDOWS) == set(PROTOCOLS)
+    assert parse_windows(["20,10,5"]) == (20, 10, 5)
+    assert parse_windows(["64", "32,5"]) == (64, 32, 5)
+    with pytest.raises(ValueError):
+        parse_windows(["16"])
+    runner = GridRunner("mlp", windows=parse_windows(["20,10,5"]), seeds=(0,), runs_dir="unused")
+    assert [w for w, _, _ in runner.plan()] == [20, 10, 5]
+    assert runner.command(5, 0, "train")[:6][-3:] == ["--window", "5", "--encoder"]
+
+
+@pytest.mark.parametrize("window", SMALL_WINDOWS)
+def test_eval_masks_small_windows(window):
+    m = EvalMasks(window, F, 5, MAEConfig.for_window(window).eval_mask_seed)
+    covered = sum(m.draw(k).astype(int) for k in range(5))
+    assert covered.shape == (window, F) and np.all(covered == 1)
 
 
 def test_run_layout(tmp_path):
@@ -207,6 +349,7 @@ def test_feed_masked_input_flag():
     assert torch.equal(on[:, 32 * F :], mt.float())
 
 
+@pytest.mark.parametrize("settings", [32, 20, 10, 5], indirect=True)
 def test_training_reads_no_label_and_evaluation_scores_first(settings):
     source = FakeSource(settings)
     exp = Experiment(settings, source)
@@ -231,7 +374,8 @@ def test_training_reads_no_label_and_evaluation_scores_first(settings):
     assert set(m) == {"masked_recon", "full_recon", "mahalanobis"}
     assert 0.0 <= m["masked_recon"]["auroc"] <= 1.0
     assert json.loads((exp.run_dir / "test_metrics.json").read_text())["run_id"] == settings.run_id
-    assert exp.run_dir == run_path("mlp", 32, 0, settings.runs_dir)
+    assert exp.run_dir == run_path("mlp", settings.window, 0, settings.runs_dir)
+    assert json.loads((exp.run_dir / "config.json").read_text())["protocol"]["seq_len"] == settings.window
 
 
 def test_loss_curve_from_history(tmp_path):

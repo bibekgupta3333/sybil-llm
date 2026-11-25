@@ -1,4 +1,4 @@
-"""Runs the grid T = 64 / 48 / 32 x seeds 0-3 of one encoder, skipping every run that is already finished.
+"""Runs the grid T = 64 / 48 / 32 (or any of 64 / 48 / 32 / 20 / 10 / 5) x seeds 0-3 of one encoder, skipping every run that is already finished.
 
 A run is finished when its folder (`config.run_path`) holds `summary.json` and `test_metrics.json`; it is skipped, so
 a rerun of the grid is safe. A run with `summary.json` but no `test_metrics.json` (training done, evaluation missing)
@@ -10,6 +10,10 @@ Usage (repo root):
     .venv-train/bin/python -m task.masked_autoencoder.run_all --encoder mlp
     .venv-train/bin/python -m task.masked_autoencoder.run_all --encoder resnet
     .venv-train/bin/python -m task.masked_autoencoder.run_all --encoder resnet --windows 32 --seeds 0 1 --dry-run
+    .venv-train/bin/python -m task.masked_autoencoder.run_all --encoder mlp --windows 20,10,5
+    WINDOWS=20,10,5 ENCODER=resnet npm run mae:all
+
+`--windows` takes numbers separated by spaces and / or commas; the default is the main grid 64 / 48 / 32 (`WINDOWS`).
 """
 
 from __future__ import annotations
@@ -117,16 +121,39 @@ class GridRunner:
         return proc.wait()
 
 
+def parse_windows(values: list[str]) -> tuple[int, ...]:
+    """`["20,10", "5"]` -> (20, 10, 5); every value must be a known window (`PROTOCOLS`)."""
+    out = []
+    for v in values:
+        for part in v.replace(",", " ").split():
+            w = int(part)
+            if w not in PROTOCOLS:
+                raise ValueError(f"window must be one of {sorted(PROTOCOLS)}, got {w}")
+            out.append(w)
+    if not out:
+        raise ValueError("no window given")
+    return tuple(out)
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--encoder", choices=ENCODERS, default="mlp")
-    p.add_argument("--windows", type=int, nargs="+", choices=sorted(PROTOCOLS), default=list(WINDOWS))
+    p.add_argument(
+        "--windows",
+        nargs="+",
+        default=[",".join(map(str, WINDOWS))],
+        help=f"windows, space- or comma-separated, from {sorted(PROTOCOLS)} (default {','.join(map(str, WINDOWS))})",
+    )
     p.add_argument("--seeds", type=int, nargs="+", default=list(SEEDS))
     p.add_argument("--runs-dir", default=RUNS_DIR)
     p.add_argument("--device", default="auto")
     p.add_argument("--dry-run", action="store_true", help="print the plan (skip / evaluate / train) only, write no log")
     a = p.parse_args(argv)
-    runner = GridRunner(a.encoder, tuple(a.windows), tuple(a.seeds), str(Path(a.runs_dir)), a.device)
+    try:
+        windows = parse_windows(a.windows)
+    except ValueError as e:
+        p.error(str(e))
+    runner = GridRunner(a.encoder, windows, tuple(a.seeds), str(Path(a.runs_dir)), a.device)
     sys.exit(runner.run(a.dry_run))
 
 

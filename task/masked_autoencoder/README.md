@@ -4,7 +4,8 @@ Side experiment, not the thesis TimesNet model. A masking-based autoencoder that
 self-supervised pretraining (`EncoderDecoderTrainer(encoder=TabMlp(...), masked_prob=0.2)`, docs example
 "15_Self_Supervised_Pretraning_pt1"), re-implemented in plain PyTorch (the library is **not** installed: it would
 downgrade numpy in `.venv-train`). It is trained one-class (benign windows only) on exactly the windows of the existing
-one-class ConvAE cells, at T = 64, 48 and 32, so its numbers sit next to theirs.
+one-class ConvAE cells, at T = 64, 48 and 32, so its numbers sit next to theirs. Short windows T = 20, 10 and 5
+(`SMALL_WINDOWS`, added 2026-11-25) run on `all/T<w>_benign` with the T = 32 protocol; no run of them exists yet.
 
 ## Method
 
@@ -37,6 +38,15 @@ one-class ConvAE cells, at T = 64, 48 and 32, so its numbers sit next to theirs.
 | 64 | `task/encoder` mode ae (`WindowStore`, `VehicleSplit`, cache `task/encoder/runs/cache`) | benign train windows (labels read once, to select them, as in the sibling) | 10% of their sender vehicles, split seed 0 | on-disk `test`: benign + GridSybil, separated by label after scoring |
 | 48 | `task/autoencoder_benign_t48` (`WindowDataset`, its cache) | on-disk `train` (benign) | on-disk `val` | `test` + `test_gridsybil` |
 | 32 | `task/autoencoder_benign_t32` (`WindowDataset`, its cache) | on-disk `train` (benign) | on-disk `val` | `test` + `test_gridsybil` / `_datareplay` / `_dosrandom` / `_dosdisruptive` |
+| 20 / 10 / 5 | `task/autoencoder_benign_t20` / `_t10` / `_t5` (comparison only; data read with `task.autoencoder_benign_t32.data.WindowDataset`, own cache `task/masked_autoencoder/cache/T<w>`) | on-disk `train` of `all/T<w>_benign` (benign) | on-disk `val` | `test` + the four `test_<attack>` splits |
+
+T = 20 / 10 / 5 use the T = 32 protocol unchanged (patience 10, plateau 5, relative min_delta 1e-4, max 300 epochs,
+same attack splits, same `EVAL_MASK_SEED`, same scores and metrics); only `data_dir`, `seq_len` and `cache_dir` differ
+(`config.PROTOCOLS`, built from the T = 32 entry with `dataclasses.replace`). The cache is this package's own (gitignored)
+because the sibling ConvAE packages `task/autoencoder_benign_t20` / `_t10` / `_t5` were written at the same time and
+their cache layout was not fixed; nothing is copied from them. Their ConvAE results (the "ConvAE recon" column of the
+tables below) are to be read from their own run files once they exist; no number for them is stored here. The
+`config.json` of T = 64 / 48 / 32 runs is unchanged by this addition (test `test_existing_config_json_unchanged`).
 
 Mahalanobis (`task.autoencoder_benign_t32.scoring.Mahalanobis`, shrinkage when cond > 1e6), `TrackScores`,
 `quantile_thresholds`, `EarlyStopping` / `RunLog` and the metric code (`task.autoencoder_benign_t48.evaluate.
@@ -76,8 +86,20 @@ used at every T.
    match the sibling ConvAEs. Validation loss = deterministic masked-reconstruction MSE (widedeep's eval loss uses an
    all-ones mask on the clean input).
 6. **Model size.** widedeep's defaults (TabMlp [200, 100], TabResnet [200, 100, 100]) are replaced by small widths with
-   z = 16, like the ConvAEs. Parameters: TabMlp 113,616 / 85,760 / 57,904 and TabResnet 128,224 / 100,576 / 72,928 at
-   T = 64 / 48 / 32 (one-class ConvAEs: 80,189 / 71,741 / 63,293).
+   z = 16, like the ConvAEs. The widths are the same at every T; only the input (14 T) and output (13 T) layers change:
+
+   | T | input columns | TabMlp params | TabResnet params | one-class ConvAE |
+   |---|---|---|---|---|
+   | 64 | 896 | 113,616 | 128,224 | 80,189 |
+   | 48 | 672 | 85,760 | 100,576 | 71,741 |
+   | 32 | 448 | 57,904 | 72,928 | 63,293 |
+   | 20 | 280 | 37,012 | 52,192 | (sibling `_t20`, not yet built) |
+   | 10 | 140 | 19,602 | 34,912 | (sibling `_t10`) |
+   | 5 | 70 | 10,897 | 26,272 | (sibling `_t5`) |
+
+   At T = 5 the first layer (70 -> 64) barely compresses; the bottleneck is z = 16 against 65 reconstructed cells
+   (4x), so the T = 32 widths are kept (no change of architecture rule). The scoring partition of `EVAL_MASK_SEED`
+   still splits the 13 T cells into 5 equal groups at every T (65 cells = 5 x 13 at T = 5).
 
 ## Commands (repo root)
 
@@ -87,10 +109,17 @@ WINDOW=32 ENCODER=mlp SEED=0 npm run mae:train    # train + evaluate one run
 WINDOW=32 ENCODER=mlp SEED=0 npm run mae:eval     # re-score / re-evaluate one run
 npm run mae:all                                   # grid of one encoder (ENCODER, default mlp): T = 64 / 48 / 32 x seeds 0-3
 npm run mae:all:resnet                            # the same grid for TabResnet
+npm run mae:all:small                             # short windows T = 20 / 10 / 5 x seeds 0-3 (ENCODER, default mlp)
+npm run mae:all:small:resnet                      # the same for TabResnet
+WINDOWS=20,10,5 ENCODER=resnet npm run mae:all    # any window list (comma-separated); default 64,48,32
+WINDOW=5 ENCODER=resnet SEED=0 npm run mae:train  # one short-window run
 npm run mae:plots                                 # loss_curve.png for every finished run of every encoder
 npm run mae:notebook                              # execute masked_autoencoder.ipynb (reads the run files only)
 npm run hf:download:baselines:mae                 # TabMlp grid from HF (baselines/masked_autoencoder/mlp/T<w>-seed<k>)
 npm run hf:download:baselines:mae:resnet          # TabResnet grid from HF (baselines/masked_autoencoder/resnet/T<w>-seed<k>)
+npm run hf:download:baselines:mae:small           # TabMlp T = 20 / 10 / 5 runs from HF (once uploaded; logs not included)
+npm run hf:download:baselines:mae:small:resnet    # TabResnet T = 20 / 10 / 5 runs from HF (:small:all = both)
+.venv-train/bin/python -m task.masked_autoencoder.train --window 5 --encoder mlp --seed 0 --epochs 2 --max-windows 2000 --evaluate   # quick check (-check folder)
 .venv-train/bin/python -m task.masked_autoencoder.run_all --encoder resnet --dry-run   # plan only: skip / evaluate / train
 .venv-train/bin/python -m task.masked_autoencoder.evaluate --window 32 --encoder mlp --seed 0 --from-scores
 .venv-train/bin/python -m task.masked_autoencoder.plots --all --encoder resnet
@@ -98,16 +127,20 @@ npm run hf:download:baselines:mae:resnet          # TabResnet grid from HF (base
 
 `mae:all` (`run_all.py`) is safe to rerun: a run whose folder holds `summary.json` + `test_metrics.json` is skipped, a
 run with `summary.json` only is evaluated, every other run is trained + evaluated (`train.py --evaluate`, one process per
-run); it stops at the first failure. Its output is appended to `runs/<encoder>/logs/mae_all_<encoder>.log`.
+run); it stops at the first failure. Its output is appended to `runs/<encoder>/logs/mae_all_<encoder>.log` (one log per
+encoder for every window list). `--windows` takes space- and / or comma-separated values from 64 / 48 / 32 / 20 / 10 / 5
+(default 64,48,32). The notebook covers the main grid (`config.WINDOWS` = 64 / 48 / 32) only.
 
 ## Run layout
 
 ```
 runs/                              (gitignored)
   mlp/                             TabMlp
-    T64-seed0/ ... T32-seed3/      12 run folders
+    T64-seed0/ ... T32-seed3/      12 run folders (main grid)
+    T20-seed0/ ... T5-seed3/       12 short-window run folders (when run)
     logs/mae_all_mlp.log           grid log
   resnet/                          TabResnet (same layout)
+cache/T20, cache/T10, cache/T5     (gitignored) decoded-shard cache of all/T<w>_benign (npy, built on first use)
 ```
 
 The folder of a run is `config.run_path(encoder, window, seed, runs_dir)` (`MAEConfig.run_dir`); train, evaluate, plots,

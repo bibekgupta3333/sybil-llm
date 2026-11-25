@@ -9,6 +9,15 @@ one-class ConvAE package it is compared with:
                                           (VehicleSplit, split seed 0), test = benign + GridSybil test
     T = 48  task/autoencoder_benign_t48   benign_gridsybil/T48_benign, on-disk train / val / test + test_gridsybil
     T = 32  task/autoencoder_benign_t32   all/T32_benign, on-disk train / val / test + four test_<attack> splits
+    T = 20  task/autoencoder_benign_t20   all/T20_benign  } the T = 32 protocol (same split structure, early stopping,
+    T = 10  task/autoencoder_benign_t10   all/T10_benign  } LR schedule, attack splits); only the data folder, seq_len
+    T =  5  task/autoencoder_benign_t5    all/T5_benign   } and the cache folder change
+
+T = 20 / 10 / 5 (`SMALL_WINDOWS`, added 2026-11-25): their sibling ConvAE packages were written at the same time, so
+nothing is copied from them. The protocol numbers are the T = 32 ones, and the decoded-shard cache is this package's own
+`task/masked_autoencoder/cache/T<w>` (same reader `task.autoencoder_benign_t32.data.WindowDataset`, same windows; the
+siblings' cache layout was not fixed yet). Sibling results to compare with (ConvAE AUROC at T = 20 / 10 / 5) are read
+from the sibling run files once they exist; none is stored in this package.
 """
 
 from __future__ import annotations
@@ -19,7 +28,9 @@ from pathlib import Path
 RUNS_DIR = "task/masked_autoencoder/runs"
 N_FEATURES = 13
 ENCODERS = ("mlp", "resnet")
-WINDOWS = (64, 48, 32)
+WINDOWS = (64, 48, 32)  # the main grid (README results, notebook); run_all default
+SMALL_WINDOWS = (20, 10, 5)  # short windows on all/T<w>_benign with the T = 32 protocol (2026-11-25)
+ALL_WINDOWS = WINDOWS + SMALL_WINDOWS
 SEEDS = (0, 1, 2, 3)
 EVAL_MASK_SEED = 20261117  # fixed for every window, run and seed: the deterministic scoring masks
 LOGS_NAME = "logs"
@@ -106,6 +117,16 @@ PROTOCOLS = {
         min_delta=1e-4,
     ),
 }
+for _w in SMALL_WINDOWS:
+    # the T = 32 protocol with the new data folder, seq_len and this package's own cache (see the module docstring)
+    PROTOCOLS[_w] = dataclasses.replace(
+        PROTOCOLS[32],
+        seq_len=_w,
+        sibling=f"task/autoencoder_benign_t{_w}",
+        data_dir=f"src/data/encoder_input/all/T{_w}_benign",
+        cache_dir=f"task/masked_autoencoder/cache/T{_w}",
+    )
+del _w
 
 
 @dataclasses.dataclass(frozen=True)
@@ -113,7 +134,7 @@ class MAEConfig:
     """Every setting of a run.
 
     Attributes:
-        window: T (64, 48 or 32); selects the `WindowProtocol`.
+        window: T (64, 48, 32, 20, 10 or 5); selects the `WindowProtocol`.
         encoder: "mlp" (TabMlp + TabMlpDecoder) or "resnet" (TabResnet + TabResnetDecoder).
         seed: weights, batch order and training masks.
         masked_prob: share of real cells hidden per training step (widedeep `masked_prob`, default 0.2).

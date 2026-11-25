@@ -10,7 +10,8 @@ Every source returns the same three things:
 
 T = 64: `task.encoder.data.WindowStore` (cache `task/encoder/runs/cache`) + `VehicleSplit(0.1, seed 0)` over the benign
 train pool. T = 48 / 32: `task.autoencoder_benign_t48.data.WindowDataset` / `task.autoencoder_benign_t32.data.WindowDataset`
-with the siblings' caches.
+with the siblings' caches. T = 20 / 10 / 5: `task.autoencoder_benign_t32.data.WindowDataset` (the all/T<w>_benign
+layout is the all/T32_benign one) with this package's cache `task/masked_autoencoder/cache/T<w>`.
 """
 
 from __future__ import annotations
@@ -196,9 +197,15 @@ class T48Source(OnDiskSource):
 
 
 class T32Source(OnDiskSource):
+    """all/T<w>_benign layout: T = 32 and the short windows T = 20 / 10 / 5."""
+
     dataset_cls = WindowDataset32
 
 
 def make_source(settings: MAEConfig) -> OneClassSource:
     """The source of `settings.window`."""
-    return {64: T64Source, 48: T48Source, 32: T32Source}[settings.window](settings)
+    if settings.window == 64:
+        return T64Source(settings)
+    if settings.window == 48:
+        return T48Source(settings)
+    return T32Source(settings)  # T = 32, 20, 10, 5

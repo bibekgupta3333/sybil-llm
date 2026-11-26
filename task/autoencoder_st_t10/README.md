@@ -7,7 +7,7 @@ the all/T32_benign_grid split, fixed on disk; no split change). Loss = BCEWithLo
 n_gridsybil of train) + 1.0 · masked MSE. Inputs are x + mask only. Val drives the LR schedule, early stopping on val
 AUROC, `best.pt` and both alarm thresholds (max F1 on val; benign FPR 5% on val); `train.py` never reads test; the test
 evaluation is in the notebook, as for T = 32. **A side experiment, not a thesis result, not the thesis TimesNet model.**
-No run yet.
+Seeds 0–3 trained and evaluated (results below).
 
 Thin package: config (subclass of `task/autoencoder_st_t20`'s), Trainer / Experiment subclasses that only set the
 config class, plot title and parameter count; model, reader, metrics and the training loop are imported.
@@ -27,3 +27,24 @@ windows whose length differs from `seq_len`; the notebook's length-group table u
 - `npm run aest10:test`: pytest, synthetic shards, CPU. `npm run aest10:notebook`: executes `autoencoder_st_T10.ipynb`
   on the newest run (analysis cell is a placeholder until a run exists).
 - `SEED=k npm run hf:download:baselines:st-t10`: fetch `baselines/autoencoder_st_t10/seed<k>` from the private HF repo.
+
+## Results (seeds 0–3)
+
+GridSybil vs benign, test (`all/T10_benign_grid` `test`), window level, mean ± sample sd over seeds 0–3, from
+`runs/seed<k>/test_results.json` (written by the package notebook executed per seed, copy
+`runs/seed<k>/autoencoder_st_T10.executed.ipynb`; 4 dp in the file).
+
+| Metric | Value | Per seed |
+|---|---|---|
+| Head AUROC | 0.9159 ± 0.0011 | 0.9155 / 0.9172 / 0.9163 / 0.9146 |
+| Head PR-AUC | 0.9111 ± 0.0011 | 0.9107 / 0.9127 / 0.9108 / 0.9101 |
+| F1 at val max-F1 θ | 0.8738 ± 0.0026 | 0.8741 / 0.8773 / 0.8721 / 0.8717 |
+| Benign FPR at val max-F1 θ | 0.0132 ± 0.0014 | 0.0123 / 0.0123 / 0.0129 / 0.0152 |
+| val max-F1 θ | 0.5731 ± 0.0678 | 0.5049 / 0.5906 / 0.6599 / 0.5368 |
+| F1 / recall / benign FPR at val FPR-5% θ | 0.8509 ± 0.0038 / 0.8210 ± 0.0043 / 0.0473 ± 0.0026 | — |
+| Reconstruction error alone (AUROC) | 0.6247 ± 0.0047 | 0.6311 / 0.6199 / 0.6239 / 0.6238 |
+| Length only (−n_messages) | 0.5302 | — |
+
+Best epochs 29 / 40 / 32 / 20; 53,438 parameters.
+
+Side experiment, not a thesis result, not the thesis TimesNet model; seeds 0–3 on EC2 (g4dn T4); independently judged 2026-11-26 (56 PASS + 4 PASS-WITH-NOTES, 0 FAIL).

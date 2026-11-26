@@ -12,7 +12,8 @@
   "updated_2026-11-16": "added seed3_rerun (one extra seed, EC2 g4dn T4) to task/encoder (ae), task/autoencoder_st, task/autoencoder_benign_t32, task/autoencoder_benign_t48, task/autoencoder_t64; seed-0 entries unchanged; unlabelled T48 / T32 and supervised T32 seed 3 pending (inputs not yet on HF)",
   "updated_2026-11-17": "added seed_reruns (seeds 1, 2 for all eight grid cells, seed 3 for task/autoencoder, task/autoencoder_t32, task/autoencoder_st_t32, seed 4 for task/encoder AE; EC2 g4dn T4, git 6b08c39, dirty = package.json only) and seed_summary (4 seeds per cell, task/encoder also seeds 0-4) per study; numbers from the judge CPU recomputes (HF baselines/<package>/seed<k>/judge/) and run summary.json; seed-0 entries and seed3_rerun unchanged; A / E / H seeds 1-3 trained on the EC2 rebuild of their inputs (verified equal to the Mac builds, no split change)",
   "updated_2026-11-18": "checked every seed_summary value against the run files now on the Mac (task/*/runs/seed{1,2,3}/judge/recompute.json, test_metrics.json, results.json, evaluation.json; task/encoder/runs/evaluation/results.json, ae-seed{3,4}/judge): all equal (|diff| < 1e-6) except rounded seed-0 notebook values; mean / sd recomputed, all equal at 4 dp; one rounded value replaced (task/autoencoder_t32 gridsybil_folders seed 0). Added masked_autoencoder (TabMlp seeds 0-3 at T64 / T48 / T32; TabResnet T64 / T48 seeds 0-3, T32 pending) and timesnet_t32b_seed0 (context, one seed); length-matched AUROC recomputed from their score files",
-  "updated_2026-11-18b": "masked_autoencoder: added TabResnet T32 seeds 0-3 (runs.resnet.T32, summary.resnet.T32), status updated; TabResnet T64 / T48 re-checked against the run files, unchanged; nothing else changed"
+  "updated_2026-11-18b": "masked_autoencoder: added TabResnet T32 seeds 0-3 (runs.resnet.T32, summary.resnet.T32), status updated; TabResnet T64 / T48 re-checked against the run files, unchanged; nothing else changed",
+  "updated_2026-11-26": "added small_window_baselines (T20 / T10 / T5: one-class, unlabelled, supervised ConvAE + masked AE TabMlp / TabResnet, seeds 0-3, EC2; values from each run's test_results.json / evaluation.json / test_metrics.json; judged: all PASS or PASS-WITH-NOTES); existing entries unchanged"
  },
  "task/encoder": {
   "study": "task/encoder",
@@ -20285,6 +20286,2809 @@
         "recall_p95": 0.0,
         "benign_fpr_p95": 0.0
        }
+      }
+     }
+    }
+   }
+  }
+ },
+ "small_window_baselines": {
+  "study": "small-window baselines T20 / T10 / T5 (2026-11-26): one-class, unlabelled and supervised ConvAE + masked AE (TabMlp / TabResnet), seeds 0-3, EC2 g4dn T4",
+  "added": "2026-11-26",
+  "inputs": {
+   "one_class_and_masked_ae": "src/data/encoder_input/all/T{20,10,5}_benign (all/T32_benign vehicle split, 80 / 10 / 10; no RULE 3 change)",
+   "unlabelled_and_supervised": "src/data/encoder_input/all/T{20,10,5}_benign_grid (all/T32_benign_grid vehicle split, 85 / 7.5 / 7.5; no RULE 3 change)"
+  },
+  "status": "finished, on private HF bibekgupta3333/roadfm-lite-timesnet (baselines/<package>/seed<k>, baselines/masked_autoencoder/<enc>/T<w>-seed<k>); independently judged 2026-11-26 (56 PASS + 4 PASS-WITH-NOTES, 0 FAIL)",
+  "notes": [
+   "one-class and supervised test metrics come from test_results.json written by the per-seed executed notebooks (one-class rounded to 3 dp, supervised 4 dp in the file)",
+   "length-matched AUROC not computed for these windows",
+   "positive = attack window, negative = benign test window"
+  ],
+  "cells": {
+   "T20": {
+    "oneclass_convae": {
+     "package": "task/autoencoder_benign_t20",
+     "params": 56957,
+     "best_epoch": [
+      232,
+      262,
+      214,
+      190
+     ],
+     "GridSybil": {
+      "reconstruction": {
+       "n": 4,
+       "values": [
+        0.754,
+        0.771,
+        0.749,
+        0.752
+       ],
+       "mean": 0.7565,
+       "sd_sample": 0.0099,
+       "min": 0.749,
+       "max": 0.771,
+       "source": "task/autoencoder_benign_t20/runs/seed<k>/test_results.json -> \"GridSybil/reconstruction/window\".AUROC"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.534,
+        0.555,
+        0.568,
+        0.502
+       ],
+       "mean": 0.5397,
+       "sd_sample": 0.0288,
+       "min": 0.502,
+       "max": 0.568,
+       "source": "task/autoencoder_benign_t20/runs/seed<k>/test_results.json -> \"GridSybil/mahalanobis/window\".AUROC"
+      },
+      "length": {
+       "n": 4,
+       "values": [
+        0.547,
+        0.547,
+        0.547,
+        0.547
+       ],
+       "mean": 0.547,
+       "sd_sample": 0.0,
+       "min": 0.547,
+       "max": 0.547,
+       "source": "task/autoencoder_benign_t20/runs/seed<k>/test_results.json -> \"GridSybil/length only (reference)/window\".AUROC"
+      }
+     },
+     "DataReplay": {
+      "reconstruction": {
+       "n": 4,
+       "values": [
+        0.394,
+        0.407,
+        0.411,
+        0.389
+       ],
+       "mean": 0.4002,
+       "sd_sample": 0.0104,
+       "min": 0.389,
+       "max": 0.411,
+       "source": "task/autoencoder_benign_t20/runs/seed<k>/test_results.json -> \"DataReplay/reconstruction/window\".AUROC"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.458,
+        0.439,
+        0.494,
+        0.405
+       ],
+       "mean": 0.449,
+       "sd_sample": 0.0372,
+       "min": 0.405,
+       "max": 0.494,
+       "source": "task/autoencoder_benign_t20/runs/seed<k>/test_results.json -> \"DataReplay/mahalanobis/window\".AUROC"
+      },
+      "length": {
+       "n": 4,
+       "values": [
+        0.951,
+        0.951,
+        0.951,
+        0.951
+       ],
+       "mean": 0.951,
+       "sd_sample": 0.0,
+       "min": 0.951,
+       "max": 0.951,
+       "source": "task/autoencoder_benign_t20/runs/seed<k>/test_results.json -> \"DataReplay/length only (reference)/window\".AUROC"
+      }
+     },
+     "DoSRandom": {
+      "reconstruction": {
+       "n": 4,
+       "values": [
+        0.976,
+        0.983,
+        0.979,
+        0.974
+       ],
+       "mean": 0.978,
+       "sd_sample": 0.0039,
+       "min": 0.974,
+       "max": 0.983,
+       "source": "task/autoencoder_benign_t20/runs/seed<k>/test_results.json -> \"DoSRandom/reconstruction/window\".AUROC"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.808,
+        0.827,
+        0.862,
+        0.806
+       ],
+       "mean": 0.8257,
+       "sd_sample": 0.026,
+       "min": 0.806,
+       "max": 0.862,
+       "source": "task/autoencoder_benign_t20/runs/seed<k>/test_results.json -> \"DoSRandom/mahalanobis/window\".AUROC"
+      },
+      "length": {
+       "n": 4,
+       "values": [
+        0.967,
+        0.967,
+        0.967,
+        0.967
+       ],
+       "mean": 0.967,
+       "sd_sample": 0.0,
+       "min": 0.967,
+       "max": 0.967,
+       "source": "task/autoencoder_benign_t20/runs/seed<k>/test_results.json -> \"DoSRandom/length only (reference)/window\".AUROC"
+      }
+     },
+     "DoSDisruptive": {
+      "reconstruction": {
+       "n": 4,
+       "values": [
+        0.616,
+        0.632,
+        0.631,
+        0.61
+       ],
+       "mean": 0.6222,
+       "sd_sample": 0.011,
+       "min": 0.61,
+       "max": 0.632,
+       "source": "task/autoencoder_benign_t20/runs/seed<k>/test_results.json -> \"DoSDisruptive/reconstruction/window\".AUROC"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.626,
+        0.618,
+        0.649,
+        0.594
+       ],
+       "mean": 0.6218,
+       "sd_sample": 0.0227,
+       "min": 0.594,
+       "max": 0.649,
+       "source": "task/autoencoder_benign_t20/runs/seed<k>/test_results.json -> \"DoSDisruptive/mahalanobis/window\".AUROC"
+      },
+      "length": {
+       "n": 4,
+       "values": [
+        0.967,
+        0.967,
+        0.967,
+        0.967
+       ],
+       "mean": 0.967,
+       "sd_sample": 0.0,
+       "min": 0.967,
+       "max": 0.967,
+       "source": "task/autoencoder_benign_t20/runs/seed<k>/test_results.json -> \"DoSDisruptive/length only (reference)/window\".AUROC"
+      }
+     }
+    },
+    "unlabelled_convae": {
+     "package": "task/autoencoder_t20",
+     "test_windows": 83826,
+     "test_gridsybil_share": 0.3141865292391382,
+     "GridSybil": {
+      "reconstruction": {
+       "n": 4,
+       "values": [
+        0.6191035944769684,
+        0.6174019111189017,
+        0.6187199195654568,
+        0.6196981726144859
+       ],
+       "mean": 0.6187,
+       "sd_sample": 0.001,
+       "min": 0.6174019111189017,
+       "max": 0.6196981726144859,
+       "source": "task/autoencoder_t20/runs/seed<k>/evaluation.json -> test_all.window.reconstruction.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.4792553664026534,
+        0.44523417540029003,
+        0.47217809548775624,
+        0.47666822778485995
+       ],
+       "mean": 0.4683,
+       "sd_sample": 0.0157,
+       "min": 0.44523417540029003,
+       "max": 0.4792553664026534,
+       "source": "task/autoencoder_t20/runs/seed<k>/evaluation.json -> test_all.window.mahalanobis.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.5481191736944412,
+        0.5481191736944412,
+        0.5481191736944412,
+        0.5481191736944412
+       ],
+       "mean": 0.5481,
+       "sd_sample": 0.0,
+       "min": 0.5481191736944412,
+       "max": 0.5481191736944412,
+       "source": "task/autoencoder_t20/runs/seed<k>/evaluation.json -> test_all.length_only.auroc"
+      }
+     }
+    },
+    "supervised_convae": {
+     "package": "task/autoencoder_st_t20",
+     "params": 57534,
+     "best_epoch": [
+      15,
+      17,
+      9,
+      8
+     ],
+     "GridSybil": {
+      "head_auroc": {
+       "n": 4,
+       "values": [
+        0.924,
+        0.9236,
+        0.9246,
+        0.9249
+       ],
+       "mean": 0.9243,
+       "sd_sample": 0.0006,
+       "min": 0.9236,
+       "max": 0.9249,
+       "source": "task/autoencoder_st_t20/runs/seed<k>/test_results.json -> \"window/max_f1\".auroc"
+      },
+      "f1_at_val_max_f1": {
+       "n": 4,
+       "values": [
+        0.883,
+        0.8814,
+        0.8813,
+        0.8799
+       ],
+       "mean": 0.8814,
+       "sd_sample": 0.0013,
+       "min": 0.8799,
+       "max": 0.883,
+       "source": "task/autoencoder_st_t20/runs/seed<k>/test_results.json -> \"window/max_f1\".f1"
+      },
+      "benign_fpr_at_val_max_f1": {
+       "n": 4,
+       "values": [
+        0.0102,
+        0.0128,
+        0.0104,
+        0.013
+       ],
+       "mean": 0.0116,
+       "sd_sample": 0.0015,
+       "min": 0.0102,
+       "max": 0.013,
+       "source": "task/autoencoder_st_t20/runs/seed<k>/test_results.json -> \"window/max_f1\".benign_fpr"
+      },
+      "f1_at_val_fpr5": {
+       "n": 4,
+       "values": [
+        0.8567,
+        0.8583,
+        0.856,
+        0.8565
+       ],
+       "mean": 0.8569,
+       "sd_sample": 0.001,
+       "min": 0.856,
+       "max": 0.8583,
+       "source": "task/autoencoder_st_t20/runs/seed<k>/test_results.json -> \"window/benign_fpr_5pct\".f1"
+      },
+      "benign_fpr_at_val_fpr5": {
+       "n": 4,
+       "values": [
+        0.0502,
+        0.0482,
+        0.0495,
+        0.0473
+       ],
+       "mean": 0.0488,
+       "sd_sample": 0.0013,
+       "min": 0.0473,
+       "max": 0.0502,
+       "source": "task/autoencoder_st_t20/runs/seed<k>/test_results.json -> \"window/benign_fpr_5pct\".benign_fpr"
+      },
+      "reconstruction_error_auroc": {
+       "n": 4,
+       "values": [
+        0.6054,
+        0.608,
+        0.6093,
+        0.6
+       ],
+       "mean": 0.6057,
+       "sd_sample": 0.0041,
+       "min": 0.6,
+       "max": 0.6093,
+       "source": "task/autoencoder_st_t20/runs/seed<k>/test_results.json -> reconstruction_error_auroc"
+      },
+      "length_only_auroc": {
+       "n": 4,
+       "values": [
+        0.5481,
+        0.5481,
+        0.5481,
+        0.5481
+       ],
+       "mean": 0.5481,
+       "sd_sample": 0.0,
+       "min": 0.5481,
+       "max": 0.5481,
+       "source": "task/autoencoder_st_t20/runs/seed<k>/test_results.json -> length_only_auroc"
+      }
+     }
+    },
+    "masked_ae_mlp": {
+     "params": 37012,
+     "GridSybil": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.6647509414381823,
+        0.6680895998764671,
+        0.6664360728438609,
+        0.6682030353419879
+       ],
+       "mean": 0.6669,
+       "sd_sample": 0.0016,
+       "min": 0.6647509414381823,
+       "max": 0.6682030353419879,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.GridSybil.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.6555605589256049,
+        0.6584021420574252,
+        0.6592611431577474,
+        0.6632006305793747
+       ],
+       "mean": 0.6591,
+       "sd_sample": 0.0032,
+       "min": 0.6555605589256049,
+       "max": 0.6632006305793747,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.GridSybil.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.4044950344830695,
+        0.43190388725605044,
+        0.44320786461670086,
+        0.4139389453091802
+       ],
+       "mean": 0.4234,
+       "sd_sample": 0.0174,
+       "min": 0.4044950344830695,
+       "max": 0.44320786461670086,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.GridSybil.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        0.6756566260442834,
+        0.6781834513902462,
+        0.6759304138354592,
+        0.6785240509999829
+       ],
+       "mean": 0.6771,
+       "sd_sample": 0.0015,
+       "min": 0.6756566260442834,
+       "max": 0.6785240509999829,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.GridSybil.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.5470833907878724,
+        0.5470833907878724,
+        0.5470833907878724,
+        0.5470833907878724
+       ],
+       "mean": 0.5471,
+       "sd_sample": 0.0,
+       "min": 0.5470833907878724,
+       "max": 0.5470833907878724,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.GridSybil.length_only.auroc"
+      }
+     },
+     "DataReplay": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.7275855210653386,
+        0.7330128265690934,
+        0.7319650289304521,
+        0.7198300538355659
+       ],
+       "mean": 0.7281,
+       "sd_sample": 0.006,
+       "min": 0.7198300538355659,
+       "max": 0.7330128265690934,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.DataReplay.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.548489974053292,
+        0.5328341313940895,
+        0.56058968972437,
+        0.5718593242124895
+       ],
+       "mean": 0.5534,
+       "sd_sample": 0.0167,
+       "min": 0.5328341313940895,
+       "max": 0.5718593242124895,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.DataReplay.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.2724659609276774,
+        0.4049334112440074,
+        0.3058692601646467,
+        0.2883424671634675
+       ],
+       "mean": 0.3179,
+       "sd_sample": 0.0596,
+       "min": 0.2724659609276774,
+       "max": 0.4049334112440074,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.DataReplay.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        0.3632374067553273,
+        0.3736753848403064,
+        0.3720189641279408,
+        0.3692523669165042
+       ],
+       "mean": 0.3695,
+       "sd_sample": 0.0046,
+       "min": 0.3632374067553273,
+       "max": 0.3736753848403064,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.DataReplay.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.9514336187189399,
+        0.9514336187189399,
+        0.9514336187189399,
+        0.9514336187189399
+       ],
+       "mean": 0.9514,
+       "sd_sample": 0.0,
+       "min": 0.9514336187189399,
+       "max": 0.9514336187189399,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.DataReplay.length_only.auroc"
+      }
+     },
+     "DoSRandom": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.9899862493328893,
+        0.9899638830611586,
+        0.9892108758352233,
+        0.9899896756952739
+       ],
+       "mean": 0.9898,
+       "sd_sample": 0.0004,
+       "min": 0.9892108758352233,
+       "max": 0.9899896756952739,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.DoSRandom.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.9778254234504473,
+        0.9702047236477115,
+        0.9750196307165463,
+        0.9769327409289623
+       ],
+       "mean": 0.975,
+       "sd_sample": 0.0034,
+       "min": 0.9702047236477115,
+       "max": 0.9778254234504473,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.DoSRandom.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.38886790150478096,
+        0.7404114973083042,
+        0.5455718135647263,
+        0.45538883723686613
+       ],
+       "mean": 0.5326,
+       "sd_sample": 0.1527,
+       "min": 0.38886790150478096,
+       "max": 0.7404114973083042,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.DoSRandom.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+       ],
+       "mean": 1.0,
+       "sd_sample": 0.0,
+       "min": 1.0,
+       "max": 1.0,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.DoSRandom.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.9672405723397622,
+        0.9672405723397622,
+        0.9672405723397622,
+        0.9672405723397622
+       ],
+       "mean": 0.9672,
+       "sd_sample": 0.0,
+       "min": 0.9672405723397622,
+       "max": 0.9672405723397622,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.DoSRandom.length_only.auroc"
+      }
+     },
+     "DoSDisruptive": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.8746283222846709,
+        0.8813367101023646,
+        0.8730850096995153,
+        0.8650202598654896
+       ],
+       "mean": 0.8735,
+       "sd_sample": 0.0067,
+       "min": 0.8650202598654896,
+       "max": 0.8813367101023646,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.7482182049278476,
+        0.7237297669414802,
+        0.7397169017673482,
+        0.7598442649497603
+       ],
+       "mean": 0.7429,
+       "sd_sample": 0.0152,
+       "min": 0.7237297669414802,
+       "max": 0.7598442649497603,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.2797234132899705,
+        0.3845988633865375,
+        0.33238376766650185,
+        0.3129519724757662
+       ],
+       "mean": 0.3274,
+       "sd_sample": 0.0439,
+       "min": 0.2797234132899705,
+       "max": 0.3845988633865375,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+       ],
+       "mean": 1.0,
+       "sd_sample": 0.0,
+       "min": 1.0,
+       "max": 1.0,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.9672383696691526,
+        0.9672383696691526,
+        0.9672383696691526,
+        0.9672383696691526
+       ],
+       "mean": 0.9672,
+       "sd_sample": 0.0,
+       "min": 0.9672383696691526,
+       "max": 0.9672383696691526,
+       "source": "task/masked_autoencoder/runs/mlp/T20-seed<k>/test_metrics.json -> attacks.DoSDisruptive.length_only.auroc"
+      }
+     }
+    },
+    "masked_ae_resnet": {
+     "params": 52192,
+     "GridSybil": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.7053237796235559,
+        0.7074544749185554,
+        0.7075026310775728,
+        0.7063275831684843
+       ],
+       "mean": 0.7067,
+       "sd_sample": 0.001,
+       "min": 0.7053237796235559,
+       "max": 0.7075026310775728,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.GridSybil.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.6968611358809484,
+        0.6977661167722369,
+        0.6986620972764239,
+        0.6968140247171803
+       ],
+       "mean": 0.6975,
+       "sd_sample": 0.0009,
+       "min": 0.6968140247171803,
+       "max": 0.6986620972764239,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.GridSybil.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.41761946224669133,
+        0.4198267907831379,
+        0.4265854441492866,
+        0.40190907946653986
+       ],
+       "mean": 0.4165,
+       "sd_sample": 0.0104,
+       "min": 0.40190907946653986,
+       "max": 0.4265854441492866,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.GridSybil.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        0.709329119618887,
+        0.7113145863118743,
+        0.7115290455586516,
+        0.711184582030675
+       ],
+       "mean": 0.7108,
+       "sd_sample": 0.001,
+       "min": 0.709329119618887,
+       "max": 0.7115290455586516,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.GridSybil.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.5470833907878724,
+        0.5470833907878724,
+        0.5470833907878724,
+        0.5470833907878724
+       ],
+       "mean": 0.5471,
+       "sd_sample": 0.0,
+       "min": 0.5470833907878724,
+       "max": 0.5470833907878724,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.GridSybil.length_only.auroc"
+      }
+     },
+     "DataReplay": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.7198218347567975,
+        0.7225999983724589,
+        0.7029882339179141,
+        0.7235114147134516
+       ],
+       "mean": 0.7172,
+       "sd_sample": 0.0096,
+       "min": 0.7029882339179141,
+       "max": 0.7235114147134516,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.DataReplay.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.4890392017842271,
+        0.4860603154349061,
+        0.48023600130784894,
+        0.49523028544835734
+       ],
+       "mean": 0.4876,
+       "sd_sample": 0.0062,
+       "min": 0.48023600130784894,
+       "max": 0.49523028544835734,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.DataReplay.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.38285045724915723,
+        0.35926059393385773,
+        0.4584322273030716,
+        0.48539369416781425
+       ],
+       "mean": 0.4215,
+       "sd_sample": 0.06,
+       "min": 0.35926059393385773,
+       "max": 0.48539369416781425,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.DataReplay.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        0.3839552584675239,
+        0.38230762777452054,
+        0.3720841183049786,
+        0.38740817842651115
+       ],
+       "mean": 0.3814,
+       "sd_sample": 0.0066,
+       "min": 0.3720841183049786,
+       "max": 0.38740817842651115,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.DataReplay.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.9514336187189399,
+        0.9514336187189399,
+        0.9514336187189399,
+        0.9514336187189399
+       ],
+       "mean": 0.9514,
+       "sd_sample": 0.0,
+       "min": 0.9514336187189399,
+       "max": 0.9514336187189399,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.DataReplay.length_only.auroc"
+      }
+     },
+     "DoSRandom": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.9919644621417059,
+        0.9921727352345758,
+        0.9922711876002404,
+        0.9923526916356595
+       ],
+       "mean": 0.9922,
+       "sd_sample": 0.0002,
+       "min": 0.9919644621417059,
+       "max": 0.9923526916356595,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.DoSRandom.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.965484239521054,
+        0.9606194979598394,
+        0.9618223890973252,
+        0.9638117923141469
+       ],
+       "mean": 0.9629,
+       "sd_sample": 0.0021,
+       "min": 0.9606194979598394,
+       "max": 0.965484239521054,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.DoSRandom.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.5770958454987904,
+        0.8838586131699863,
+        0.9418822803231266,
+        0.8204166635969024
+       ],
+       "mean": 0.8058,
+       "sd_sample": 0.1603,
+       "min": 0.5770958454987904,
+       "max": 0.9418822803231266,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.DoSRandom.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        0.9999918332263145,
+        0.9999998541647556,
+        0.9999958582790595,
+        0.9999830831116516
+       ],
+       "mean": 1.0,
+       "sd_sample": 0.0,
+       "min": 0.9999830831116516,
+       "max": 0.9999998541647556,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.DoSRandom.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.9672405723397622,
+        0.9672405723397622,
+        0.9672405723397622,
+        0.9672405723397622
+       ],
+       "mean": 0.9672,
+       "sd_sample": 0.0,
+       "min": 0.9672405723397622,
+       "max": 0.9672405723397622,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.DoSRandom.length_only.auroc"
+      }
+     },
+     "DoSDisruptive": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.8587958618937848,
+        0.8656414301989852,
+        0.8471000357649063,
+        0.8649433856649109
+       ],
+       "mean": 0.8591,
+       "sd_sample": 0.0086,
+       "min": 0.8471000357649063,
+       "max": 0.8656414301989852,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.6756027823114024,
+        0.6775949479437521,
+        0.683873090429569,
+        0.6930571178437116
+       ],
+       "mean": 0.6825,
+       "sd_sample": 0.0079,
+       "min": 0.6756027823114024,
+       "max": 0.6930571178437116,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.4014997451501999,
+        0.4918198709452094,
+        0.5912975881773396,
+        0.5646718035416503
+       ],
+       "mean": 0.5123,
+       "sd_sample": 0.085,
+       "min": 0.4014997451501999,
+       "max": 0.5912975881773396,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        0.9998770043917438,
+        0.9999636398781747,
+        0.9999255621845418,
+        0.9998143857992328
+       ],
+       "mean": 0.9999,
+       "sd_sample": 0.0001,
+       "min": 0.9998143857992328,
+       "max": 0.9999636398781747,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.9672383696691526,
+        0.9672383696691526,
+        0.9672383696691526,
+        0.9672383696691526
+       ],
+       "mean": 0.9672,
+       "sd_sample": 0.0,
+       "min": 0.9672383696691526,
+       "max": 0.9672383696691526,
+       "source": "task/masked_autoencoder/runs/resnet/T20-seed<k>/test_metrics.json -> attacks.DoSDisruptive.length_only.auroc"
+      }
+     }
+    }
+   },
+   "T10": {
+    "oneclass_convae": {
+     "package": "task/autoencoder_benign_t10",
+     "params": 52861,
+     "best_epoch": [
+      73,
+      75,
+      55,
+      71
+     ],
+     "GridSybil": {
+      "reconstruction": {
+       "n": 4,
+       "values": [
+        0.758,
+        0.76,
+        0.758,
+        0.761
+       ],
+       "mean": 0.7592,
+       "sd_sample": 0.0015,
+       "min": 0.758,
+       "max": 0.761,
+       "source": "task/autoencoder_benign_t10/runs/seed<k>/test_results.json -> \"GridSybil/reconstruction/window\".AUROC"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.59,
+        0.631,
+        0.623,
+        0.619
+       ],
+       "mean": 0.6158,
+       "sd_sample": 0.0179,
+       "min": 0.59,
+       "max": 0.631,
+       "source": "task/autoencoder_benign_t10/runs/seed<k>/test_results.json -> \"GridSybil/mahalanobis/window\".AUROC"
+      },
+      "length": {
+       "n": 4,
+       "values": [
+        0.53,
+        0.53,
+        0.53,
+        0.53
+       ],
+       "mean": 0.53,
+       "sd_sample": 0.0,
+       "min": 0.53,
+       "max": 0.53,
+       "source": "task/autoencoder_benign_t10/runs/seed<k>/test_results.json -> \"GridSybil/length only (reference)/window\".AUROC"
+      }
+     },
+     "DataReplay": {
+      "reconstruction": {
+       "n": 4,
+       "values": [
+        0.559,
+        0.57,
+        0.545,
+        0.589
+       ],
+       "mean": 0.5657,
+       "sd_sample": 0.0186,
+       "min": 0.545,
+       "max": 0.589,
+       "source": "task/autoencoder_benign_t10/runs/seed<k>/test_results.json -> \"DataReplay/reconstruction/window\".AUROC"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.705,
+        0.641,
+        0.671,
+        0.74
+       ],
+       "mean": 0.6893,
+       "sd_sample": 0.0428,
+       "min": 0.641,
+       "max": 0.74,
+       "source": "task/autoencoder_benign_t10/runs/seed<k>/test_results.json -> \"DataReplay/mahalanobis/window\".AUROC"
+      },
+      "length": {
+       "n": 4,
+       "values": [
+        0.951,
+        0.951,
+        0.951,
+        0.951
+       ],
+       "mean": 0.951,
+       "sd_sample": 0.0,
+       "min": 0.951,
+       "max": 0.951,
+       "source": "task/autoencoder_benign_t10/runs/seed<k>/test_results.json -> \"DataReplay/length only (reference)/window\".AUROC"
+      }
+     },
+     "DoSRandom": {
+      "reconstruction": {
+       "n": 4,
+       "values": [
+        0.988,
+        0.986,
+        0.986,
+        0.985
+       ],
+       "mean": 0.9862,
+       "sd_sample": 0.0013,
+       "min": 0.985,
+       "max": 0.988,
+       "source": "task/autoencoder_benign_t10/runs/seed<k>/test_results.json -> \"DoSRandom/reconstruction/window\".AUROC"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.926,
+        0.893,
+        0.863,
+        0.902
+       ],
+       "mean": 0.896,
+       "sd_sample": 0.026,
+       "min": 0.863,
+       "max": 0.926,
+       "source": "task/autoencoder_benign_t10/runs/seed<k>/test_results.json -> \"DoSRandom/mahalanobis/window\".AUROC"
+      },
+      "length": {
+       "n": 4,
+       "values": [
+        0.968,
+        0.968,
+        0.968,
+        0.968
+       ],
+       "mean": 0.968,
+       "sd_sample": 0.0,
+       "min": 0.968,
+       "max": 0.968,
+       "source": "task/autoencoder_benign_t10/runs/seed<k>/test_results.json -> \"DoSRandom/length only (reference)/window\".AUROC"
+      }
+     },
+     "DoSDisruptive": {
+      "reconstruction": {
+       "n": 4,
+       "values": [
+        0.751,
+        0.755,
+        0.739,
+        0.749
+       ],
+       "mean": 0.7485,
+       "sd_sample": 0.0068,
+       "min": 0.739,
+       "max": 0.755,
+       "source": "task/autoencoder_benign_t10/runs/seed<k>/test_results.json -> \"DoSDisruptive/reconstruction/window\".AUROC"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.792,
+        0.756,
+        0.779,
+        0.832
+       ],
+       "mean": 0.7897,
+       "sd_sample": 0.0319,
+       "min": 0.756,
+       "max": 0.832,
+       "source": "task/autoencoder_benign_t10/runs/seed<k>/test_results.json -> \"DoSDisruptive/mahalanobis/window\".AUROC"
+      },
+      "length": {
+       "n": 4,
+       "values": [
+        0.968,
+        0.968,
+        0.968,
+        0.968
+       ],
+       "mean": 0.968,
+       "sd_sample": 0.0,
+       "min": 0.968,
+       "max": 0.968,
+       "source": "task/autoencoder_benign_t10/runs/seed<k>/test_results.json -> \"DoSDisruptive/length only (reference)/window\".AUROC"
+      }
+     }
+    },
+    "unlabelled_convae": {
+     "package": "task/autoencoder_t10",
+     "test_windows": 133741,
+     "test_gridsybil_share": 0.30309329225891835,
+     "GridSybil": {
+      "reconstruction": {
+       "n": 4,
+       "values": [
+        0.6346204019668973,
+        0.6346319013540006,
+        0.6348525598141495,
+        0.6397337058873781
+       ],
+       "mean": 0.636,
+       "sd_sample": 0.0025,
+       "min": 0.6346204019668973,
+       "max": 0.6397337058873781,
+       "source": "task/autoencoder_t10/runs/seed<k>/evaluation.json -> test_all.window.reconstruction.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.524560852787867,
+        0.5545816853212074,
+        0.5354113624282953,
+        0.5062736402905429
+       ],
+       "mean": 0.5302,
+       "sd_sample": 0.0202,
+       "min": 0.5062736402905429,
+       "max": 0.5545816853212074,
+       "source": "task/autoencoder_t10/runs/seed<k>/evaluation.json -> test_all.window.mahalanobis.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.5302091545999661,
+        0.5302091545999661,
+        0.5302091545999661,
+        0.5302091545999661
+       ],
+       "mean": 0.5302,
+       "sd_sample": 0.0,
+       "min": 0.5302091545999661,
+       "max": 0.5302091545999661,
+       "source": "task/autoencoder_t10/runs/seed<k>/evaluation.json -> test_all.length_only.auroc"
+      }
+     }
+    },
+    "supervised_convae": {
+     "package": "task/autoencoder_st_t10",
+     "params": 53438,
+     "best_epoch": [
+      29,
+      40,
+      32,
+      20
+     ],
+     "GridSybil": {
+      "head_auroc": {
+       "n": 4,
+       "values": [
+        0.9155,
+        0.9172,
+        0.9163,
+        0.9146
+       ],
+       "mean": 0.9159,
+       "sd_sample": 0.0011,
+       "min": 0.9146,
+       "max": 0.9172,
+       "source": "task/autoencoder_st_t10/runs/seed<k>/test_results.json -> \"window/max_f1\".auroc"
+      },
+      "f1_at_val_max_f1": {
+       "n": 4,
+       "values": [
+        0.8741,
+        0.8773,
+        0.8721,
+        0.8717
+       ],
+       "mean": 0.8738,
+       "sd_sample": 0.0026,
+       "min": 0.8717,
+       "max": 0.8773,
+       "source": "task/autoencoder_st_t10/runs/seed<k>/test_results.json -> \"window/max_f1\".f1"
+      },
+      "benign_fpr_at_val_max_f1": {
+       "n": 4,
+       "values": [
+        0.0123,
+        0.0123,
+        0.0129,
+        0.0152
+       ],
+       "mean": 0.0132,
+       "sd_sample": 0.0014,
+       "min": 0.0123,
+       "max": 0.0152,
+       "source": "task/autoencoder_st_t10/runs/seed<k>/test_results.json -> \"window/max_f1\".benign_fpr"
+      },
+      "f1_at_val_fpr5": {
+       "n": 4,
+       "values": [
+        0.8551,
+        0.8528,
+        0.8464,
+        0.8493
+       ],
+       "mean": 0.8509,
+       "sd_sample": 0.0038,
+       "min": 0.8464,
+       "max": 0.8551,
+       "source": "task/autoencoder_st_t10/runs/seed<k>/test_results.json -> \"window/benign_fpr_5pct\".f1"
+      },
+      "benign_fpr_at_val_fpr5": {
+       "n": 4,
+       "values": [
+        0.0436,
+        0.0488,
+        0.0492,
+        0.0477
+       ],
+       "mean": 0.0473,
+       "sd_sample": 0.0026,
+       "min": 0.0436,
+       "max": 0.0492,
+       "source": "task/autoencoder_st_t10/runs/seed<k>/test_results.json -> \"window/benign_fpr_5pct\".benign_fpr"
+      },
+      "reconstruction_error_auroc": {
+       "n": 4,
+       "values": [
+        0.6311,
+        0.6199,
+        0.6239,
+        0.6238
+       ],
+       "mean": 0.6247,
+       "sd_sample": 0.0047,
+       "min": 0.6199,
+       "max": 0.6311,
+       "source": "task/autoencoder_st_t10/runs/seed<k>/test_results.json -> reconstruction_error_auroc"
+      },
+      "length_only_auroc": {
+       "n": 4,
+       "values": [
+        0.5302,
+        0.5302,
+        0.5302,
+        0.5302
+       ],
+       "mean": 0.5302,
+       "sd_sample": 0.0,
+       "min": 0.5302,
+       "max": 0.5302,
+       "source": "task/autoencoder_st_t10/runs/seed<k>/test_results.json -> length_only_auroc"
+      }
+     }
+    },
+    "masked_ae_mlp": {
+     "params": 19602,
+     "GridSybil": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.6680707262851562,
+        0.6693216340495054,
+        0.6675394875529607,
+        0.6656472508758111
+       ],
+       "mean": 0.6676,
+       "sd_sample": 0.0015,
+       "min": 0.6656472508758111,
+       "max": 0.6693216340495054,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.GridSybil.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.6634253940291045,
+        0.6709101241258557,
+        0.6639237026034052,
+        0.6620244212167685
+       ],
+       "mean": 0.6651,
+       "sd_sample": 0.004,
+       "min": 0.6620244212167685,
+       "max": 0.6709101241258557,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.GridSybil.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.4722195016752725,
+        0.46456432915119494,
+        0.4814036070398302,
+        0.469189610795418
+       ],
+       "mean": 0.4718,
+       "sd_sample": 0.0071,
+       "min": 0.46456432915119494,
+       "max": 0.4814036070398302,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.GridSybil.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        0.6802869899681292,
+        0.6799689547605041,
+        0.6789369224191593,
+        0.6755783691102102
+       ],
+       "mean": 0.6787,
+       "sd_sample": 0.0022,
+       "min": 0.6755783691102102,
+       "max": 0.6802869899681292,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.GridSybil.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.5302014117410206,
+        0.5302014117410206,
+        0.5302014117410206,
+        0.5302014117410206
+       ],
+       "mean": 0.5302,
+       "sd_sample": 0.0,
+       "min": 0.5302014117410206,
+       "max": 0.5302014117410206,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.GridSybil.length_only.auroc"
+      }
+     },
+     "DataReplay": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.7317252175501506,
+        0.7321140408712635,
+        0.7312663709252731,
+        0.7355703454176128
+       ],
+       "mean": 0.7327,
+       "sd_sample": 0.002,
+       "min": 0.7312663709252731,
+       "max": 0.7355703454176128,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.DataReplay.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.6058488512267245,
+        0.578831368024757,
+        0.5945800090369598,
+        0.5766908571267259
+       ],
+       "mean": 0.589,
+       "sd_sample": 0.0138,
+       "min": 0.5766908571267259,
+       "max": 0.6058488512267245,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.DataReplay.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.4317486312243761,
+        0.3908009070395277,
+        0.4516042877336767,
+        0.465661605144758
+       ],
+       "mean": 0.435,
+       "sd_sample": 0.0326,
+       "min": 0.3908009070395277,
+       "max": 0.465661605144758,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.DataReplay.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        0.4316646386796562,
+        0.43047716830445526,
+        0.4258147699779196,
+        0.4286606750994722
+       ],
+       "mean": 0.4292,
+       "sd_sample": 0.0025,
+       "min": 0.4258147699779196,
+       "max": 0.4316646386796562,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.DataReplay.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.9512628916772359,
+        0.9512628916772359,
+        0.9512628916772359,
+        0.9512628916772359
+       ],
+       "mean": 0.9513,
+       "sd_sample": 0.0,
+       "min": 0.9512628916772359,
+       "max": 0.9512628916772359,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.DataReplay.length_only.auroc"
+      }
+     },
+     "DoSRandom": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.9904313230289433,
+        0.9900358310785767,
+        0.9896467035420904,
+        0.9902430992426592
+       ],
+       "mean": 0.9901,
+       "sd_sample": 0.0003,
+       "min": 0.9896467035420904,
+       "max": 0.9904313230289433,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.DoSRandom.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.977801676348338,
+        0.9729408097779378,
+        0.9746465056666992,
+        0.9668358177785705
+       ],
+       "mean": 0.9731,
+       "sd_sample": 0.0046,
+       "min": 0.9668358177785705,
+       "max": 0.977801676348338,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.DoSRandom.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.632537297218867,
+        0.7417731619760303,
+        0.7346544984831784,
+        0.7996228998430883
+       ],
+       "mean": 0.7271,
+       "sd_sample": 0.0695,
+       "min": 0.632537297218867,
+       "max": 0.7996228998430883,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.DoSRandom.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+       ],
+       "mean": 1.0,
+       "sd_sample": 0.0,
+       "min": 1.0,
+       "max": 1.0,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.DoSRandom.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.9676192592077717,
+        0.9676192592077717,
+        0.9676192592077717,
+        0.9676192592077717
+       ],
+       "mean": 0.9676,
+       "sd_sample": 0.0,
+       "min": 0.9676192592077717,
+       "max": 0.9676192592077717,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.DoSRandom.length_only.auroc"
+      }
+     },
+     "DoSDisruptive": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.8749379328025975,
+        0.8848063783793321,
+        0.8824851035675172,
+        0.8869475551587913
+       ],
+       "mean": 0.8823,
+       "sd_sample": 0.0052,
+       "min": 0.8749379328025975,
+       "max": 0.8869475551587913,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.7737717415140636,
+        0.7567286598310285,
+        0.7708849745412858,
+        0.7432476899760099
+       ],
+       "mean": 0.7612,
+       "sd_sample": 0.0141,
+       "min": 0.7432476899760099,
+       "max": 0.7737717415140636,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.4002304795532561,
+        0.49159442384826135,
+        0.4788217740750244,
+        0.4796207162281438
+       ],
+       "mean": 0.4626,
+       "sd_sample": 0.042,
+       "min": 0.4002304795532561,
+       "max": 0.49159442384826135,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+       ],
+       "mean": 1.0,
+       "sd_sample": 0.0,
+       "min": 1.0,
+       "max": 1.0,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.967617042164994,
+        0.967617042164994,
+        0.967617042164994,
+        0.967617042164994
+       ],
+       "mean": 0.9676,
+       "sd_sample": 0.0,
+       "min": 0.967617042164994,
+       "max": 0.967617042164994,
+       "source": "task/masked_autoencoder/runs/mlp/T10-seed<k>/test_metrics.json -> attacks.DoSDisruptive.length_only.auroc"
+      }
+     }
+    },
+    "masked_ae_resnet": {
+     "params": 34912,
+     "GridSybil": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.6960378519801294,
+        0.6972917058204948,
+        0.6845366081117519,
+        0.693856359252188
+       ],
+       "mean": 0.6929,
+       "sd_sample": 0.0058,
+       "min": 0.6845366081117519,
+       "max": 0.6972917058204948,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.GridSybil.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.699008335508267,
+        0.6982109697863655,
+        0.6833998252119351,
+        0.6949426318094608
+       ],
+       "mean": 0.6939,
+       "sd_sample": 0.0072,
+       "min": 0.6833998252119351,
+       "max": 0.699008335508267,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.GridSybil.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.5142615997646971,
+        0.4844322630532275,
+        0.4802984007120934,
+        0.47050908573862404
+       ],
+       "mean": 0.4874,
+       "sd_sample": 0.0189,
+       "min": 0.47050908573862404,
+       "max": 0.5142615997646971,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.GridSybil.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        0.702407363513756,
+        0.704584388658809,
+        0.6932454118638013,
+        0.701213701035942
+       ],
+       "mean": 0.7004,
+       "sd_sample": 0.0049,
+       "min": 0.6932454118638013,
+       "max": 0.704584388658809,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.GridSybil.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.5302014117410206,
+        0.5302014117410206,
+        0.5302014117410206,
+        0.5302014117410206
+       ],
+       "mean": 0.5302,
+       "sd_sample": 0.0,
+       "min": 0.5302014117410206,
+       "max": 0.5302014117410206,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.GridSybil.length_only.auroc"
+      }
+     },
+     "DataReplay": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.7553093849242623,
+        0.757802723212405,
+        0.7579461334010082,
+        0.771314176722246
+       ],
+       "mean": 0.7606,
+       "sd_sample": 0.0072,
+       "min": 0.7553093849242623,
+       "max": 0.771314176722246,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.DataReplay.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.5791281586277277,
+        0.5741146547587832,
+        0.5381220924467457,
+        0.6120136914715815
+       ],
+       "mean": 0.5758,
+       "sd_sample": 0.0302,
+       "min": 0.5381220924467457,
+       "max": 0.6120136914715815,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.DataReplay.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.4647912154497015,
+        0.42633711884810466,
+        0.3739560760459931,
+        0.3798334944969407
+       ],
+       "mean": 0.4112,
+       "sd_sample": 0.0427,
+       "min": 0.3739560760459931,
+       "max": 0.4647912154497015,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.DataReplay.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        0.4885547508200181,
+        0.47692294991834894,
+        0.4662516403550766,
+        0.4756913212421935
+       ],
+       "mean": 0.4769,
+       "sd_sample": 0.0091,
+       "min": 0.4662516403550766,
+       "max": 0.4885547508200181,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.DataReplay.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.9512628916772359,
+        0.9512628916772359,
+        0.9512628916772359,
+        0.9512628916772359
+       ],
+       "mean": 0.9513,
+       "sd_sample": 0.0,
+       "min": 0.9512628916772359,
+       "max": 0.9512628916772359,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.DataReplay.length_only.auroc"
+      }
+     },
+     "DoSRandom": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.9924796398650629,
+        0.9922477300960237,
+        0.9930949680688077,
+        0.9922750319550853
+       ],
+       "mean": 0.9925,
+       "sd_sample": 0.0004,
+       "min": 0.9922477300960237,
+       "max": 0.9930949680688077,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.DoSRandom.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.9693888623561521,
+        0.9696187173233668,
+        0.9710524110463564,
+        0.9703648661483257
+       ],
+       "mean": 0.9701,
+       "sd_sample": 0.0008,
+       "min": 0.9693888623561521,
+       "max": 0.9710524110463564,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.DoSRandom.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.7290679709612563,
+        0.8309841760934336,
+        0.6332659494749953,
+        0.5937603784875982
+       ],
+       "mean": 0.6968,
+       "sd_sample": 0.106,
+       "min": 0.5937603784875982,
+       "max": 0.8309841760934336,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.DoSRandom.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+       ],
+       "mean": 1.0,
+       "sd_sample": 0.0,
+       "min": 1.0,
+       "max": 1.0,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.DoSRandom.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.9676192592077717,
+        0.9676192592077717,
+        0.9676192592077717,
+        0.9676192592077717
+       ],
+       "mean": 0.9676,
+       "sd_sample": 0.0,
+       "min": 0.9676192592077717,
+       "max": 0.9676192592077717,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.DoSRandom.length_only.auroc"
+      }
+     },
+     "DoSDisruptive": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.8997398296726767,
+        0.8973746880087552,
+        0.9057416216599046,
+        0.9079565245509095
+       ],
+       "mean": 0.9027,
+       "sd_sample": 0.005,
+       "min": 0.8973746880087552,
+       "max": 0.9079565245509095,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.7518656189819967,
+        0.7406651871809661,
+        0.7330042480548905,
+        0.7746847572566407
+       ],
+       "mean": 0.7501,
+       "sd_sample": 0.0182,
+       "min": 0.7330042480548905,
+       "max": 0.7746847572566407,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.48400289194270246,
+        0.4421554362960536,
+        0.3191364777078798,
+        0.3514359037688833
+       ],
+       "mean": 0.3992,
+       "sd_sample": 0.0769,
+       "min": 0.3191364777078798,
+       "max": 0.48400289194270246,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+       ],
+       "mean": 1.0,
+       "sd_sample": 0.0,
+       "min": 1.0,
+       "max": 1.0,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.967617042164994,
+        0.967617042164994,
+        0.967617042164994,
+        0.967617042164994
+       ],
+       "mean": 0.9676,
+       "sd_sample": 0.0,
+       "min": 0.967617042164994,
+       "max": 0.967617042164994,
+       "source": "task/masked_autoencoder/runs/resnet/T10-seed<k>/test_metrics.json -> attacks.DoSDisruptive.length_only.auroc"
+      }
+     }
+    }
+   },
+   "T5": {
+    "oneclass_convae": {
+     "package": "task/autoencoder_benign_t5",
+     "params": 50813,
+     "best_epoch": [
+      148,
+      118,
+      127,
+      133
+     ],
+     "GridSybil": {
+      "reconstruction": {
+       "n": 4,
+       "values": [
+        0.78,
+        0.781,
+        0.781,
+        0.784
+       ],
+       "mean": 0.7815,
+       "sd_sample": 0.0017,
+       "min": 0.78,
+       "max": 0.784,
+       "source": "task/autoencoder_benign_t5/runs/seed<k>/test_results.json -> \"GridSybil/reconstruction/window\".AUROC"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.616,
+        0.589,
+        0.617,
+        0.609
+       ],
+       "mean": 0.6078,
+       "sd_sample": 0.013,
+       "min": 0.589,
+       "max": 0.617,
+       "source": "task/autoencoder_benign_t5/runs/seed<k>/test_results.json -> \"GridSybil/mahalanobis/window\".AUROC"
+      },
+      "length": {
+       "n": 4,
+       "values": [
+        0.517,
+        0.517,
+        0.517,
+        0.517
+       ],
+       "mean": 0.517,
+       "sd_sample": 0.0,
+       "min": 0.517,
+       "max": 0.517,
+       "source": "task/autoencoder_benign_t5/runs/seed<k>/test_results.json -> \"GridSybil/length only (reference)/window\".AUROC"
+      }
+     },
+     "DataReplay": {
+      "reconstruction": {
+       "n": 4,
+       "values": [
+        0.65,
+        0.672,
+        0.663,
+        0.672
+       ],
+       "mean": 0.6643,
+       "sd_sample": 0.0104,
+       "min": 0.65,
+       "max": 0.672,
+       "source": "task/autoencoder_benign_t5/runs/seed<k>/test_results.json -> \"DataReplay/reconstruction/window\".AUROC"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.771,
+        0.683,
+        0.814,
+        0.748
+       ],
+       "mean": 0.754,
+       "sd_sample": 0.0547,
+       "min": 0.683,
+       "max": 0.814,
+       "source": "task/autoencoder_benign_t5/runs/seed<k>/test_results.json -> \"DataReplay/mahalanobis/window\".AUROC"
+      },
+      "length": {
+       "n": 4,
+       "values": [
+        0.941,
+        0.941,
+        0.941,
+        0.941
+       ],
+       "mean": 0.941,
+       "sd_sample": 0.0,
+       "min": 0.941,
+       "max": 0.941,
+       "source": "task/autoencoder_benign_t5/runs/seed<k>/test_results.json -> \"DataReplay/length only (reference)/window\".AUROC"
+      }
+     },
+     "DoSRandom": {
+      "reconstruction": {
+       "n": 4,
+       "values": [
+        0.988,
+        0.993,
+        0.991,
+        0.993
+       ],
+       "mean": 0.9912,
+       "sd_sample": 0.0024,
+       "min": 0.988,
+       "max": 0.993,
+       "source": "task/autoencoder_benign_t5/runs/seed<k>/test_results.json -> \"DoSRandom/reconstruction/window\".AUROC"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.936,
+        0.906,
+        0.966,
+        0.937
+       ],
+       "mean": 0.9363,
+       "sd_sample": 0.0245,
+       "min": 0.906,
+       "max": 0.966,
+       "source": "task/autoencoder_benign_t5/runs/seed<k>/test_results.json -> \"DoSRandom/mahalanobis/window\".AUROC"
+      },
+      "length": {
+       "n": 4,
+       "values": [
+        0.969,
+        0.969,
+        0.969,
+        0.969
+       ],
+       "mean": 0.969,
+       "sd_sample": 0.0,
+       "min": 0.969,
+       "max": 0.969,
+       "source": "task/autoencoder_benign_t5/runs/seed<k>/test_results.json -> \"DoSRandom/length only (reference)/window\".AUROC"
+      }
+     },
+     "DoSDisruptive": {
+      "reconstruction": {
+       "n": 4,
+       "values": [
+        0.78,
+        0.8,
+        0.795,
+        0.792
+       ],
+       "mean": 0.7918,
+       "sd_sample": 0.0085,
+       "min": 0.78,
+       "max": 0.8,
+       "source": "task/autoencoder_benign_t5/runs/seed<k>/test_results.json -> \"DoSDisruptive/reconstruction/window\".AUROC"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.886,
+        0.829,
+        0.907,
+        0.889
+       ],
+       "mean": 0.8778,
+       "sd_sample": 0.0338,
+       "min": 0.829,
+       "max": 0.907,
+       "source": "task/autoencoder_benign_t5/runs/seed<k>/test_results.json -> \"DoSDisruptive/mahalanobis/window\".AUROC"
+      },
+      "length": {
+       "n": 4,
+       "values": [
+        0.969,
+        0.969,
+        0.969,
+        0.969
+       ],
+       "mean": 0.969,
+       "sd_sample": 0.0,
+       "min": 0.969,
+       "max": 0.969,
+       "source": "task/autoencoder_benign_t5/runs/seed<k>/test_results.json -> \"DoSDisruptive/length only (reference)/window\".AUROC"
+      }
+     }
+    },
+    "unlabelled_convae": {
+     "package": "task/autoencoder_t5",
+     "test_windows": 236997,
+     "test_gridsybil_share": 0.29729912192981345,
+     "GridSybil": {
+      "reconstruction": {
+       "n": 4,
+       "values": [
+        0.6453949478901627,
+        0.6442135460027475,
+        0.6435174278646494,
+        0.6397889988425839
+       ],
+       "mean": 0.6432,
+       "sd_sample": 0.0024,
+       "min": 0.6397889988425839,
+       "max": 0.6453949478901627,
+       "source": "task/autoencoder_t5/runs/seed<k>/evaluation.json -> test_all.window.reconstruction.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.5796923622118266,
+        0.5802175744569286,
+        0.5818352418516292,
+        0.5766041493032181
+       ],
+       "mean": 0.5796,
+       "sd_sample": 0.0022,
+       "min": 0.5766041493032181,
+       "max": 0.5818352418516292,
+       "source": "task/autoencoder_t5/runs/seed<k>/evaluation.json -> test_all.window.mahalanobis.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.5167358665116893,
+        0.5167358665116893,
+        0.5167358665116893,
+        0.5167358665116893
+       ],
+       "mean": 0.5167,
+       "sd_sample": 0.0,
+       "min": 0.5167358665116893,
+       "max": 0.5167358665116893,
+       "source": "task/autoencoder_t5/runs/seed<k>/evaluation.json -> test_all.length_only.auroc"
+      }
+     }
+    },
+    "supervised_convae": {
+     "package": "task/autoencoder_st_t5",
+     "params": 51390,
+     "best_epoch": [
+      38,
+      19,
+      44,
+      24
+     ],
+     "GridSybil": {
+      "head_auroc": {
+       "n": 4,
+       "values": [
+        0.9094,
+        0.9076,
+        0.9112,
+        0.9085
+       ],
+       "mean": 0.9092,
+       "sd_sample": 0.0015,
+       "min": 0.9076,
+       "max": 0.9112,
+       "source": "task/autoencoder_st_t5/runs/seed<k>/test_results.json -> \"window/max_f1\".auroc"
+      },
+      "f1_at_val_max_f1": {
+       "n": 4,
+       "values": [
+        0.8696,
+        0.8605,
+        0.8753,
+        0.8665
+       ],
+       "mean": 0.868,
+       "sd_sample": 0.0062,
+       "min": 0.8605,
+       "max": 0.8753,
+       "source": "task/autoencoder_st_t5/runs/seed<k>/test_results.json -> \"window/max_f1\".f1"
+      },
+      "benign_fpr_at_val_max_f1": {
+       "n": 4,
+       "values": [
+        0.0123,
+        0.0158,
+        0.0115,
+        0.0127
+       ],
+       "mean": 0.0131,
+       "sd_sample": 0.0019,
+       "min": 0.0115,
+       "max": 0.0158,
+       "source": "task/autoencoder_st_t5/runs/seed<k>/test_results.json -> \"window/max_f1\".benign_fpr"
+      },
+      "f1_at_val_fpr5": {
+       "n": 4,
+       "values": [
+        0.8458,
+        0.8396,
+        0.8508,
+        0.8482
+       ],
+       "mean": 0.8461,
+       "sd_sample": 0.0048,
+       "min": 0.8396,
+       "max": 0.8508,
+       "source": "task/autoencoder_st_t5/runs/seed<k>/test_results.json -> \"window/benign_fpr_5pct\".f1"
+      },
+      "benign_fpr_at_val_fpr5": {
+       "n": 4,
+       "values": [
+        0.0495,
+        0.0505,
+        0.0473,
+        0.0444
+       ],
+       "mean": 0.0479,
+       "sd_sample": 0.0027,
+       "min": 0.0444,
+       "max": 0.0505,
+       "source": "task/autoencoder_st_t5/runs/seed<k>/test_results.json -> \"window/benign_fpr_5pct\".benign_fpr"
+      },
+      "reconstruction_error_auroc": {
+       "n": 4,
+       "values": [
+        0.6257,
+        0.6217,
+        0.6327,
+        0.6229
+       ],
+       "mean": 0.6258,
+       "sd_sample": 0.0049,
+       "min": 0.6217,
+       "max": 0.6327,
+       "source": "task/autoencoder_st_t5/runs/seed<k>/test_results.json -> reconstruction_error_auroc"
+      },
+      "length_only_auroc": {
+       "n": 4,
+       "values": [
+        0.5167,
+        0.5167,
+        0.5167,
+        0.5167
+       ],
+       "mean": 0.5167,
+       "sd_sample": 0.0,
+       "min": 0.5167,
+       "max": 0.5167,
+       "source": "task/autoencoder_st_t5/runs/seed<k>/test_results.json -> length_only_auroc"
+      }
+     }
+    },
+    "masked_ae_mlp": {
+     "params": 10897,
+     "GridSybil": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.6548743831332962,
+        0.6546682017870529,
+        0.6491319410859612,
+        0.6548567145095184
+       ],
+       "mean": 0.6534,
+       "sd_sample": 0.0028,
+       "min": 0.6491319410859612,
+       "max": 0.6548743831332962,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.GridSybil.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.6570858297746709,
+        0.6540465643709774,
+        0.6532723215255131,
+        0.6582028258979797
+       ],
+       "mean": 0.6557,
+       "sd_sample": 0.0024,
+       "min": 0.6532723215255131,
+       "max": 0.6582028258979797,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.GridSybil.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.5514944116232262,
+        0.49395402221390283,
+        0.48575210337146085,
+        0.5037914871455236
+       ],
+       "mean": 0.5087,
+       "sd_sample": 0.0294,
+       "min": 0.48575210337146085,
+       "max": 0.5514944116232262,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.GridSybil.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        0.664038206353675,
+        0.6628315613803437,
+        0.6581890914139643,
+        0.6652725077541055
+       ],
+       "mean": 0.6626,
+       "sd_sample": 0.0031,
+       "min": 0.6581890914139643,
+       "max": 0.6652725077541055,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.GridSybil.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.5167974043551159,
+        0.5167974043551159,
+        0.5167974043551159,
+        0.5167974043551159
+       ],
+       "mean": 0.5168,
+       "sd_sample": 0.0,
+       "min": 0.5167974043551159,
+       "max": 0.5167974043551159,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.GridSybil.length_only.auroc"
+      }
+     },
+     "DataReplay": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.7434831530580805,
+        0.7612565011907713,
+        0.7508672466929006,
+        0.7445782734373758
+       ],
+       "mean": 0.75,
+       "sd_sample": 0.0082,
+       "min": 0.7434831530580805,
+       "max": 0.7612565011907713,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.DataReplay.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.6537743642704072,
+        0.6454475808571598,
+        0.6193010335456699,
+        0.6416727453118605
+       ],
+       "mean": 0.64,
+       "sd_sample": 0.0147,
+       "min": 0.6193010335456699,
+       "max": 0.6537743642704072,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.DataReplay.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.5610895681417212,
+        0.40755090319363574,
+        0.658542758647896,
+        0.5733898493539744
+       ],
+       "mean": 0.5501,
+       "sd_sample": 0.1045,
+       "min": 0.40755090319363574,
+       "max": 0.658542758647896,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.DataReplay.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        0.49236174767229524,
+        0.48544440941921774,
+        0.48352472264063184,
+        0.4886122790658851
+       ],
+       "mean": 0.4875,
+       "sd_sample": 0.0039,
+       "min": 0.48352472264063184,
+       "max": 0.49236174767229524,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.DataReplay.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.940666558983571,
+        0.940666558983571,
+        0.940666558983571,
+        0.940666558983571
+       ],
+       "mean": 0.9407,
+       "sd_sample": 0.0,
+       "min": 0.940666558983571,
+       "max": 0.940666558983571,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.DataReplay.length_only.auroc"
+      }
+     },
+     "DoSRandom": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.989936741660022,
+        0.9891643168161414,
+        0.9905239905410801,
+        0.989396354500309
+       ],
+       "mean": 0.9898,
+       "sd_sample": 0.0006,
+       "min": 0.9891643168161414,
+       "max": 0.9905239905410801,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.DoSRandom.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.9781270881876132,
+        0.9680462855665091,
+        0.9714929156462332,
+        0.9782842302142427
+       ],
+       "mean": 0.974,
+       "sd_sample": 0.0051,
+       "min": 0.9680462855665091,
+       "max": 0.9782842302142427,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.DoSRandom.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.48093802848536216,
+        0.9210751377252681,
+        0.9414792639069555,
+        0.8157831193794964
+       ],
+       "mean": 0.7898,
+       "sd_sample": 0.2132,
+       "min": 0.48093802848536216,
+       "max": 0.9414792639069555,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.DoSRandom.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+       ],
+       "mean": 1.0,
+       "sd_sample": 0.0,
+       "min": 1.0,
+       "max": 1.0,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.DoSRandom.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.9690150995764584,
+        0.9690150995764584,
+        0.9690150995764584,
+        0.9690150995764584
+       ],
+       "mean": 0.969,
+       "sd_sample": 0.0,
+       "min": 0.9690150995764584,
+       "max": 0.9690150995764584,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.DoSRandom.length_only.auroc"
+      }
+     },
+     "DoSDisruptive": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.8747747099014382,
+        0.8948855690299042,
+        0.8917606280116508,
+        0.8856422862965647
+       ],
+       "mean": 0.8868,
+       "sd_sample": 0.0089,
+       "min": 0.8747747099014382,
+       "max": 0.8948855690299042,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.8088059511165763,
+        0.778786286377611,
+        0.7670567000667176,
+        0.7963714578040566
+       ],
+       "mean": 0.7878,
+       "sd_sample": 0.0185,
+       "min": 0.7670567000667176,
+       "max": 0.8088059511165763,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.60911274425976,
+        0.604996583770218,
+        0.7879422182410794,
+        0.6973868551583023
+       ],
+       "mean": 0.6749,
+       "sd_sample": 0.0866,
+       "min": 0.604996583770218,
+       "max": 0.7879422182410794,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+       ],
+       "mean": 1.0,
+       "sd_sample": 0.0,
+       "min": 1.0,
+       "max": 1.0,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.9690129382738932,
+        0.9690129382738932,
+        0.9690129382738932,
+        0.9690129382738932
+       ],
+       "mean": 0.969,
+       "sd_sample": 0.0,
+       "min": 0.9690129382738932,
+       "max": 0.9690129382738932,
+       "source": "task/masked_autoencoder/runs/mlp/T5-seed<k>/test_metrics.json -> attacks.DoSDisruptive.length_only.auroc"
+      }
+     }
+    },
+    "masked_ae_resnet": {
+     "params": 26272,
+     "GridSybil": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.6865830294281496,
+        0.6847114712032312,
+        0.6843762907082441,
+        0.6847064038830556
+       ],
+       "mean": 0.6851,
+       "sd_sample": 0.001,
+       "min": 0.6843762907082441,
+       "max": 0.6865830294281496,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.GridSybil.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.6896280679582176,
+        0.687609908932727,
+        0.6923990010761301,
+        0.6945248073684752
+       ],
+       "mean": 0.691,
+       "sd_sample": 0.003,
+       "min": 0.687609908932727,
+       "max": 0.6945248073684752,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.GridSybil.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.5555137867914228,
+        0.524653677458216,
+        0.5380361150730643,
+        0.5321419783252559
+       ],
+       "mean": 0.5376,
+       "sd_sample": 0.0131,
+       "min": 0.524653677458216,
+       "max": 0.5555137867914228,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.GridSybil.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        0.6942212186407619,
+        0.6914824317204671,
+        0.6906076905926721,
+        0.6918687934733605
+       ],
+       "mean": 0.692,
+       "sd_sample": 0.0015,
+       "min": 0.6906076905926721,
+       "max": 0.6942212186407619,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.GridSybil.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.5167974043551159,
+        0.5167974043551159,
+        0.5167974043551159,
+        0.5167974043551159
+       ],
+       "mean": 0.5168,
+       "sd_sample": 0.0,
+       "min": 0.5167974043551159,
+       "max": 0.5167974043551159,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.GridSybil.length_only.auroc"
+      }
+     },
+     "DataReplay": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.7541745015558569,
+        0.7514065630127528,
+        0.7519510515176833,
+        0.7369654883396269
+       ],
+       "mean": 0.7486,
+       "sd_sample": 0.0079,
+       "min": 0.7369654883396269,
+       "max": 0.7541745015558569,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.DataReplay.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.6145883505262609,
+        0.6102496534971914,
+        0.5736619449078684,
+        0.5891076019650496
+       ],
+       "mean": 0.5969,
+       "sd_sample": 0.0191,
+       "min": 0.5736619449078684,
+       "max": 0.6145883505262609,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.DataReplay.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.7637069723224321,
+        0.7305883892453336,
+        0.6772182133815701,
+        0.6475371722634498
+       ],
+       "mean": 0.7048,
+       "sd_sample": 0.0522,
+       "min": 0.6475371722634498,
+       "max": 0.7637069723224321,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.DataReplay.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        0.49275604164924935,
+        0.4957364602140806,
+        0.4960239564545318,
+        0.496195862330881
+       ],
+       "mean": 0.4952,
+       "sd_sample": 0.0016,
+       "min": 0.49275604164924935,
+       "max": 0.496195862330881,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.DataReplay.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.940666558983571,
+        0.940666558983571,
+        0.940666558983571,
+        0.940666558983571
+       ],
+       "mean": 0.9407,
+       "sd_sample": 0.0,
+       "min": 0.940666558983571,
+       "max": 0.940666558983571,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.DataReplay.length_only.auroc"
+      }
+     },
+     "DoSRandom": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.9936125343393661,
+        0.9935266982767086,
+        0.9935533999363599,
+        0.9931405347867079
+       ],
+       "mean": 0.9935,
+       "sd_sample": 0.0002,
+       "min": 0.9931405347867079,
+       "max": 0.9936125343393661,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.DoSRandom.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.9700072229769845,
+        0.9758183447238862,
+        0.9738807711702359,
+        0.9696893671426423
+       ],
+       "mean": 0.9723,
+       "sd_sample": 0.003,
+       "min": 0.9696893671426423,
+       "max": 0.9758183447238862,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.DoSRandom.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.9776395380599245,
+        0.9604690750674623,
+        0.9520498422106438,
+        0.9436797821954832
+       ],
+       "mean": 0.9585,
+       "sd_sample": 0.0145,
+       "min": 0.9436797821954832,
+       "max": 0.9776395380599245,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.DoSRandom.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        1.0,
+        1.0,
+        0.9999999797848931,
+        1.0
+       ],
+       "mean": 1.0,
+       "sd_sample": 0.0,
+       "min": 0.9999999797848931,
+       "max": 1.0,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.DoSRandom.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.9690150995764584,
+        0.9690150995764584,
+        0.9690150995764584,
+        0.9690150995764584
+       ],
+       "mean": 0.969,
+       "sd_sample": 0.0,
+       "min": 0.9690150995764584,
+       "max": 0.9690150995764584,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.DoSRandom.length_only.auroc"
+      }
+     },
+     "DoSDisruptive": {
+      "masked_recon": {
+       "n": 4,
+       "values": [
+        0.8904296929137644,
+        0.8854287234112646,
+        0.8890862248957806,
+        0.8789753904513178
+       ],
+       "mean": 0.886,
+       "sd_sample": 0.0051,
+       "min": 0.8789753904513178,
+       "max": 0.8904296929137644,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.masked_recon.auroc"
+      },
+      "full_recon": {
+       "n": 4,
+       "values": [
+        0.7739680437287054,
+        0.7739725564203692,
+        0.741058169408598,
+        0.7514759190998166
+       ],
+       "mean": 0.7601,
+       "sd_sample": 0.0166,
+       "min": 0.741058169408598,
+       "max": 0.7739725564203692,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.full_recon.auroc"
+      },
+      "mahalanobis": {
+       "n": 4,
+       "values": [
+        0.8663956683648824,
+        0.8228116407679684,
+        0.8302516911324707,
+        0.7591166843143449
+       ],
+       "mean": 0.8196,
+       "sd_sample": 0.0446,
+       "min": 0.7591166843143449,
+       "max": 0.8663956683648824,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.mahalanobis.auroc"
+      },
+      "masked_recon_rows_ge_4": {
+       "n": 4,
+       "values": [
+        0.9999995762929019,
+        0.9999995460281091,
+        0.999998375789457,
+        0.9999999899117358
+       ],
+       "mean": 1.0,
+       "sd_sample": 0.0,
+       "min": 0.999998375789457,
+       "max": 0.9999999899117358,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.DoSDisruptive.window.masked_recon.rows_ge_4.auroc"
+      },
+      "length_only": {
+       "n": 4,
+       "values": [
+        0.9690129382738932,
+        0.9690129382738932,
+        0.9690129382738932,
+        0.9690129382738932
+       ],
+       "mean": 0.969,
+       "sd_sample": 0.0,
+       "min": 0.9690129382738932,
+       "max": 0.9690129382738932,
+       "source": "task/masked_autoencoder/runs/resnet/T5-seed<k>/test_metrics.json -> attacks.DoSDisruptive.length_only.auroc"
       }
      }
     }

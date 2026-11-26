@@ -8,7 +8,7 @@ early stopping, the LR schedule and the alarm thresholds (val p95 / p99); the Ma
 `train.py` never opens `test`. **Labels are unread in training**: the reader opens feature shards only, the command line
 installs `LabelFileGuard` (audit hook that raises on any `*_info.json`) in the process and every decoding worker, the
 cache holds x / mask / ids only; labels are opened by `evaluate.py` after `scores/test_*.npy` is written. **A side
-experiment, not a thesis result, not the thesis TimesNet model.** No run yet.
+experiment, not a thesis result, not the thesis TimesNet model.** Seeds 0–3 trained and evaluated (results below).
 
 This package also holds the parametrised `train.Experiment`, `evaluate.TestEvaluation` and Trainer that the T = 10 / 5
 unlabelled packages subclass; the model is `task/autoencoder_benign_t20`'s depth-configurable ConvAutoencoder.
@@ -28,3 +28,17 @@ until they are executed.
 - `npm run ae20:test`: pytest, synthetic shards, CPU. `npm run ae20:notebook`: executes `autoencoder_T20.ipynb` on the
   newest run with an `evaluation.json` (analysis cell is a placeholder until a run exists).
 - `SEED=k npm run hf:download:baselines:ae20`: fetch `baselines/autoencoder_t20/seed<k>` from the private HF repo.
+
+## Results (seeds 0–3)
+
+GridSybil vs benign, test (`all/T20_benign_grid` `test`: 83,826 windows, GridSybil share
+0.314; train share 0.307), window level, mean ± sample sd over seeds 0–3, from
+`runs/seed<k>/evaluation.json` (`test_all`). Thresholds = mixed val p95.
+
+| Score | AUROC | Recall @ val p95 (benign FPR) | Per seed |
+|---|---|---|---|
+| Reconstruction | 0.619 ± 0.001 | 0.104 ± 0.003 (0.041 ± 0.001) | 0.6191 / 0.6174 / 0.6187 / 0.6197 |
+| Mahalanobis on z | 0.468 ± 0.016 | 0.101 ± 0.006 (0.042 ± 0.001) | 0.4793 / 0.4452 / 0.4722 / 0.4767 |
+| Length only (−n_messages) | 0.548 | — | — |
+
+Side experiment, not a thesis result, not the thesis TimesNet model; seeds 0–3 on EC2 (g4dn T4); independently judged 2026-11-26 (56 PASS + 4 PASS-WITH-NOTES, 0 FAIL).

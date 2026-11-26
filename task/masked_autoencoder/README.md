@@ -219,4 +219,59 @@ files, same method as above):
 - Mahalanobis on z is below chance on GridSybil (0.37-0.38) and very seed-sensitive on DoSRandom (0.629 ± 0.165).
 - Training: best epochs 129-174 / 193-214 / 108-154 at T = 64 / 48 / 32, 5-7 / 9 / 22-34 min per run, 5-8 LR halvings.
 
+## Results at T = 20 / 10 / 5 (TabMlp and TabResnet, seeds 0-3)
+
+24 finished runs `runs/{mlp,resnet}/T{20,10,5}-seed{0,1,2,3}/` (`npm run mae:all:small`, `mae:all:small:resnet`; EC2
+g4dn T4, 2026-11-25 / 26; every run stopped early), windows of `all/T<w>_benign` (on-disk train / val / test, the
+all/T32_benign vehicle split; `config.py` `SMALL_WINDOWS`), same protocol and scores as above. On HF:
+`baselines/masked_autoencoder/<encoder>/T<w>-seed<k>` (`npm run hf:download:baselines:mae:small[:resnet|:all]`).
+
+Window AUROC vs benign test, mean ± sample sd over seeds 0-3, from `test_metrics.json` (length only = −n_messages,
+identical for every seed; ConvAE recon = one-class ConvAE `task/autoencoder_benign_t<w>` on the same windows, seeds 0-3,
+from its `runs/seed<k>/test_results.json`, 3 dp). **Length-matched AUROC not computed for these windows.**
+TabMlp (37,012, 19,602, 10,897 params at T = 20 / 10 / 5):
+
+| Case | masked_recon | full_recon | mahalanobis | length only | masked_recon >= 4 rows | ConvAE recon |
+|---|---|---|---|---|---|---|
+| T20 GridSybil | 0.667 ± 0.002 | 0.659 ± 0.003 | 0.423 ± 0.017 | 0.547 | 0.677 ± 0.001 | 0.756 ± 0.010 |
+| T20 DataReplay | 0.728 ± 0.006 | 0.553 ± 0.017 | 0.318 ± 0.060 | 0.951 | 0.370 ± 0.005 | 0.400 ± 0.010 |
+| T20 DoSRandom | 0.990 ± 0.000 | 0.975 ± 0.003 | 0.533 ± 0.153 | 0.967 | 1.000 ± 0.000 | 0.978 ± 0.004 |
+| T20 DoSDisruptive | 0.874 ± 0.007 | 0.743 ± 0.015 | 0.327 ± 0.044 | 0.967 | 1.000 ± 0.000 | 0.622 ± 0.011 |
+| T10 GridSybil | 0.668 ± 0.002 | 0.665 ± 0.004 | 0.472 ± 0.007 | 0.530 | 0.679 ± 0.002 | 0.759 ± 0.002 |
+| T10 DataReplay | 0.733 ± 0.002 | 0.589 ± 0.014 | 0.435 ± 0.033 | 0.951 | 0.429 ± 0.003 | 0.566 ± 0.019 |
+| T10 DoSRandom | 0.990 ± 0.000 | 0.973 ± 0.005 | 0.727 ± 0.069 | 0.968 | 1.000 ± 0.000 | 0.986 ± 0.001 |
+| T10 DoSDisruptive | 0.882 ± 0.005 | 0.761 ± 0.014 | 0.463 ± 0.042 | 0.968 | 1.000 ± 0.000 | 0.748 ± 0.007 |
+| T5 GridSybil | 0.653 ± 0.003 | 0.656 ± 0.002 | 0.509 ± 0.029 | 0.517 | 0.663 ± 0.003 | 0.782 ± 0.002 |
+| T5 DataReplay | 0.750 ± 0.008 | 0.640 ± 0.015 | 0.550 ± 0.104 | 0.941 | 0.487 ± 0.004 | 0.664 ± 0.010 |
+| T5 DoSRandom | 0.990 ± 0.001 | 0.974 ± 0.005 | 0.790 ± 0.213 | 0.969 | 1.000 ± 0.000 | 0.991 ± 0.002 |
+| T5 DoSDisruptive | 0.887 ± 0.009 | 0.788 ± 0.018 | 0.675 ± 0.087 | 0.969 | 1.000 ± 0.000 | 0.792 ± 0.009 |
+
+TabResnet (52,192, 34,912, 26,272 params at T = 20 / 10 / 5):
+
+| Case | masked_recon | full_recon | mahalanobis | length only | masked_recon >= 4 rows | ConvAE recon |
+|---|---|---|---|---|---|---|
+| T20 GridSybil | 0.707 ± 0.001 | 0.698 ± 0.001 | 0.416 ± 0.010 | 0.547 | 0.711 ± 0.001 | 0.756 ± 0.010 |
+| T20 DataReplay | 0.717 ± 0.010 | 0.488 ± 0.006 | 0.421 ± 0.060 | 0.951 | 0.381 ± 0.007 | 0.400 ± 0.010 |
+| T20 DoSRandom | 0.992 ± 0.000 | 0.963 ± 0.002 | 0.806 ± 0.160 | 0.967 | 1.000 ± 0.000 | 0.978 ± 0.004 |
+| T20 DoSDisruptive | 0.859 ± 0.009 | 0.683 ± 0.008 | 0.512 ± 0.085 | 0.967 | 1.000 ± 0.000 | 0.622 ± 0.011 |
+| T10 GridSybil | 0.693 ± 0.006 | 0.694 ± 0.007 | 0.487 ± 0.019 | 0.530 | 0.700 ± 0.005 | 0.759 ± 0.002 |
+| T10 DataReplay | 0.761 ± 0.007 | 0.576 ± 0.030 | 0.411 ± 0.043 | 0.951 | 0.477 ± 0.009 | 0.566 ± 0.019 |
+| T10 DoSRandom | 0.993 ± 0.000 | 0.970 ± 0.001 | 0.697 ± 0.106 | 0.968 | 1.000 ± 0.000 | 0.986 ± 0.001 |
+| T10 DoSDisruptive | 0.903 ± 0.005 | 0.750 ± 0.018 | 0.399 ± 0.077 | 0.968 | 1.000 ± 0.000 | 0.748 ± 0.007 |
+| T5 GridSybil | 0.685 ± 0.001 | 0.691 ± 0.003 | 0.538 ± 0.013 | 0.517 | 0.692 ± 0.002 | 0.782 ± 0.002 |
+| T5 DataReplay | 0.749 ± 0.008 | 0.597 ± 0.019 | 0.705 ± 0.052 | 0.941 | 0.495 ± 0.002 | 0.664 ± 0.010 |
+| T5 DoSRandom | 0.993 ± 0.000 | 0.972 ± 0.003 | 0.958 ± 0.015 | 0.969 | 1.000 ± 0.000 | 0.991 ± 0.002 |
+| T5 DoSDisruptive | 0.886 ± 0.005 | 0.760 ± 0.017 | 0.820 ± 0.045 | 0.969 | 1.000 ± 0.000 | 0.792 ± 0.009 |
+
+- GridSybil: below the one-class ConvAE at every small T (TabMlp by 0.09-0.13, TabResnet by 0.05-0.10); masked recon
+  vs T32: TabMlp 0.657 → 0.667 / 0.668 / 0.653, TabResnet 0.696 → 0.707 / 0.693 / 0.685 at T20 / T10 / T5.
+- DataReplay / DoS: the pooled masked-recon AUROCs (DataReplay 0.72-0.76, DoSDisruptive 0.86-0.90) carry the same
+  window-length effect as at T32 (94.9% of DataReplay and 99.7% of DoS test windows have 1-3 rows vs 13.8-14.0% of
+  benign, `test_metrics.json` → `share_rows_1_3`); DataReplay >= 4-row AUROC 0.37-0.50 and every DataReplay /
+  DoSDisruptive score is below length only, so they **must not be reported as detection**. DoS >= 4-row AUROC 1.000
+  rests on 523 / 524 attack windows.
+- Mahalanobis on z: below chance on GridSybil at T20 / T10, near chance at T5, and very seed-sensitive on DoS
+  (sd up to 0.213).
+- Not yet independently judged.
+
 Side experiment, one-class (benign windows selected with labels, no label in the loss); not the thesis TimesNet model.

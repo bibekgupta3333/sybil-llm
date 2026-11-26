@@ -7,7 +7,7 @@ the weights; benign val drives early stopping, the LR schedule and the alarm thr
 never opens `test` or `test_<attack>`. Scores: reconstruction error and Mahalanobis distance of z (fitted on benign
 train z), per window and per track (max / mean); the test evaluation (four attack splits vs benign test, length-only
 reference) is in the notebook, as for T = 32. **A side experiment, not a thesis result, not the thesis TimesNet model.**
-No run yet.
+Seeds 0–3 trained and evaluated (results below).
 
 Thin package: config (subclass of `task/autoencoder_benign_t20`'s), Trainer / Experiment subclasses that only set
 the config class, plot title and parameter count; model, data reader, scoring and the training loop are imported.
@@ -30,4 +30,24 @@ epochs, thresholds p95 / p99, Mahalanobis (cond > 1e6 → shrinkage 0.01), optio
 - `npm run aeb10:notebook`: executes `autoencoder_benign_T10.ipynb` on the newest run (its analysis cell is a
   placeholder until a run exists).
 - `SEED=k npm run hf:download:baselines:benign-t10`: fetch `baselines/autoencoder_benign_t10/seed<k>` from the private
-  HF model repo (once uploaded).
+  HF model repo.
+
+## Results (seeds 0–3)
+
+Test window AUROC vs benign test (`all/T10_benign` `test`), mean ± sample sd over seeds 0–3, from
+`runs/seed<k>/test_results.json` (written by the package notebook executed per seed, copy
+`runs/seed<k>/autoencoder_benign_T10.executed.ipynb`; values rounded to 3 dp in the file, means taken over those).
+Length only = fixed rule −n_messages (identical for every seed). Recall at the benign val p95 threshold (benign test FPR).
+
+| Attack | Reconstruction | Mahalanobis | Length only | Recon recall @ val p95 (benign FPR) |
+|---|---|---|---|---|
+| GridSybil | 0.759 ± 0.002 | 0.616 ± 0.018 | 0.530 | 0.367 ± 0.004 (0.051 ± 0.001) |
+| DataReplay | 0.566 ± 0.019 | 0.689 ± 0.043 | 0.951 | 0.073 ± 0.003 (0.051 ± 0.001) |
+| DoSRandom | 0.986 ± 0.001 | 0.896 ± 0.026 | 0.968 | 0.931 ± 0.006 (0.051 ± 0.001) |
+| DoSDisruptive | 0.748 ± 0.007 | 0.790 ± 0.032 | 0.968 | 0.391 ± 0.012 (0.051 ± 0.001) |
+
+GridSybil reconstruction per seed: 0.758 / 0.760 / 0.758 / 0.761; best epochs 73 / 75 / 55 / 71; 52,861 parameters.
+DataReplay / DoS rows: every score is at or below length only except DoSRandom reconstruction, which is only
+slightly above it (F11: most DataReplay / DoS windows have 1–3 rows); not length-matched here.
+
+Side experiment, not a thesis result, not the thesis TimesNet model; seeds 0–3 on EC2 (g4dn T4); independently judged 2026-11-26 (56 PASS + 4 PASS-WITH-NOTES, 0 FAIL).

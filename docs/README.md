@@ -82,6 +82,16 @@ is described in `docs/plan/stage1-preprocessing-feature-engineering.md`.
 | [`planning/thesis-format-manual.txt`](planning/thesis-format-manual.txt) · [`planning/example-proposal-template.txt`](planning/example-proposal-template.txt) | reference | university thesis format manual · proposal template |
 | [`proposal/main.tex`](../proposal/main.tex) · [`proposal/proposal-draft.md`](../proposal/proposal-draft.md) · [`proposal/references.bib`](../proposal/references.bib) | proposal-era | thesis proposal (background; method superseded, D9) |
 
+## Small-window baselines (T = 20 / 10 / 5) — side experiments, not thesis results
+
+| File | Status | What it is |
+|---|---|---|
+| `src/pipeline/all/encoder_input_T{20,10,5}_benign.ipynb` · `encoder_input_T{20,10,5}_benign_grid.ipynb` | live | builders of `src/data/encoder_input/all/T{20,10,5}_benign{,_grid}/` (copies of the T32 builders, same vehicle split, no RULE 3 change); npm `pipeline:encoder-input:all-t{20,10,5}-benign{,-grid}` |
+| [`task/autoencoder_benign_t20/README.md`](../task/autoencoder_benign_t20/README.md) · [`_t10`](../task/autoencoder_benign_t10/README.md) · [`_t5`](../task/autoencoder_benign_t5/README.md) | live | one-class ConvAE on `all/T<T>_benign`, package + notebook `autoencoder_benign_T<T>.ipynb`, results seeds 0–3 |
+| [`task/autoencoder_t20/README.md`](../task/autoencoder_t20/README.md) · [`_t10`](../task/autoencoder_t10/README.md) · [`_t5`](../task/autoencoder_t5/README.md) | live | unlabelled ConvAE (benign + GridSybil pooled) on `all/T<T>_benign_grid`, notebook `autoencoder_T<T>.ipynb`, results seeds 0–3 |
+| [`task/autoencoder_st_t20/README.md`](../task/autoencoder_st_t20/README.md) · [`_t10`](../task/autoencoder_st_t10/README.md) · [`_t5`](../task/autoencoder_st_t5/README.md) | live | supervised ConvAE + classifier head on `all/T<T>_benign_grid`, notebook `autoencoder_st_T<T>.ipynb`, results seeds 0–3 |
+| [`task/masked_autoencoder/README.md`](../task/masked_autoencoder/README.md) | live | one-class masked AE (TabMlp / TabResnet) at T = 64 / 48 / 32 and 20 / 10 / 5, results tables per window |
+
 ## Legacy v1 pilot
 
 | File | What it is |

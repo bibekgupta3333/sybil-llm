@@ -42,6 +42,11 @@ seed). (4) M and T rows added to the cross-study, other-attack and four-seed tab
 Length-matched AUROCs of M and T were recomputed for this file from their score files; every other new number is
 copied from a run file and was re-derived from the score files (|Δ| < 1e-6).
 
+**Updated 2026-11-26 (small windows):** new section **W** — the one-class, unlabelled and supervised ConvAE and the
+masked AE (TabMlp / TabResnet) at T = 20 / 10 / 5, seeds 0–3 each (60 runs, EC2), on new inputs `all/T{20,10,5}_benign{,_grid}`
+that reuse the all/T32 vehicle split (no RULE 3 change), with a T64 → T5 GridSybil overview per baseline. Not yet
+judged. Machine-readable: `small_window_baselines` in `results.json`; nothing else in this file changed.
+
 **Where the numbers live (important for the paper):**
 
 - `task/encoder/` stores its test metrics in a file: `task/encoder/runs/evaluation/results.json`.
@@ -845,6 +850,104 @@ Sources: `src/baselines/plausibility/README.md`; `src/runs/baselines/plausibilit
 missing map check; GridSybil accuracy differs because local data has 62–65% attack messages vs 44–48% implied by the
 paper (GridSybil_0709 is a 2025 re-simulation, F14); which check variant the paper used is inferred, not known; no
 ROC / AUROC exists (the detector outputs a binary decision at one threshold).
+
+---
+
+## W. Small-window baselines, T = 20 / 10 / 5 (one-class, unlabelled, supervised ConvAE + masked AE)
+
+Added 2026-11-26. Five baselines × three window lengths × seeds 0–3 = 60 runs, EC2 g4dn (Tesla T4, CUDA), 2026-11-25 → 26,
+all finished, all stopped by early stopping. **Not yet independently judged.** Sources: per run
+`task/<package>/runs/seed<k>/test_results.json` (one-class, supervised: written by the package notebook executed with
+RUN pinned to that seed, copy `*.executed.ipynb` in the run folder; one-class values rounded to 3 dp, supervised 4 dp),
+`task/autoencoder_t<T>/runs/seed<k>/evaluation.json` (unlabelled, full precision), `task/masked_autoencoder/runs/<enc>/T<w>-seed<k>/test_metrics.json`
+(masked AE, full precision); `summary.json` everywhere. Means / sample sd (n = 4) computed for this file from those
+values. Machine-readable: `small_window_baselines` in `results.json`. Private HF `bibekgupta3333/roadfm-lite-timesnet`:
+`baselines/<package>/seed<k>`, `baselines/masked_autoencoder/<enc>/T<w>-seed<k>`.
+
+| Item | Value |
+|---|---|
+| Inputs | `src/data/encoder_input/all/T{20,10,5}_benign` (one-class, masked AE) and `all/T{20,10,5}_benign_grid` (unlabelled, supervised), builders `src/pipeline/all/encoder_input_T{20,10,5}_benign{,_grid}.ipynb` (copies of the T32 builders: `seq_len` = crop stride = T, buckets (T,), plain JSON), npm `pipeline:encoder-input:all-t{20,10,5}-benign{,-grid}`; on private HF dataset `bibekgupta3333/roadfm-lite-encoder-input` at `all/T<T>_<kind>` |
+| Split | **the all/T32_benign / all/T32_benign_grid vehicle split** (same vehicle keys per split, every link in the same split with the same message count, normalisation identical; 55 / 35 checks PASS per input, `metadata.json` + build report); **no RULE 3 change** |
+| Windows (benign inputs) train / val / test / test_gridsybil | T20 640,176 / 82,897 / 76,038 / 34,181; T10 1,033,475 / 133,974 / 123,097 / 52,655; T5 1,843,237 / 238,931 / 219,722 / 91,436 (test_datareplay 76,283 / 76,338 / 78,040; test_dosrandom 199,834, test_dosdisruptive 199,826 at every T) |
+| Windows (benign_grid inputs) train / val / test | T20 983,719 / 84,969 / 83,826; T10 1,575,074 / 136,109 / 133,741; T5 2,796,619 / 241,196 / 236,997 (GridSybil share of test 0.314 / 0.303 / 0.297) |
+| Packages | one-class ConvAE `task/autoencoder_benign_t{20,10,5}`, unlabelled ConvAE `task/autoencoder_t{20,10,5}`, supervised ConvAE `task/autoencoder_st_t{20,10,5}` (each subclasses its T = 32 sibling's config; only input folder, `seq_len` and the depth `n_down` = 2 / 1 / 0 change); masked AE `task/masked_autoencoder` with `--window 20|10|5` (`SMALL_WINDOWS`) |
+| Params | ConvAE 56,957 / 52,861 / 50,813 (+ head 577 supervised: 57,534 / 53,438 / 51,390); masked AE TabMlp 37,012 / 19,602 / 10,897, TabResnet 52,192 / 34,912 / 26,272 at T = 20 / 10 / 5 |
+| Protocol | the T = 32 cell of each baseline (D, E, H, M): benign val (one-class, masked AE), mixed unlabelled val (unlabelled) or labelled val (supervised) for early stopping, LR schedule and thresholds; test never read in training; length only = −n_messages |
+
+**One-class ConvAE** (`task/autoencoder_benign_t<T>`), window AUROC vs benign test, mean ± sd, seeds 0–3:
+
+| T | Attack | Reconstruction | Mahalanobis | Length only | Recon recall @ val p95 (benign FPR) |
+|---|---|---|---|---|---|
+| 20 | GridSybil | 0.756 ± 0.010 | 0.540 ± 0.029 | 0.547 | 0.354 ± 0.019 (0.049 ± 0.002) |
+| 20 | DataReplay | 0.400 ± 0.010 | 0.449 ± 0.037 | 0.951 | 0.060 ± 0.008 (0.049 ± 0.002) |
+| 20 | DoSRandom | 0.978 ± 0.004 | 0.826 ± 0.026 | 0.967 | 0.899 ± 0.018 (0.049 ± 0.002) |
+| 20 | DoSDisruptive | 0.622 ± 0.011 | 0.622 ± 0.023 | 0.967 | 0.345 ± 0.024 (0.049 ± 0.002) |
+| 10 | GridSybil | 0.759 ± 0.002 | 0.616 ± 0.018 | 0.530 | 0.367 ± 0.004 (0.051 ± 0.001) |
+| 10 | DataReplay | 0.566 ± 0.019 | 0.689 ± 0.043 | 0.951 | 0.073 ± 0.003 (0.051 ± 0.001) |
+| 10 | DoSRandom | 0.986 ± 0.001 | 0.896 ± 0.026 | 0.968 | 0.931 ± 0.006 (0.051 ± 0.001) |
+| 10 | DoSDisruptive | 0.748 ± 0.007 | 0.790 ± 0.032 | 0.968 | 0.391 ± 0.012 (0.051 ± 0.001) |
+| 5 | GridSybil | 0.782 ± 0.002 | 0.608 ± 0.013 | 0.517 | 0.393 ± 0.007 (0.051 ± 0.001) |
+| 5 | DataReplay | 0.664 ± 0.010 | 0.754 ± 0.055 | 0.941 | 0.077 ± 0.006 (0.051 ± 0.001) |
+| 5 | DoSRandom | 0.991 ± 0.002 | 0.936 ± 0.024 | 0.969 | 0.952 ± 0.012 (0.051 ± 0.001) |
+| 5 | DoSDisruptive | 0.792 ± 0.009 | 0.878 ± 0.034 | 0.969 | 0.392 ± 0.019 (0.051 ± 0.001) |
+
+**Unlabelled ConvAE** (`task/autoencoder_t<T>`), GridSybil vs benign, `test_all`, mean ± sd:
+
+| T | Reconstruction | Mahalanobis | Length only | Recon recall @ val p95 (benign FPR) |
+|---|---|---|---|---|
+| 20 | 0.619 ± 0.001 | 0.468 ± 0.016 | 0.548 | 0.104 ± 0.003 (0.041 ± 0.001) |
+| 10 | 0.636 ± 0.003 | 0.530 ± 0.020 | 0.530 | 0.103 ± 0.001 (0.041 ± 0.001) |
+| 5 | 0.643 ± 0.002 | 0.580 ± 0.002 | 0.517 | 0.103 ± 0.002 (0.040 ± 0.001) |
+
+**Supervised ConvAE** (`task/autoencoder_st_t<T>`), GridSybil vs benign, window, mean ± sd:
+
+| T | Head AUROC | F1 at val max-F1 θ | Benign FPR at val max-F1 θ | F1 / benign FPR at val FPR-5% θ | Recon alone | Length only |
+|---|---|---|---|---|---|---|
+| 20 | 0.9243 ± 0.0006 | 0.8814 ± 0.0013 | 0.0116 ± 0.0015 | 0.8569 ± 0.0010 / 0.0488 ± 0.0013 | 0.6057 ± 0.0041 | 0.5481 |
+| 10 | 0.9159 ± 0.0011 | 0.8738 ± 0.0026 | 0.0132 ± 0.0014 | 0.8509 ± 0.0038 / 0.0473 ± 0.0026 | 0.6247 ± 0.0047 | 0.5302 |
+| 5 | 0.9092 ± 0.0015 | 0.8680 ± 0.0062 | 0.0131 ± 0.0019 | 0.8461 ± 0.0048 / 0.0479 ± 0.0027 | 0.6258 ± 0.0049 | 0.5167 |
+
+**Masked AE** (`task/masked_autoencoder`), window AUROC vs benign test, masked recon / full recon / Mahalanobis, mean ± sd (length-matched not computed):
+
+| T | Attack | TabMlp masked | TabMlp full | TabMlp Maha | TabResnet masked | TabResnet full | TabResnet Maha | Length only |
+|---|---|---|---|---|---|---|---|---|
+| 20 | GridSybil | 0.667 ± 0.002 | 0.659 ± 0.003 | 0.423 ± 0.017 | 0.707 ± 0.001 | 0.698 ± 0.001 | 0.416 ± 0.010 | 0.547 |
+| 20 | DataReplay | 0.728 ± 0.006 | 0.553 ± 0.017 | 0.318 ± 0.060 | 0.717 ± 0.010 | 0.488 ± 0.006 | 0.421 ± 0.060 | 0.951 |
+| 20 | DoSRandom | 0.990 ± 0.000 | 0.975 ± 0.003 | 0.533 ± 0.153 | 0.992 ± 0.000 | 0.963 ± 0.002 | 0.806 ± 0.160 | 0.967 |
+| 20 | DoSDisruptive | 0.874 ± 0.007 | 0.743 ± 0.015 | 0.327 ± 0.044 | 0.859 ± 0.009 | 0.683 ± 0.008 | 0.512 ± 0.085 | 0.967 |
+| 10 | GridSybil | 0.668 ± 0.002 | 0.665 ± 0.004 | 0.472 ± 0.007 | 0.693 ± 0.006 | 0.694 ± 0.007 | 0.487 ± 0.019 | 0.530 |
+| 10 | DataReplay | 0.733 ± 0.002 | 0.589 ± 0.014 | 0.435 ± 0.033 | 0.761 ± 0.007 | 0.576 ± 0.030 | 0.411 ± 0.043 | 0.951 |
+| 10 | DoSRandom | 0.990 ± 0.000 | 0.973 ± 0.005 | 0.727 ± 0.069 | 0.993 ± 0.000 | 0.970 ± 0.001 | 0.697 ± 0.106 | 0.968 |
+| 10 | DoSDisruptive | 0.882 ± 0.005 | 0.761 ± 0.014 | 0.463 ± 0.042 | 0.903 ± 0.005 | 0.750 ± 0.018 | 0.399 ± 0.077 | 0.968 |
+| 5 | GridSybil | 0.653 ± 0.003 | 0.656 ± 0.002 | 0.509 ± 0.029 | 0.685 ± 0.001 | 0.691 ± 0.003 | 0.538 ± 0.013 | 0.517 |
+| 5 | DataReplay | 0.750 ± 0.008 | 0.640 ± 0.015 | 0.550 ± 0.104 | 0.749 ± 0.008 | 0.597 ± 0.019 | 0.705 ± 0.052 | 0.941 |
+| 5 | DoSRandom | 0.990 ± 0.001 | 0.974 ± 0.005 | 0.790 ± 0.213 | 0.993 ± 0.000 | 0.972 ± 0.003 | 0.958 ± 0.015 | 0.969 |
+| 5 | DoSDisruptive | 0.887 ± 0.009 | 0.788 ± 0.018 | 0.675 ± 0.087 | 0.886 ± 0.005 | 0.760 ± 0.017 | 0.820 ± 0.045 | 0.969 |
+
+**GridSybil overview, T = 64 → 5** (window AUROC, mean ± sd over seeds 0–3; T64 / T48 / T32 from the "Four seeds per cell"
+table and section M of this file). T64 / T48 cells use the `benign_gridsybil` inputs (GridSybil share of test ≈ 0.67,
+574 test vehicles); T32 → T5 use the all-folder split (share ≈ 0.29–0.32, the same test vehicles at every T), so only
+the T32 → T5 part of each row is on one test population.
+
+| Baseline | T64 | T48 | T32 | T20 | T10 | T5 |
+|---|---|---|---|---|---|---|
+| One-class ConvAE recon | 0.6569 ± 0.0036 (S0) | 0.682 ± 0.006 (F) | 0.7335 ± 0.0029 (D) | 0.756 ± 0.010 | 0.759 ± 0.002 | 0.782 ± 0.002 |
+| Unlabelled ConvAE recon | 0.482 ± 0.002 (G) | 0.485 ± 0.001 (A) | 0.612 ± 0.004 (H) | 0.619 ± 0.001 | 0.636 ± 0.003 | 0.643 ± 0.002 |
+| Supervised ConvAE head | — (no T64 supervised ConvAE; S0 supervised encoder + head, no decoder: 0.928 ± 0.002, seeds 0–2) | 0.9278 ± 0.0019 (C, T48_tvt) | 0.9289 ± 0.0018 (E) | 0.9243 ± 0.0006 | 0.9159 ± 0.0011 | 0.9092 ± 0.0015 |
+| Masked AE TabMlp masked recon | 0.531 ± 0.002 | 0.607 ± 0.001 | 0.657 ± 0.002 | 0.667 ± 0.002 | 0.668 ± 0.002 | 0.653 ± 0.003 |
+| Masked AE TabResnet masked recon | 0.595 ± 0.003 | 0.650 ± 0.002 | 0.696 ± 0.001 | 0.707 ± 0.001 | 0.693 ± 0.006 | 0.685 ± 0.001 |
+| Length only (−n_messages; one-class test) | 0.535 | 0.530 | 0.559 | 0.547 | 0.530 | 0.517 |
+
+**Readings (side experiment, not a thesis result, RULE 1; judged: all PASS or PASS-WITH-NOTES):** one-class and unlabelled ConvAE
+reconstruction rise as T shrinks (one-class 0.734 → 0.756 / 0.759 / 0.782, unlabelled 0.612 → 0.619 / 0.636 / 0.643);
+the masked AE peaks near T20 (TabMlp 0.667, TabResnet 0.707) and stays below the one-class ConvAE at every small T;
+the supervised head drops slowly (0.929 → 0.924 / 0.916 / 0.909). Unlabelled Mahalanobis rises from below chance
+(T32 0.421) to 0.580 at T5. DataReplay / DoS: every score is below length only except DoSRandom reconstruction
+(one-class ConvAE 0.978 / 0.986 / 0.991 vs length only 0.967 / 0.968 / 0.969; masked AE 0.99), as at T32; DataReplay /
+DoSDisruptive pooled masked-AE AUROCs carry the window-length effect (≈ 95% / 99.7% of their test windows have 1–3
+rows vs ≈ 14% of benign; DataReplay ≥ 4-row masked AUROC 0.37–0.50). Shorter windows also mean more, shorter test
+windows per vehicle (e.g. GridSybil test windows 28,087 at T32 vs 91,436 at T5), so window-level AUROCs at different T
+are not the same unit of decision.
 
 ---
 

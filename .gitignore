@@ -89,3 +89,5 @@ simulation/.cache/
 /task/autoencoder_st_t10/cache/
 /task/autoencoder_st_t5/runs/
 /task/autoencoder_st_t5/cache/
+/task/autoencoder_st_t64/runs/
+/task/autoencoder_st_t64/cache/

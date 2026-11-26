@@ -90,6 +90,7 @@ is described in `docs/plan/stage1-preprocessing-feature-engineering.md`.
 | [`task/autoencoder_benign_t20/README.md`](../task/autoencoder_benign_t20/README.md) · [`_t10`](../task/autoencoder_benign_t10/README.md) · [`_t5`](../task/autoencoder_benign_t5/README.md) | live | one-class ConvAE on `all/T<T>_benign`, package + notebook `autoencoder_benign_T<T>.ipynb`, results seeds 0–3 |
 | [`task/autoencoder_t20/README.md`](../task/autoencoder_t20/README.md) · [`_t10`](../task/autoencoder_t10/README.md) · [`_t5`](../task/autoencoder_t5/README.md) | live | unlabelled ConvAE (benign + GridSybil pooled) on `all/T<T>_benign_grid`, notebook `autoencoder_T<T>.ipynb`, results seeds 0–3 |
 | [`task/autoencoder_st_t20/README.md`](../task/autoencoder_st_t20/README.md) · [`_t10`](../task/autoencoder_st_t10/README.md) · [`_t5`](../task/autoencoder_st_t5/README.md) | live | supervised ConvAE + classifier head on `all/T<T>_benign_grid`, notebook `autoencoder_st_T<T>.ipynb`, results seeds 0–3 |
+| [`task/autoencoder_st_t64/README.md`](../task/autoencoder_st_t64/README.md) | live | supervised ConvAE at T = 64 (`benign_gridsybil/T64`, 80,766 params), seeds 0–3, GridSybil AUROC 0.9279 ± 0.0021; fills the T64 supervised cell |
 | [`task/masked_autoencoder/README.md`](../task/masked_autoencoder/README.md) | live | one-class masked AE (TabMlp / TabResnet) at T = 64 / 48 / 32 and 20 / 10 / 5, results tables per window |
 
 ## Legacy v1 pilot

@@ -933,7 +933,7 @@ the T32 → T5 part of each row is on one test population.
 |---|---|---|---|---|---|---|
 | One-class ConvAE recon | 0.6569 ± 0.0036 (S0) | 0.682 ± 0.006 (F) | 0.7335 ± 0.0029 (D) | 0.756 ± 0.010 | 0.759 ± 0.002 | 0.782 ± 0.002 |
 | Unlabelled ConvAE recon | 0.482 ± 0.002 (G) | 0.485 ± 0.001 (A) | 0.612 ± 0.004 (H) | 0.619 ± 0.001 | 0.636 ± 0.003 | 0.643 ± 0.002 |
-| Supervised ConvAE head | — (no T64 supervised ConvAE; S0 supervised encoder + head, no decoder: 0.928 ± 0.002, seeds 0–2) | 0.9278 ± 0.0019 (C, T48_tvt) | 0.9289 ± 0.0018 (E) | 0.9243 ± 0.0006 | 0.9159 ± 0.0011 | 0.9092 ± 0.0015 |
+| Supervised ConvAE head | 0.9279 ± 0.0021 (`task/autoencoder_st_t64`, 2026-11-26; S0 encoder + head without decoder: 0.928 ± 0.002) | 0.9278 ± 0.0019 (C, T48_tvt) | 0.9289 ± 0.0018 (E) | 0.9243 ± 0.0006 | 0.9159 ± 0.0011 | 0.9092 ± 0.0015 |
 | Masked AE TabMlp masked recon | 0.531 ± 0.002 | 0.607 ± 0.001 | 0.657 ± 0.002 | 0.667 ± 0.002 | 0.668 ± 0.002 | 0.653 ± 0.003 |
 | Masked AE TabResnet masked recon | 0.595 ± 0.003 | 0.650 ± 0.002 | 0.696 ± 0.001 | 0.707 ± 0.001 | 0.693 ± 0.006 | 0.685 ± 0.001 |
 | Length only (−n_messages; one-class test) | 0.535 | 0.530 | 0.559 | 0.547 | 0.530 | 0.517 |
